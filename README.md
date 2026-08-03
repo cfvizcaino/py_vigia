@@ -29,8 +29,8 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 | Nombre | GitHub |
 |---|---|
 | Nombre Apellido | [@cfvizcaino](https://github.com/cfvizcaino) |
-| Nombre Apellido | [@usuario2](https://github.com/Deelgado) |
-| Nombre Apellido | [@usuario3](https://github.com/DanielCM21) |
+| Nombre Apellido | [@Deelgado](https://github.com/Deelgado) |
+| Nombre Apellido | [@DanielCM21](https://github.com/DanielCM21) |
 
 ## Tutores
 
