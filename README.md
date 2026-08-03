@@ -28,9 +28,9 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 
 | Nombre | GitHub |
 |---|---|
-| Nombre Apellido | [@cfvizcaino](https://github.com/cfvizcaino) |
-| Nombre Apellido | [@Deelgado](https://github.com/Deelgado) |
-| Nombre Apellido | [@DanielCM21](https://github.com/DanielCM21) |
+| Cristian Vizcaíno | [@cfvizcaino](https://github.com/cfvizcaino) |
+| Daniel Castañeda | [@Deelgado](https://github.com/Deelgado) |
+| Juan Delgado | [@DanielCM21](https://github.com/DanielCM21) |
 
 ## Tutores
 
