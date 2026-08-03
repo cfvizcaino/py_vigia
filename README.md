@@ -34,5 +34,5 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 
 ## Tutores
 
-- Nombre del tutor 1
-- Nombre del tutor 2
+- Augusto Salazar  
+- Margarita Gamarra
