@@ -6,9 +6,14 @@ outputs/*
 !outputs/.gitkeep
 samples/*
 !samples/.gitkeep
+datasets/
+captures/
 runs/
 *.mp4
 *.avi
 *.mkv
+*.mov
+*.m4v
+*.webm
 *.onnx
 *.pt
