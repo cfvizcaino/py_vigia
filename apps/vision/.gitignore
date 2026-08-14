@@ -6,6 +6,7 @@ outputs/*
 !outputs/.gitkeep
 samples/*
 !samples/.gitkeep
+runs/
 *.mp4
 *.avi
 *.mkv

@@ -7,7 +7,7 @@ VIGIA utiliza una arquitectura híbrida: nodos edge autónomos procesan video lo
 ```mermaid
 flowchart LR
     C["Tapo C110\nRTSP local"] -->|"credenciales privadas"| V["Nodo de visión\nPython + YOLO + FastAPI"]
-    V -->|"preview JPEG y metadatos"| P["Proxy web\nNext.js Route Handlers"]
+    V -->|"MJPEG y metadatos"| P["Proxy web\nNext.js Route Handlers"]
     P --> W["Consola web\nNext.js + MapLibre"]
     V -.->|"contrato Detection Snapshot 1.0"| B["Backend central\npróximo hito"]
     B -.-> D[("PostgreSQL + PostGIS")]
@@ -29,7 +29,7 @@ flowchart LR
 1. La C110 entrega `stream2` mediante RTSP dentro de la red local.
 2. El nodo de visión abre el stream con OpenCV y ejecuta YOLO + ByteTrack.
 3. El worker conserva el último frame anotado y un snapshot de detecciones.
-4. FastAPI expone únicamente estado, metadatos y preview; nunca la URL RTSP.
+4. FastAPI entrega los frames procesados como MJPEG y expone estado y metadatos; nunca la URL RTSP.
 5. Route Handlers de Next.js actúan como proxy para que el navegador tampoco conozca la dirección del nodo edge.
 
 ## Reglas de seguridad

@@ -79,6 +79,7 @@ Docker permitirá levantar web y visión de forma reproducible. El compose crece
 
 - [Primer informe](./PrimerInforme.md)
 - [Arquitectura](./docs/architecture/overview.md)
+- [Estrategia de detección de placas](./docs/modeling/license-plates.md)
 - [Nodo de visión](./apps/vision/README.md)
 - [Consola web](./apps/web/README.md)
 - [Contratos compartidos](./packages/contracts/README.md)

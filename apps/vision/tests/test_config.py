@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from vigia_vision.config import Settings
 from vigia_vision.events import TrackState, build_snapshot
+from vigia_vision.plates import plate_class_ids
+from vigia_vision.runtime import VisionRuntime
 
 
 class SettingsTests(unittest.TestCase):
@@ -35,6 +37,28 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(snapshot["frameNumber"], 42)
         self.assertEqual(snapshot["detections"][0]["trackId"], 7)
         self.assertNotIn("first_center", snapshot["detections"][0])
+
+    def test_mjpeg_stream_wraps_latest_frame(self):
+        settings = Settings.from_environment()
+        runtime = VisionRuntime(settings)
+        with runtime._frame_condition:
+            runtime._latest_jpeg = b"jpeg-data"
+            runtime._preview_version = 1
+
+        stream = runtime.mjpeg_stream()
+        chunk = next(stream)
+        stream.close()
+
+        self.assertTrue(chunk.startswith(b"--frame\r\nContent-Type: image/jpeg"))
+        self.assertIn(b"Content-Length: 9", chunk)
+        self.assertTrue(chunk.endswith(b"jpeg-data\r\n"))
+
+    def test_plate_detector_accepts_english_and_spanish_class_names(self):
+        english_model = type("Model", (), {"names": {0: "license_plate", 1: "vehicle"}})()
+        spanish_model = type("Model", (), {"names": ["placa", "automovil"]})()
+
+        self.assertEqual(plate_class_ids(english_model), [0])
+        self.assertEqual(plate_class_ids(spanish_model), [0])
 
 
 if __name__ == "__main__":

@@ -11,3 +11,7 @@ export async function fetchVision(path: string): Promise<Response> {
     signal: AbortSignal.timeout(4_000),
   });
 }
+
+export async function fetchVisionStream(path: string): Promise<Response> {
+  return fetch(visionApiUrl(path), { cache: "no-store" });
+}

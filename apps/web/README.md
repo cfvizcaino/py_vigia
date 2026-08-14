@@ -6,7 +6,7 @@ Primer prototipo visual del centro de monitoreo. Integra una cámara física y c
 
 - Mapa interactivo con una cámara física y tres nodos simulados en Barranquilla.
 - Identificación visual de `CAM-01` como Tapo C110 física.
-- Preview procesado de la cámara mediante el proxy interno `/api/vision`.
+- Transmisión MJPEG procesada de la cámara mediante el proxy interno `/api/vision`.
 - Estado en línea o desconectado de cada dispositivo.
 - Formulario de consulta por tipo, color, fecha, hora y radio.
 - Trayectoria simulada con detecciones y porcentaje de confianza.

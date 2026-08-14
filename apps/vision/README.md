@@ -1,6 +1,6 @@
 # Nodo de visión de VIGIA
 
-Este componente recibe un video, una webcam o el flujo RTSP de una cámara Tapo, ejecuta detección y tracking de automóviles y motocicletas y expone una API local segura para la consola web. El navegador nunca recibe la URL RTSP ni las credenciales.
+Este componente recibe un video, una webcam o el flujo RTSP de una cámara Tapo, ejecuta detección y tracking de automóviles y motocicletas y expone una API local segura para la consola web. El navegador nunca recibe la URL RTSP ni las credenciales. La vista web utiliza MJPEG para entregar continuamente los frames ya procesados.
 
 ## Configurar la Tapo C110
 
@@ -14,7 +14,7 @@ Este componente recibe un video, una webcam o el flujo RTSP de una cámara Tapo,
 rtsp://USUARIO:CONTRASEÑA@IP_DE_LA_CAMARA:554/stream2
 ```
 
-`stream1` entrega mayor calidad; `stream2` consume menos recursos y es el punto de partida recomendado.
+`stream1` entrega mayor calidad y es necesario para evaluar placas pequeñas. `stream2` consume menos ancho de banda y sirve cuando solo se requiere detectar vehículos.
 
 No expongas el puerto 554 directamente a internet. Para acceso remoto se deberá utilizar una VPN.
 
@@ -61,6 +61,32 @@ Endpoints locales:
 - `GET /api/v1/status`: estado de la cámara y del modelo.
 - `GET /api/v1/detections`: snapshot de detecciones.
 - `GET /api/v1/preview.jpg`: último frame con las cajas dibujadas.
+- `GET /api/v1/stream.mjpg`: transmisión MJPEG continua para la consola.
+
+## Modelos
+
+El detector vehicular predeterminado es `yolo26n.pt`. Si ya existe un `.env`, actualiza `YOLO_MODEL` manualmente; el peso se descarga la primera vez.
+
+La detección de placas es una segunda etapa opcional. Entrena o suministra un peso cuya clase se llame `plate`, `license_plate` o `placa`, y configúralo así:
+
+```dotenv
+PLATE_MODEL=/ruta/al/best.pt
+PLATE_CONFIDENCE=0.45
+PLATE_EVERY_N_FRAMES=5
+PLATE_OUTPUT=outputs/plates
+```
+
+Cuando está habilitado, el nodo busca placas dentro de los vehículos, dibuja una caja amarilla y conserva una captura por track en `outputs/plates`. Estos archivos están excluidos de Git. El OCR todavía no se ejecuta: debe incorporarse después de validar la calidad de los recortes.
+
+Para entrenar un peso propio:
+
+```bash
+python training/train_plate_detector.py \
+  --data /ruta/al/data.yaml \
+  --device cpu
+```
+
+Consulta la [estrategia de detección y lectura de placas](../../docs/modeling/license-plates.md).
 
 ## Alcance actual
 
@@ -68,6 +94,7 @@ Endpoints locales:
 - Utiliza ByteTrack para evitar contar el mismo vehículo en cada frame.
 - Estima una dirección sencilla según el movimiento de la caja.
 - Escribe tipo, confianza, hora, dirección y caja delimitadora.
-- Color, marca, modelo y placa permanecen vacíos hasta incorporar componentes especializados.
+- Puede localizar y capturar placas cuando se configura un peso especializado.
+- Color, marca, modelo y texto de la placa permanecen vacíos hasta incorporar componentes especializados y OCR.
 
 El modelo se descarga automáticamente la primera vez. Este prototipo utiliza Ultralytics YOLO; antes de un uso cerrado o comercial se deberá revisar su licencia.

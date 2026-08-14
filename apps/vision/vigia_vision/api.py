@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .config import Settings
 from .runtime import VisionRuntime
@@ -54,3 +55,16 @@ def preview() -> Response:
     if image is None:
         return Response(status_code=503, headers={"Cache-Control": "no-store"})
     return Response(content=image, media_type="image/jpeg", headers={"Cache-Control": "no-store, max-age=0"})
+
+
+@app.get("/api/v1/stream.mjpg")
+def stream() -> StreamingResponse:
+    return StreamingResponse(
+        runtime.mjpeg_stream(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

@@ -8,8 +8,11 @@ type VisionStatus = {
   cameraId: string;
   cameraModel: string;
   frameNumber: number;
+  processingFps: number;
   lastFrameAt: string | null;
   activeDetections: number;
+  activePlateDetections: number;
+  plateDetectionEnabled: boolean;
   errorCode: string | null;
 };
 
@@ -36,9 +39,8 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
         const nextStatus = (await response.json()) as VisionStatus;
         if (cancelled) return;
         setStatus(nextStatus);
-        if (nextStatus.status === "running") {
-          setPreviewUrl(`/api/vision/preview?t=${Date.now()}`);
-        }
+        if (nextStatus.status === "running") setPreviewUrl((current) => current ?? `/api/vision/stream?t=${Date.now()}`);
+        else setPreviewUrl(null);
       } catch {
         if (!cancelled) setStatus(null);
       }
@@ -63,7 +65,7 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
       </div>
       <div className="preview-frame">
         {showPreview ? (
-          <Image src={previewUrl} alt="Vista procesada de la cámara Tapo C110" fill sizes={large ? "(max-width: 1050px) 100vw, 72vw" : "(max-width: 1050px) 100vw, 32vw"} unoptimized onError={() => setPreviewUrl(null)}/>
+          <Image src={previewUrl} alt="Transmisión procesada de la cámara Tapo C110" fill sizes={large ? "(max-width: 1050px) 100vw, 72vw" : "(max-width: 1050px) 100vw, 32vw"} priority unoptimized onError={() => setPreviewUrl(null)}/>
         ) : (
           <div className="preview-placeholder">
             <span className="preview-camera-icon">◉</span>
@@ -71,9 +73,9 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
             <small>{active ? "La vista aparecerá sin exponer el RTSP al navegador." : "Las demás cámaras son simuladas."}</small>
           </div>
         )}
-        {showPreview && <span className="preview-overlay">YOLO · {status.activeDetections} detecciones</span>}
+        {showPreview && <span className="preview-overlay">YOLO · {status.activeDetections} vehículos · {status.activePlateDetections ?? 0} placas</span>}
       </div>
-      <div className="preview-meta"><span><b>{status?.frameNumber ?? 0}</b> frames</span><span><b>{status?.activeDetections ?? 0}</b> vehículos activos</span></div>
+      <div className="preview-meta"><span><b>{status?.processingFps ?? 0} FPS</b> procesados</span><span><b>{status?.activeDetections ?? 0}</b> vehículos · <b>{status?.activePlateDetections ?? 0}</b> placas</span></div>
     </article>
   );
 }
