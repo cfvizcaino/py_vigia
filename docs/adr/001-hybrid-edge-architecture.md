@@ -1,8 +1,5 @@
 # ADR-001: plataforma central modular y nodos edge
 
-- **Estado:** aceptada
-- **Fecha:** 2026-08-13
-
 ## Contexto
 
 VIGIA necesita procesar video cerca de cada cámara, minimizar la transferencia de información y permitir que una plataforma coordine múltiples dispositivos. Un diseño de microservicios desde el primer prototipo añadiría despliegues y fallas distribuidas antes de validar el caso de uso.
