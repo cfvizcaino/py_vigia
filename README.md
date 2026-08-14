@@ -7,6 +7,10 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 
 ## Documentación del repositorio
 
+## Prototipo web
+
+La primera consola de monitoreo se encuentra en [`apps/web`](./apps/web). Incluye un mapa de cámaras, formulario de consulta y trayectoria simulada. Las instrucciones para ejecutarla están en su [README](./apps/web/README.md).
+
 ### Primer informe
 
 - [Primer Informe.md](./PrimerInforme.md): Documento que presenta el planteamiento del problema, los objetivos, la solución propuesta, el estado del arte, la metodología de desarrollo y el plan de trabajo del proyecto.
