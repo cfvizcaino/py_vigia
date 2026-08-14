@@ -31,12 +31,13 @@ Las detecciones se actualizan en `apps/vision/outputs/detections.json`.
 
 ## Ejecutar sin Docker
 
-Se recomienda Python 3.11, 3.12 o 3.13.
+La prueba inicial se validó con Python 3.14 y PyTorch en modo CPU. Para evitar descargar varios gigabytes de librerías CUDA, instala primero la distribución CPU de PyTorch.
 
 ```bash
 cd apps/vision
 python -m venv .venv
 source .venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 cp .env.example .env
 python -m vigia_vision --source sample.mp4 --max-frames 300

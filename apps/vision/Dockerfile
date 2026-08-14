@@ -11,7 +11,9 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip \
+    && pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install -r requirements.txt
 
 COPY vigia_vision ./vigia_vision
 RUN mkdir -p /app/outputs
