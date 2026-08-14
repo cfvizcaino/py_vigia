@@ -2,6 +2,8 @@ services:
   web:
     build:
       context: ./apps/web
+    environment:
+      VISION_API_URL: http://vision:8001
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -13,7 +15,8 @@ services:
     env_file:
       - path: ./apps/vision/.env
         required: false
-    network_mode: host
+    ports:
+      - "8001:8001"
     volumes:
       - ./apps/vision/outputs:/app/outputs
     restart: unless-stopped

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CameraPreview } from "@/components/camera-preview";
 import { VigiaMap } from "@/components/vigia-map";
 
 type IconName = "grid" | "camera" | "search" | "route" | "shield" | "clock" | "chevron";
@@ -19,10 +20,10 @@ function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
 }
 
 const cameras = [
-  { id: "CAM-01", name: "Carrera 53", detail: "Calle 80 · sentido norte", status: "En línea", lng: -74.8172, lat: 11.0131 },
-  { id: "CAM-02", name: "Calle 84", detail: "Carrera 51B · sentido este", status: "En línea", lng: -74.8137, lat: 11.0094 },
-  { id: "CAM-03", name: "Parque Venezuela", detail: "Carrera 44 · sentido sur", status: "En línea", lng: -74.8069, lat: 11.005 },
-  { id: "CAM-04", name: "Calle 72", detail: "Carrera 43 · sin conexión", status: "Sin conexión", lng: -74.802, lat: 10.9988 },
+  { id: "CAM-01", name: "Tapo C110", detail: "Nodo piloto · ubicación configurable", status: "En línea", kind: "physical" as const, lng: -74.8172, lat: 11.0131 },
+  { id: "CAM-02", name: "Calle 84", detail: "Cámara simulada · sentido este", status: "Simulada", kind: "simulated" as const, lng: -74.8137, lat: 11.0094 },
+  { id: "CAM-03", name: "Parque Venezuela", detail: "Cámara simulada · sentido sur", status: "Simulada", kind: "simulated" as const, lng: -74.8069, lat: 11.005 },
+  { id: "CAM-04", name: "Calle 72", detail: "Cámara simulada · sin conexión", status: "Sin conexión", kind: "simulated" as const, lng: -74.802, lat: 10.9988 },
 ];
 
 const detections = [
@@ -33,11 +34,11 @@ const detections = [
 
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Resumen");
-  const [selectedCamera, setSelectedCamera] = useState("CAM-02");
+  const [selectedCamera, setSelectedCamera] = useState("CAM-01");
   const [searched, setSearched] = useState(true);
   const [vehicleType, setVehicleType] = useState("Automóvil");
   const [color, setColor] = useState("Blanco");
-  const online = cameras.filter((camera) => camera.status === "En línea").length;
+  const online = cameras.filter((camera) => camera.status !== "Sin conexión").length;
   const routePoints = useMemo(() => searched ? cameras.slice(0, 3) : [], [searched]);
 
   return (
@@ -65,7 +66,7 @@ export default function Home() {
 
         <section className="content-grid">
           <article className="map-card">
-            <div className="card-heading"><div><span className="section-kicker">Red colaborativa</span><h2>Mapa de dispositivos</h2></div><div className="legend"><span><i className="online"/>En línea</span><span><i className="offline"/>Sin conexión</span></div></div>
+            <div className="card-heading"><div><span className="section-kicker">Red colaborativa</span><h2>Mapa de dispositivos</h2></div><div className="legend"><span><i className="physical"/>Tapo real</span><span><i className="simulated"/>Simulada</span><span><i className="offline"/>Sin conexión</span></div></div>
             <VigiaMap cameras={cameras} selectedId={selectedCamera} onSelect={setSelectedCamera} routePoints={routePoints}/>
             <div className="map-footer"><span><b>4</b> dispositivos en el área</span><span><b>{searched ? 3 : 0}</b> detecciones relacionadas</span><button onClick={() => setSearched(false)}>Limpiar ruta</button></div>
           </article>
@@ -82,13 +83,14 @@ export default function Home() {
         </section>
 
         <section className="lower-grid">
+          <CameraPreview active={selectedCamera === "CAM-01"}/>
           <article className="detections-card">
             <div className="card-heading"><div><span className="section-kicker">Consulta #VIG-0012</span><h2>Trayectoria estimada</h2></div>{searched && <span className="confidence">87% de confianza</span>}</div>
             {searched ? <div className="timeline">{detections.map((item, index) => <div className="detection" key={item.camera}><span className="timeline-dot">{index + 1}</span><div><b>{item.label}</b><small>{item.camera} · {item.time}</small></div><span className="match">{item.confidence}%</span></div>)}</div> : <div className="empty-state">Realiza una consulta para visualizar una trayectoria.</div>}
           </article>
           <article className="devices-card">
             <div className="card-heading"><div><span className="section-kicker">Estado en vivo</span><h2>Dispositivos</h2></div><button>Ver todos</button></div>
-            <div className="device-list">{cameras.map((camera) => <button key={camera.id} className={selectedCamera === camera.id ? "selected" : ""} onClick={() => setSelectedCamera(camera.id)}><span className={`camera-dot ${camera.status === "En línea" ? "" : "off"}`}><Icon name="camera" size={16}/></span><div><b>{camera.name}</b><small>{camera.id} · {camera.detail}</small></div><span className={camera.status === "En línea" ? "status-online" : "status-offline"}>{camera.status}</span></button>)}</div>
+            <div className="device-list">{cameras.map((camera) => <button key={camera.id} className={selectedCamera === camera.id ? "selected" : ""} onClick={() => setSelectedCamera(camera.id)}><span className={`camera-dot ${camera.kind === "physical" ? "physical" : camera.status === "Sin conexión" ? "off" : "simulated"}`}><Icon name="camera" size={16}/></span><div><b>{camera.name}{camera.kind === "physical" && <em className="real-tag">REAL</em>}</b><small>{camera.id} · {camera.detail}</small></div><span className={camera.status === "En línea" ? "status-online" : camera.status === "Simulada" ? "status-simulated" : "status-offline"}>{camera.status}</span></button>)}</div>
           </article>
         </section>
       </section>

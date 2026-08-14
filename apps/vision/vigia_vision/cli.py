@@ -5,10 +5,9 @@ import time
 from pathlib import Path
 
 from .config import Settings
-from .events import TrackState, utc_now, write_snapshot
+from .events import TrackState, update_tracks, write_snapshot
 
 COCO_VEHICLE_CLASSES = [2, 3]  # car, motorcycle
-VEHICLE_NAMES = {2: "car", 3: "motorcycle"}
 
 
 def parse_source(value: str | None, settings: Settings) -> str | int:
@@ -63,36 +62,8 @@ def run(args: argparse.Namespace) -> None:
 
     try:
         for frame_number, result in enumerate(results, start=1):
-            now_iso = utc_now()
             now_monotonic = time.monotonic()
-            boxes = result.boxes
-            if boxes is not None and boxes.id is not None:
-                for xyxy, class_id, score, track_id in zip(
-                    boxes.xyxy.cpu().tolist(),
-                    boxes.cls.int().cpu().tolist(),
-                    boxes.conf.cpu().tolist(),
-                    boxes.id.int().cpu().tolist(),
-                    strict=True,
-                ):
-                    x1, y1, x2, y2 = xyxy
-                    center = ((x1 + x2) / 2, (y1 + y2) / 2)
-                    previous = tracks.get(track_id)
-                    tracks[track_id] = TrackState(
-                        track_id=track_id,
-                        vehicle_type=VEHICLE_NAMES.get(class_id, str(class_id)),
-                        confidence=round(float(score), 4),
-                        first_seen=previous.first_seen if previous else now_iso,
-                        last_seen=now_iso,
-                        first_center=previous.first_center if previous else center,
-                        last_center=center,
-                        bounding_box=[round(x1), round(y1), round(x2), round(y2)],
-                    )
-                    last_seen_monotonic[track_id] = now_monotonic
-
-            expired = [track_id for track_id, seen_at in last_seen_monotonic.items() if now_monotonic - seen_at > args.retention]
-            for track_id in expired:
-                tracks.pop(track_id, None)
-                last_seen_monotonic.pop(track_id, None)
+            update_tracks(result, tracks, last_seen_monotonic, now_monotonic, args.retention)
 
             if now_monotonic - last_write >= args.write_every:
                 write_snapshot(output, settings.camera_id, model_name, frame_number, tracks)

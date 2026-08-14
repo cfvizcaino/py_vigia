@@ -1,6 +1,6 @@
 # Nodo de visión de VIGIA
 
-Este componente recibe un video, una webcam o el flujo RTSP de una cámara Tapo, ejecuta detección y tracking de automóviles y motocicletas y mantiene un archivo JSON con las detecciones activas.
+Este componente recibe un video, una webcam o el flujo RTSP de una cámara Tapo, ejecuta detección y tracking de automóviles y motocicletas y expone una API local segura para la consola web. El navegador nunca recibe la URL RTSP ni las credenciales.
 
 ## Configurar la Tapo C110
 
@@ -43,11 +43,24 @@ cp .env.example .env
 python -m vigia_vision --source sample.mp4 --max-frames 300
 ```
 
-Para utilizar la configuración RTSP del archivo `.env`, omite `--source`:
+Para utilizar la configuración RTSP del archivo `.env` en modo terminal, omite `--source`:
 
 ```bash
 python -m vigia_vision
 ```
+
+Para iniciar el servicio utilizado por la web:
+
+```bash
+uvicorn vigia_vision.api:app --host 127.0.0.1 --port 8001
+```
+
+Endpoints locales:
+
+- `GET /health`: salud del proceso.
+- `GET /api/v1/status`: estado de la cámara y del modelo.
+- `GET /api/v1/detections`: snapshot de detecciones.
+- `GET /api/v1/preview.jpg`: último frame con las cajas dibujadas.
 
 ## Alcance actual
 

@@ -1,50 +1,89 @@
-# Vigia
+# VIGIA
+
+Plataforma distribuida de vigilancia comunitaria para detectar vehículos y estimar trayectorias probables mediante una red colaborativa de cámaras.
 
 ## Resumen ejecutivo
 
-Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la problemática u oportunidad identificada, la solución propuesta, su alcance general y el valor que aporta. Debe permitir al lector comprender rápidamente de qué trata el proyecto y por qué es relevante.
+Las cámaras residenciales y comunitarias suelen operar como sistemas aislados: producen grandes cantidades de video, pero consultar varias de ellas para reconstruir el recorrido de un vehículo es un proceso manual, lento y difícil de escalar. Centralizar permanentemente todos los videos también incrementa el consumo de red y los riesgos de privacidad.
 
+VIGIA propone que cada dispositivo procese el video localmente y registre únicamente detecciones vehiculares relevantes. Ante una consulta autorizada, la plataforma seleccionará los dispositivos cercanos, consolidará sus respuestas y construirá una trayectoria aproximada utilizando ubicación, tiempo, dirección y similitud visual. El resultado se presentará como una estimación con nivel de confianza, no como una identificación infalible.
 
-## Documentación del repositorio
+El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta automóviles y motocicletas con YOLO y ByteTrack, publica los resultados a través de un servicio local y permite supervisar la cámara desde una consola web con mapa. La arquitectura protege las credenciales RTSP y está preparada para incorporar posteriormente un backend central, PostgreSQL/PostGIS, autenticación y mensajería MQTT.
 
-## Prototipo web
+## Estado actual
 
-La primera consola de monitoreo se encuentra en [`apps/web`](./apps/web). Incluye un mapa de cámaras, formulario de consulta y trayectoria simulada. Las instrucciones para ejecutarla están en su [README](./apps/web/README.md).
+| Componente | Estado |
+|---|---|
+| Consola web y mapa de Barranquilla | Funcional con dispositivos simulados |
+| Tapo C110 | Conexión RTSP validada |
+| Detección y tracking | Línea base funcional con YOLO + ByteTrack |
+| Preview seguro en la web | Implementado mediante API y proxy |
+| Backend central, PostGIS y MQTT | Próximo hito |
+| Reconstrucción real de trayectorias | Pendiente de múltiples cámaras/datos |
 
-## Nodo de visión
+## Estructura
 
-El primer nodo de captura se encuentra en [`apps/vision`](./apps/vision). Recibe video o RTSP, detecta y sigue automóviles y motocicletas con YOLO y genera un snapshot JSON. Consulta su [guía de configuración](./apps/vision/README.md) para conectar una Tapo C110.
+```text
+py_vigia/
+├── apps/
+│   ├── web/                 # Consola Next.js + MapLibre
+│   └── vision/              # Captura RTSP, YOLO, tracking y FastAPI
+├── packages/
+│   └── contracts/           # Esquemas compartidos y versionados
+├── docs/
+│   ├── architecture/        # Arquitectura vigente
+│   └── adr/                 # Registro de decisiones
+├── PrimerInforme.md
+└── compose.yaml
+```
 
-## Docker
+Consulta la [arquitectura del sistema](./docs/architecture/overview.md) y la [decisión arquitectónica inicial](./docs/adr/001-hybrid-edge-architecture.md).
 
-El archivo [`compose.yaml`](./compose.yaml) permite levantar la web y, mediante un perfil opcional, el nodo de visión. PostgreSQL/PostGIS y Mosquitto se añadirán cuando se implemente el backend y las consultas distribuidas.
+## Inicio rápido
+
+### 1. Nodo de visión
 
 ```bash
-# Solo la web
-docker compose up --build web
+cd apps/vision
+python3 -m venv .venv
+source .venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn vigia_vision.api:app --host 127.0.0.1 --port 8001
+```
 
-# Web y visión
+Configura primero la Tapo siguiendo la [guía del nodo de visión](./apps/vision/README.md). No publiques `.env` ni compartas la contraseña RTSP.
+
+### 2. Consola web
+
+En otra terminal:
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000), selecciona `CAM-01` y revisa la vista procesada.
+
+### Docker
+
+```bash
 docker compose --profile vision up --build
 ```
 
-### Primer informe
+Docker permitirá levantar web y visión de forma reproducible. El compose crecerá con backend, PostGIS y MQTT cuando esos componentes sean necesarios.
 
-- [Primer Informe.md](./PrimerInforme.md): Documento que presenta el planteamiento del problema, los objetivos, la solución propuesta, el estado del arte, la metodología de desarrollo y el plan de trabajo del proyecto.
+## Documentación
 
-### Segundo informe
+- [Primer informe](./PrimerInforme.md)
+- [Arquitectura](./docs/architecture/overview.md)
+- [Nodo de visión](./apps/vision/README.md)
+- [Consola web](./apps/web/README.md)
+- [Contratos compartidos](./packages/contracts/README.md)
 
-- [Segundo Informe.md](./SegundoInforme.md): Documento que presenta el estado actual del proyecto, incluyendo los avances logrados, las validaciones realizadas y los aspectos pendientes.
-
-
-### Informe final
-
-| Documento | Descripción |
-|---|---|
-| [InformeFinal.md](./InformeFinal.md) | Documento principal del proyecto |
-| [Instalación.md](./Instalación.md) | Guía de instalación, desarrollo y despliegue |
-| [Desarrollo.md](./Desarrollo.md) | Detalles técnicos del desarrollo |
-
-## Estudiantes
+## Equipo
 
 | Nombre | GitHub |
 |---|---|
@@ -52,7 +91,4 @@ docker compose --profile vision up --build
 | Juan Delgado | [@Deelgado](https://github.com/Deelgado) |
 | Daniel Castañeda | [@DanielCM21](https://github.com/DanielCM21) |
 
-## Tutores
-
-- Augusto Salazar  
-- Margarita Gamarra
+**Tutores:** Augusto Salazar y Margarita Gamarra.
