@@ -1,0 +1,19 @@
+services:
+  web:
+    build:
+      context: ./apps/web
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  vision:
+    profiles: ["vision"]
+    build:
+      context: ./apps/vision
+    env_file:
+      - path: ./apps/vision/.env
+        required: false
+    network_mode: host
+    volumes:
+      - ./apps/vision/outputs:/app/outputs
+    restart: unless-stopped

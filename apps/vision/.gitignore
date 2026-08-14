@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+outputs/*
+!outputs/.gitkeep
+samples/*
+!samples/.gitkeep
+*.mp4
+*.avi
+*.mkv
+*.onnx
+*.pt

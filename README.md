@@ -11,6 +11,22 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 
 La primera consola de monitoreo se encuentra en [`apps/web`](./apps/web). Incluye un mapa de cámaras, formulario de consulta y trayectoria simulada. Las instrucciones para ejecutarla están en su [README](./apps/web/README.md).
 
+## Nodo de visión
+
+El primer nodo de captura se encuentra en [`apps/vision`](./apps/vision). Recibe video o RTSP, detecta y sigue automóviles y motocicletas con YOLO y genera un snapshot JSON. Consulta su [guía de configuración](./apps/vision/README.md) para conectar una Tapo C110.
+
+## Docker
+
+El archivo [`compose.yaml`](./compose.yaml) permite levantar la web y, mediante un perfil opcional, el nodo de visión. PostgreSQL/PostGIS y Mosquitto se añadirán cuando se implemente el backend y las consultas distribuidas.
+
+```bash
+# Solo la web
+docker compose up --build web
+
+# Web y visión
+docker compose --profile vision up --build
+```
+
 ### Primer informe
 
 - [Primer Informe.md](./PrimerInforme.md): Documento que presenta el planteamiento del problema, los objetivos, la solución propuesta, el estado del arte, la metodología de desarrollo y el plan de trabajo del proyecto.
