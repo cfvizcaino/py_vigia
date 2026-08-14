@@ -23,7 +23,7 @@ const STATUS_LABELS: Record<string, string> = {
   stopped: "Detenida",
 };
 
-export function CameraPreview({ active }: { active: boolean }) {
+export function CameraPreview({ active, large = false }: { active: boolean; large?: boolean }) {
   const [status, setStatus] = useState<VisionStatus | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -53,16 +53,17 @@ export function CameraPreview({ active }: { active: boolean }) {
   }, []);
 
   const isLive = status?.status === "running";
+  const showPreview = active && previewUrl && isLive;
 
   return (
-    <article className={`camera-preview-card ${active ? "active" : ""}`}>
+    <article className={`camera-preview-card ${active ? "active" : ""} ${large ? "large" : ""}`}>
       <div className="card-heading">
         <div><span className="section-kicker">Cámara física · CAM-01</span><h2>Tapo C110</h2></div>
         <span className={`live-badge ${isLive ? "online" : ""}`}><i/>{STATUS_LABELS[status?.status ?? "offline"] ?? status?.status}</span>
       </div>
       <div className="preview-frame">
-        {previewUrl && isLive ? (
-          <Image src={previewUrl} alt="Vista procesada de la cámara Tapo C110" fill sizes="(max-width: 1050px) 100vw, 32vw" unoptimized onError={() => setPreviewUrl(null)}/>
+        {showPreview ? (
+          <Image src={previewUrl} alt="Vista procesada de la cámara Tapo C110" fill sizes={large ? "(max-width: 1050px) 100vw, 72vw" : "(max-width: 1050px) 100vw, 32vw"} unoptimized onError={() => setPreviewUrl(null)}/>
         ) : (
           <div className="preview-placeholder">
             <span className="preview-camera-icon">◉</span>
@@ -70,7 +71,7 @@ export function CameraPreview({ active }: { active: boolean }) {
             <small>{active ? "La vista aparecerá sin exponer el RTSP al navegador." : "Las demás cámaras son simuladas."}</small>
           </div>
         )}
-        {isLive && <span className="preview-overlay">YOLO · {status.activeDetections} detecciones</span>}
+        {showPreview && <span className="preview-overlay">YOLO · {status.activeDetections} detecciones</span>}
       </div>
       <div className="preview-meta"><span><b>{status?.frameNumber ?? 0}</b> frames</span><span><b>{status?.activeDetections ?? 0}</b> vehículos activos</span></div>
     </article>

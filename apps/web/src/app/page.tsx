@@ -32,6 +32,15 @@ const detections = [
   { camera: "CAM-03", time: "14:35:16", label: "Automóvil blanco", confidence: 82 },
 ];
 
+function DevicesCard({ selectedCamera, onSelect }: { selectedCamera: string; onSelect: (id: string) => void }) {
+  return (
+    <article className="devices-card">
+      <div className="card-heading"><div><span className="section-kicker">Estado en vivo</span><h2>Dispositivos</h2></div><button>Ver todos</button></div>
+      <div className="device-list">{cameras.map((camera) => <button key={camera.id} className={selectedCamera === camera.id ? "selected" : ""} onClick={() => onSelect(camera.id)}><span className={`camera-dot ${camera.kind === "physical" ? "physical" : camera.status === "Sin conexión" ? "off" : "simulated"}`}><Icon name="camera" size={16}/></span><div><b>{camera.name}{camera.kind === "physical" && <em className="real-tag">REAL</em>}</b><small>{camera.id} · {camera.detail}</small></div><span className={camera.status === "En línea" ? "status-online" : camera.status === "Simulada" ? "status-simulated" : "status-offline"}>{camera.status}</span></button>)}</div>
+    </article>
+  );
+}
+
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Resumen");
   const [selectedCamera, setSelectedCamera] = useState("CAM-01");
@@ -57,42 +66,47 @@ export default function Home() {
       <section className="workspace">
         <header className="topbar"><div><p className="eyebrow">Panel operativo</p><h1>{activeNav}</h1></div><div className="system-status"><span className="pulse"/>Sistema operativo <small>Actualizado ahora</small></div></header>
 
-        <div className="metrics">
-          <article><span className="metric-icon green"><Icon name="camera"/></span><div><small>Dispositivos activos</small><strong>{online}<em>/ {cameras.length}</em></strong></div><span className="trend">75%</span></article>
-          <article><span className="metric-icon blue"><Icon name="search"/></span><div><small>Detecciones hoy</small><strong>247</strong></div><span className="trend">+18%</span></article>
-          <article><span className="metric-icon violet"><Icon name="route"/></span><div><small>Consultas realizadas</small><strong>12</strong></div><span className="trend neutral">Hoy</span></article>
-          <article><span className="metric-icon amber"><Icon name="clock"/></span><div><small>Tiempo de respuesta</small><strong>1.8<em> s</em></strong></div><span className="trend">Normal</span></article>
-        </div>
+        {activeNav === "Cámaras" ? (
+          <section className="cameras-grid">
+            <CameraPreview active={selectedCamera === "CAM-01"} large/>
+            <DevicesCard selectedCamera={selectedCamera} onSelect={setSelectedCamera}/>
+          </section>
+        ) : (
+          <>
+            <div className="metrics">
+              <article><span className="metric-icon green"><Icon name="camera"/></span><div><small>Dispositivos activos</small><strong>{online}<em>/ {cameras.length}</em></strong></div><span className="trend">75%</span></article>
+              <article><span className="metric-icon blue"><Icon name="search"/></span><div><small>Detecciones hoy</small><strong>247</strong></div><span className="trend">+18%</span></article>
+              <article><span className="metric-icon violet"><Icon name="route"/></span><div><small>Consultas realizadas</small><strong>12</strong></div><span className="trend neutral">Hoy</span></article>
+              <article><span className="metric-icon amber"><Icon name="clock"/></span><div><small>Tiempo de respuesta</small><strong>1.8<em> s</em></strong></div><span className="trend">Normal</span></article>
+            </div>
 
-        <section className="content-grid">
-          <article className="map-card">
-            <div className="card-heading"><div><span className="section-kicker">Red colaborativa</span><h2>Mapa de dispositivos</h2></div><div className="legend"><span><i className="physical"/>Tapo real</span><span><i className="simulated"/>Simulada</span><span><i className="offline"/>Sin conexión</span></div></div>
-            <VigiaMap cameras={cameras} selectedId={selectedCamera} onSelect={setSelectedCamera} routePoints={routePoints}/>
-            <div className="map-footer"><span><b>4</b> dispositivos en el área</span><span><b>{searched ? 3 : 0}</b> detecciones relacionadas</span><button onClick={() => setSearched(false)}>Limpiar ruta</button></div>
-          </article>
+            <section className="content-grid">
+              <article className="map-card">
+                <div className="card-heading"><div><span className="section-kicker">Red colaborativa</span><h2>Mapa de dispositivos</h2></div><div className="legend"><span><i className="physical"/>Tapo real</span><span><i className="simulated"/>Simulada</span><span><i className="offline"/>Sin conexión</span></div></div>
+                <VigiaMap cameras={cameras} selectedId={selectedCamera} onSelect={setSelectedCamera} routePoints={routePoints}/>
+                <div className="map-footer"><span><b>4</b> dispositivos en el área</span><span><b>{searched ? 3 : 0}</b> detecciones relacionadas</span><button onClick={() => setSearched(false)}>Limpiar ruta</button></div>
+              </article>
 
-          <aside className="query-card">
-            <div className="card-heading"><div><span className="section-kicker">Nueva búsqueda</span><h2>Consultar vehículo</h2></div><span className="query-icon"><Icon name="search"/></span></div>
-            <label>Tipo de vehículo<select value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}><option>Automóvil</option><option>Motocicleta</option></select></label>
-            <label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option>Blanco</option><option>Negro</option><option>Gris / plata</option><option>Rojo</option><option>Azul</option><option>Desconocido</option></select></label>
-            <div className="field-row"><label>Fecha<input type="date" defaultValue="2026-08-13"/></label><label>Hora aprox.<input type="time" defaultValue="14:30"/></label></div>
-            <label>Radio de búsqueda<div className="range-label"><input type="range" min="100" max="2000" defaultValue="500"/><output>500 m</output></div></label>
-            <button className="primary-action" onClick={() => setSearched(true)}><Icon name="search"/>Buscar en dispositivos cercanos</button>
-            <p className="form-help"><Icon name="shield" size={15}/>La consulta solo solicitará metadatos a cámaras dentro del área.</p>
-          </aside>
-        </section>
+              <aside className="query-card">
+                <div className="card-heading"><div><span className="section-kicker">Nueva búsqueda</span><h2>Consultar vehículo</h2></div><span className="query-icon"><Icon name="search"/></span></div>
+                <label>Tipo de vehículo<select value={vehicleType} onChange={(event) => setVehicleType(event.target.value)}><option>Automóvil</option><option>Motocicleta</option></select></label>
+                <label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option>Blanco</option><option>Negro</option><option>Gris / plata</option><option>Rojo</option><option>Azul</option><option>Desconocido</option></select></label>
+                <div className="field-row"><label>Fecha<input type="date" defaultValue="2026-08-13"/></label><label>Hora aprox.<input type="time" defaultValue="14:30"/></label></div>
+                <label>Radio de búsqueda<div className="range-label"><input type="range" min="100" max="2000" defaultValue="500"/><output>500 m</output></div></label>
+                <button className="primary-action" onClick={() => setSearched(true)}><Icon name="search"/>Buscar en dispositivos cercanos</button>
+                <p className="form-help"><Icon name="shield" size={15}/>La consulta solo solicitará metadatos a cámaras dentro del área.</p>
+              </aside>
+            </section>
 
-        <section className="lower-grid">
-          <CameraPreview active={selectedCamera === "CAM-01"}/>
-          <article className="detections-card">
-            <div className="card-heading"><div><span className="section-kicker">Consulta #VIG-0012</span><h2>Trayectoria estimada</h2></div>{searched && <span className="confidence">87% de confianza</span>}</div>
-            {searched ? <div className="timeline">{detections.map((item, index) => <div className="detection" key={item.camera}><span className="timeline-dot">{index + 1}</span><div><b>{item.label}</b><small>{item.camera} · {item.time}</small></div><span className="match">{item.confidence}%</span></div>)}</div> : <div className="empty-state">Realiza una consulta para visualizar una trayectoria.</div>}
-          </article>
-          <article className="devices-card">
-            <div className="card-heading"><div><span className="section-kicker">Estado en vivo</span><h2>Dispositivos</h2></div><button>Ver todos</button></div>
-            <div className="device-list">{cameras.map((camera) => <button key={camera.id} className={selectedCamera === camera.id ? "selected" : ""} onClick={() => setSelectedCamera(camera.id)}><span className={`camera-dot ${camera.kind === "physical" ? "physical" : camera.status === "Sin conexión" ? "off" : "simulated"}`}><Icon name="camera" size={16}/></span><div><b>{camera.name}{camera.kind === "physical" && <em className="real-tag">REAL</em>}</b><small>{camera.id} · {camera.detail}</small></div><span className={camera.status === "En línea" ? "status-online" : camera.status === "Simulada" ? "status-simulated" : "status-offline"}>{camera.status}</span></button>)}</div>
-          </article>
-        </section>
+            <section className="lower-grid">
+              <article className="detections-card">
+                <div className="card-heading"><div><span className="section-kicker">Consulta #VIG-0012</span><h2>Trayectoria estimada</h2></div>{searched && <span className="confidence">87% de confianza</span>}</div>
+                {searched ? <div className="timeline">{detections.map((item, index) => <div className="detection" key={item.camera}><span className="timeline-dot">{index + 1}</span><div><b>{item.label}</b><small>{item.camera} · {item.time}</small></div><span className="match">{item.confidence}%</span></div>)}</div> : <div className="empty-state">Realiza una consulta para visualizar una trayectoria.</div>}
+              </article>
+              <DevicesCard selectedCamera={selectedCamera} onSelect={setSelectedCamera}/>
+            </section>
+          </>
+        )}
       </section>
     </main>
   );
