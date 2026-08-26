@@ -92,3 +92,58 @@ class DetectionRead(BaseModel):
     observed_at: datetime
     thumbnail_url: str | None
     created_at: datetime
+
+
+class NearbyDeviceRead(BaseModel):
+    id: uuid.UUID
+    external_id: str
+    name: str
+    lat: float
+    lng: float
+    distance_m: float
+
+
+class RouteDetectionHop(BaseModel):
+    sequence_order: int
+    detection_id: uuid.UUID
+    camera_id: str
+    vehicle_type: str
+    color: str | None
+    direction: str
+    confidence: float
+    observed_at: datetime
+
+
+class RouteCandidateRead(BaseModel):
+    id: uuid.UUID
+    rank: int
+    confidence: float
+    has_distant_gaps: bool
+    camera_ids: list[str]
+    vehicle_type: str
+    color: str | None
+    detections: list[RouteDetectionHop]
+
+
+class QueryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    lat: float
+    lng: float
+    radius_m: float
+    time_from: datetime
+    time_to: datetime
+    vehicle_type: str | None
+    color: str | None
+    created_at: datetime
+
+
+class QueryExecuteResponse(BaseModel):
+    """Respuesta de GET /queries: varias rutas candidatas, nunca una sola certeza."""
+
+    query: QueryRead
+    nearby_devices: list[NearbyDeviceRead]
+    candidate_detection_count: int
+    routes: list[RouteCandidateRead]
