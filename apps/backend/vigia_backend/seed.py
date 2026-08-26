@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import delete, select
 
 from .db import SessionLocal, init_db
-from .models import Detection, Device, DeviceLink, User
+from .models import Detection, Device, DeviceLink, Query, RouteResult, RouteResultDetection, User
 
 # Velocidad urbana de referencia para timestamps plausibles (km/h).
 URBAN_SPEED_KMH = 28.0
@@ -154,7 +154,10 @@ def build_noise() -> list[NoiseDetection]:
 
 
 def clear_seed_tables(db) -> None:
-    # Orden por FKs: detecciones → enlaces → dispositivos → usuarios demo.
+    # Orden por FKs: resultados de rutas → consultas → detecciones → enlaces → dispositivos → usuario demo.
+    db.execute(delete(RouteResultDetection))
+    db.execute(delete(RouteResult))
+    db.execute(delete(Query))
     db.execute(delete(Detection))
     db.execute(delete(DeviceLink))
     db.execute(delete(Device))
