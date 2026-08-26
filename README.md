@@ -18,8 +18,9 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 | Tapo C110 | Conexión RTSP validada |
 | Detección y tracking | Línea base funcional con YOLO + ByteTrack |
 | Preview seguro en la web | Implementado mediante API y proxy |
-| Backend central, PostGIS y MQTT | Próximo hito |
-| Reconstrucción real de trayectorias | Pendiente de múltiples cámaras/datos |
+| Backend central (CRUD + consultas de rutas) | Funcional en `apps/backend` (SQLite; seed Barranquilla) |
+| PostGIS y MQTT | Próximo hito |
+| Sustituir simulados de la web por API central | Pendiente |
 
 ## Estructura
 
@@ -27,7 +28,8 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 py_vigia/
 ├── apps/
 │   ├── web/                 # Consola Next.js + MapLibre
-│   └── vision/              # Captura RTSP, YOLO, tracking y FastAPI
+│   ├── vision/              # Captura RTSP, YOLO, tracking y FastAPI
+│   └── backend/             # Plataforma central modular (FastAPI + SQL)
 ├── packages/
 │   └── contracts/           # Esquemas compartidos y versionados
 ├── docs/
@@ -79,9 +81,13 @@ Docker permitirá levantar web y visión de forma reproducible. El compose crece
 
 - [Primer informe](./PrimerInforme.md)
 - [Arquitectura](./docs/architecture/overview.md)
+- [ADR-001: arquitectura híbrida](./docs/adr/001-hybrid-edge-architecture.md)
+- [ADR-002: backend central y rutas](./docs/adr/002-backend-central.md)
+- [Modelo de datos](./docs/architecture/data-model.md)
 - [Estrategia de detección de placas](./docs/modeling/license-plates.md)
 - [Nodo de visión](./apps/vision/README.md)
 - [Consola web](./apps/web/README.md)
+- [Backend central](./apps/backend/README.md)
 - [Contratos compartidos](./packages/contracts/README.md)
 
 ## Equipo
