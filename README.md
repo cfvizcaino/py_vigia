@@ -92,4 +92,4 @@ Docker permitirá levantar web y visión de forma reproducible. El compose crece
 | Juan Delgado | [@Deelgado](https://github.com/Deelgado) |
 | Daniel Castañeda | [@DanielCM21](https://github.com/DanielCM21) |
 
-**Tutores:** Augusto Salazar y Margarita Gamarra.
+**Tutores:** Augusto Salazar y Diana Roca.
