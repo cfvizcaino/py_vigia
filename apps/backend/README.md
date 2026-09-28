@@ -10,6 +10,7 @@ Modelo alineado con [docs/architecture/data-model.md](../../docs/architecture/da
 - Seed Barranquilla (`python -m vigia_backend.seed`): 4 cámaras, trayectorias y ruido.
 - Algoritmo puro de rutas (`vigia_backend.routing.reconstruct_routes`) con tests.
 - Consulta `GET /api/v1/queries`: Haversine → detecciones → rutas candidatas (persistidas).
+- Ingestión `POST /api/v1/ingest/detections`: Detection Envelope 1.1, eventos idempotentes y actualización de tracks repetidos.
 - Decisiones: [ADR-002](../../docs/adr/002-backend-central.md).
 
 ## Ejecutar localmente
@@ -39,6 +40,7 @@ Abrir docs interactivas: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs
 | GET/POST | `/api/v1/detections` | Listar (filtros opcionales) / crear |
 | GET/PATCH/DELETE | `/api/v1/detections/{id}` | Leer / actualizar / borrar |
 | GET | `/api/v1/queries` | Consultar trayectorias estimadas |
+| POST | `/api/v1/ingest/detections` | Recibir eventos 1.1 desde nodos edge |
 
 ### Ejemplo de consulta
 

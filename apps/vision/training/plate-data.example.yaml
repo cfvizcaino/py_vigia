@@ -1,4 +1,4 @@
-# Copia este archivo fuera del repositorio y ajusta la ruta del dataset.
+# Copiar este archivo fuera del repositorio y ajusta la ruta del dataset.
 path: /ruta/al/dataset-placas
 train: images/train
 val: images/val

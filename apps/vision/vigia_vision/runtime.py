@@ -3,12 +3,14 @@ from __future__ import annotations
 import os
 import threading
 import time
+import uuid
 from collections.abc import Iterator
 from typing import Any
 
 from .config import Settings
-from .events import TrackState, build_snapshot, update_tracks, utc_now, write_snapshot
+from .events import TrackState, build_snapshot, update_tracks, utc_now, write_snapshot_payload
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
+from .publisher import SnapshotPublisher
 
 COCO_VEHICLE_CLASSES = [2, 3]
 
@@ -19,6 +21,7 @@ class VisionRuntime:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self._lock = threading.Lock()
+        self._snapshot_lock = threading.Lock()
         self._frame_condition = threading.Condition(self._lock)
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
@@ -36,11 +39,22 @@ class VisionRuntime:
         self._captured_plate_tracks: set[int] = set()
         self._plate_detection_enabled = False
         self._plate_error_code: str | None = None
+        self._session_id = uuid.uuid4()
+        self._sequence_number = 0
+        self._latest_snapshot: dict[str, Any] | None = None
+        self._publisher = SnapshotPublisher(
+            settings.central_api_url,
+            settings.central_api_token,
+            settings.event_outbox,
+            queue_max=settings.event_queue_max,
+            timeout_seconds=settings.publish_timeout_seconds,
+        )
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return
         self._stop_event.clear()
+        self._publisher.start()
         self._thread = threading.Thread(target=self._run, name="vigia-camera-worker", daemon=True)
         self._thread.start()
 
@@ -50,6 +64,7 @@ class VisionRuntime:
             self._frame_condition.notify_all()
         if self._thread:
             self._thread.join(timeout=8)
+        self._publisher.stop()
         with self._lock:
             self._status = "stopped"
 
@@ -61,6 +76,7 @@ class VisionRuntime:
                 "cameraId": self.settings.camera_id,
                 "cameraModel": "Tapo C110",
                 "model": self.settings.model,
+                "nodeVersion": self.settings.node_version,
                 "frameNumber": self._frame_number,
                 "processingFps": round(self._processing_fps, 1),
                 "lastFrameAt": self._last_frame_at,
@@ -70,11 +86,36 @@ class VisionRuntime:
                 "plateModel": os.path.basename(self.settings.plate_model) if self.settings.plate_model else None,
                 "plateErrorCode": self._plate_error_code,
                 "errorCode": self._error_code,
+                "publisher": self._publisher.status(),
             }
 
     def detections(self) -> dict[str, Any]:
         with self._lock:
-            return build_snapshot(self.settings.camera_id, self.settings.model, self._frame_number, self._tracks)
+            if self._latest_snapshot is not None:
+                return dict(self._latest_snapshot)
+            return self._build_snapshot(self._frame_number, dict(self._tracks))
+
+    def _build_snapshot(self, frame_number: int, tracks: dict[int, TrackState]) -> dict[str, Any]:
+        with self._snapshot_lock:
+            self._sequence_number += 1
+            return build_snapshot(
+                self.settings.camera_id,
+                self.settings.model,
+                frame_number,
+                tracks,
+                session_id=self._session_id,
+                sequence_number=self._sequence_number,
+                node_version=self.settings.node_version,
+                model_version=self.settings.model_version,
+                model_digest=self.settings.model_digest,
+            )
+
+    def _emit_snapshot(self, frame_number: int, tracks: dict[int, TrackState]) -> None:
+        payload = self._build_snapshot(frame_number, tracks)
+        write_snapshot_payload(self.settings.output, payload)
+        self._publisher.enqueue(payload)
+        with self._lock:
+            self._latest_snapshot = payload
 
     def preview(self) -> bytes | None:
         with self._lock:
@@ -229,7 +270,7 @@ class VisionRuntime:
                             self._captured_plate_tracks.add(detection.track_id)
 
                     if now_monotonic - last_write >= 2:
-                        write_snapshot(self.settings.output, self.settings.camera_id, self.settings.model, frame_number, tracks_copy)
+                        self._emit_snapshot(frame_number, tracks_copy)
                         last_write = now_monotonic
             except Exception:
                 self._set_status("reconnecting", "PROCESSING_ERROR")
@@ -243,4 +284,4 @@ class VisionRuntime:
         with self._lock:
             tracks_copy = dict(self._tracks)
             frame_number = self._frame_number
-        write_snapshot(self.settings.output, self.settings.camera_id, self.settings.model, frame_number, tracks_copy)
+        self._emit_snapshot(frame_number, tracks_copy)

@@ -1,11 +1,14 @@
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from vigia_vision.config import Settings
 from vigia_vision.events import TrackState, build_snapshot
 from vigia_vision.plates import plate_class_ids
 from vigia_vision.runtime import VisionRuntime
+from vigia_vision.publisher import SnapshotPublisher
 
 
 class SettingsTests(unittest.TestCase):
@@ -32,11 +35,25 @@ class SettingsTests(unittest.TestCase):
 
         snapshot = build_snapshot("CAM-01", "yolo11n.pt", 42, {track.track_id: track})
 
-        self.assertEqual(snapshot["schemaVersion"], "1.0")
+        self.assertEqual(snapshot["schemaVersion"], "1.1")
+        self.assertTrue(snapshot["eventId"])
+        self.assertTrue(snapshot["sessionId"])
+        self.assertEqual(snapshot["sequenceNumber"], 42)
         self.assertEqual(snapshot["cameraId"], "CAM-01")
         self.assertEqual(snapshot["frameNumber"], 42)
         self.assertEqual(snapshot["detections"][0]["trackId"], 7)
         self.assertNotIn("first_center", snapshot["detections"][0])
+
+    def test_publisher_persists_envelopes_before_delivery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            publisher = SnapshotPublisher("https://vigia-central.example.ts.net", "secret", Path(directory))
+            payload = build_snapshot("CAM-01", "yolo26n.pt", 42, {})
+
+            self.assertTrue(publisher.enqueue(payload))
+            self.assertEqual(publisher.pending_count(), 1)
+            stored = publisher._next_event()
+            self.assertIsNotNone(stored)
+            self.assertIn(payload["eventId"], stored.name)
 
     def test_mjpeg_stream_wraps_latest_frame(self):
         settings = Settings.from_environment()

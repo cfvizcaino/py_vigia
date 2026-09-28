@@ -31,3 +31,17 @@ __pycache__/
 node_modules/
 .next/
 *.tsbuildinfo
+apps/web/test-results/
+apps/web/playwright-report/
+
+# Artefactos locales y resultados generados
+/output/
+/tmp/
+coverage/
+.coverage
+htmlcov/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3

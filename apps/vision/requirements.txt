@@ -1,4 +1,6 @@
 ultralytics>=8.3.0,<9
+# OpenCV 5.0.0 no abre de forma fiable RTSP/FFmpeg en la Tapo validada.
+opencv-python>=4.10,<5
 python-dotenv>=1.0,<2
 lap>=0.5.12,<1
 fastapi>=0.115,<1

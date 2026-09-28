@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 class Settings:
     database_url: str
     cors_origins: tuple[str, ...]
+    ingest_api_token: str | None
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -18,4 +19,5 @@ class Settings:
         return cls(
             database_url=os.getenv("DATABASE_URL", "sqlite:///./data/vigia.db"),
             cors_origins=tuple(origin.strip() for origin in origins.split(",") if origin.strip()),
+            ingest_api_token=os.getenv("INGEST_API_TOKEN", "").strip() or None,
         )

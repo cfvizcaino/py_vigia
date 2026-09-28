@@ -6,13 +6,13 @@ import unittest
 import uuid
 from datetime import datetime, timezone
 
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from vigia_backend.api import app
 from vigia_backend.db import Base, get_db
+from tests.asgi_client import ASGITestClient
 
 
 class DevicesDetectionsCrudTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class DevicesDetectionsCrudTests(unittest.TestCase):
                 db.close()
 
         app.dependency_overrides[get_db] = override_get_db
-        self.client = TestClient(app)
+        self.client = ASGITestClient(app)
 
     def tearDown(self) -> None:
         app.dependency_overrides.clear()

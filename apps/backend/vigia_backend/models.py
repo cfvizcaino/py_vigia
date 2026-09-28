@@ -97,6 +97,61 @@ class Detection(Base):
     device: Mapped[Device] = relationship(back_populates="detections")
 
 
+class IngestedEvent(Base):
+    """Sobre edge recibido; event_id y secuencia hacen seguro el reintento."""
+
+    __tablename__ = "ingested_events"
+    __table_args__ = (
+        UniqueConstraint("device_id", "session_id", "sequence_number", name="uq_ingest_sequence"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=new_uuid)
+    event_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), unique=True, nullable=False, index=True)
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    node_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(120), nullable=False)
+    model_digest: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    frame_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    detection_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class EdgeObservation(Base):
+    """Vincula un track edge estable con una única detección central actualizable."""
+
+    __tablename__ = "edge_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "device_id",
+            "session_id",
+            "track_id",
+            "first_seen",
+            name="uq_edge_observation",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=new_uuid)
+    device_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    detection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("detections.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    track_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    first_event_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    last_event_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+
+
 class Query(Base):
     """Historial de una búsqueda autorizada (ubicación, ventana temporal y filtros)."""
 

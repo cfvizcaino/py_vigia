@@ -36,13 +36,14 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
     async function refresh() {
       try {
         const response = await fetch("/api/vision/status", { cache: "no-store" });
+        if (!response.ok) throw new Error("Vision status unavailable");
         const nextStatus = (await response.json()) as VisionStatus;
         if (cancelled) return;
         setStatus(nextStatus);
         if (nextStatus.status === "running") setPreviewUrl((current) => current ?? `/api/vision/stream?t=${Date.now()}`);
         else setPreviewUrl(null);
       } catch {
-        if (!cancelled) setStatus(null);
+        if (!cancelled) { setStatus(null); setPreviewUrl(null); }
       }
     }
 
@@ -70,7 +71,7 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
           <div className="preview-placeholder">
             <span className="preview-camera-icon">◉</span>
             <b>{active ? "Inicia el servicio de visión" : "Selecciona CAM-01"}</b>
-            <small>{active ? "La vista aparecerá sin exponer el RTSP al navegador." : "Las demás cámaras son simuladas."}</small>
+            <small>{active ? "La transmisión aparecerá cuando el nodo de visión esté disponible." : "La transmisión configurada corresponde a la Tapo C110 de CAM-01."}</small>
           </div>
         )}
         {showPreview && <span className="preview-overlay">YOLO · {status.activeDetections} vehículos · {status.activePlateDetections ?? 0} placas</span>}
