@@ -6,7 +6,6 @@ import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -15,6 +14,7 @@ from vigia_backend.api import app
 from vigia_backend.db import Base, get_db
 from vigia_backend.geo import haversine_m
 from vigia_backend.models import Detection, Device, DeviceLink, User
+from tests.asgi_client import ASGITestClient
 
 
 class HaversineTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class QueryEndpointTests(unittest.TestCase):
                 pass
 
         app.dependency_overrides[get_db] = override_get_db
-        self.client = TestClient(app)
+        self.client = ASGITestClient(app)
         self._seed_minimal()
 
     def tearDown(self) -> None:

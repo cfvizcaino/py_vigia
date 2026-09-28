@@ -94,6 +94,50 @@ class DetectionRead(BaseModel):
     created_at: datetime
 
 
+class EdgeDetection(BaseModel):
+    """Detección incluida dentro del Detection Envelope 1.1."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    track_id: int = Field(alias="trackId", ge=0)
+    vehicle_type: VehicleType = Field(alias="vehicleType")
+    confidence: float = Field(ge=0, le=1)
+    first_seen: datetime = Field(alias="firstSeen")
+    last_seen: datetime = Field(alias="lastSeen")
+    direction: Direction
+    bounding_box: tuple[int, int, int, int] = Field(alias="boundingBox")
+    color: str | None
+    make: str | None
+    model: str | None
+    license_plate: str | None = Field(alias="licensePlate")
+
+
+class DetectionEnvelopeV11(BaseModel):
+    """Contrato de publicación edge→centro; aliases conservan el JSON portable."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    schema_version: Literal["1.1"] = Field(alias="schemaVersion")
+    event_id: uuid.UUID = Field(alias="eventId")
+    session_id: uuid.UUID = Field(alias="sessionId")
+    sequence_number: int = Field(alias="sequenceNumber", ge=0)
+    camera_id: str = Field(alias="cameraId", min_length=1, max_length=64)
+    generated_at: datetime = Field(alias="generatedAt")
+    node_version: str = Field(alias="nodeVersion", min_length=1, max_length=64)
+    model: str = Field(min_length=1, max_length=200)
+    model_version: str = Field(alias="modelVersion", min_length=1, max_length=120)
+    model_digest: str | None = Field(default=None, alias="modelDigest", max_length=200)
+    frame_number: int = Field(alias="frameNumber", ge=0)
+    detections: list[EdgeDetection]
+
+
+class IngestResponse(BaseModel):
+    event_id: uuid.UUID
+    status: Literal["accepted", "duplicate"]
+    created_detections: int
+    updated_detections: int
+
+
 class NearbyDeviceRead(BaseModel):
     id: uuid.UUID
     external_id: str

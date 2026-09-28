@@ -1,12 +1,30 @@
 services:
+  backend:
+    build:
+      context: ./apps/backend
+    env_file:
+      - path: ./apps/backend/.env
+        required: false
+    environment:
+      DATABASE_URL: sqlite:////app/data/vigia.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - vigia-backend-data:/app/data
+    restart: unless-stopped
+
   web:
     build:
       context: ./apps/web
     environment:
+      BACKEND_API_URL: http://backend:8000
       VISION_API_URL: http://vision:8001
+      ROAD_ROUTER_URL: ${ROAD_ROUTER_URL:-https://router.project-osrm.org}
     ports:
       - "3000:3000"
     restart: unless-stopped
+    depends_on:
+      - backend
 
   vision:
     profiles: ["vision"]
@@ -19,4 +37,11 @@ services:
       - "8001:8001"
     volumes:
       - ./apps/vision/outputs:/app/outputs
+    environment:
+      VIGIA_CENTRAL_API_URL: http://backend:8000
     restart: unless-stopped
+    depends_on:
+      - backend
+
+volumes:
+  vigia-backend-data:

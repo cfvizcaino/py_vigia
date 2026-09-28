@@ -7,9 +7,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import __version__
 from .config import Settings
 from .db import init_db
-from .routers import detections, devices, queries
+from .routers import detections, devices, ingest, queries
 
 settings = Settings.from_environment()
 
@@ -23,7 +24,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="VIGIA Backend API",
-    version="0.1.0",
+    version=__version__,
     description="Plataforma central modular: dispositivos, detecciones y consultas.",
     lifespan=lifespan,
 )
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 app.include_router(devices.router)
 app.include_router(detections.router)
+app.include_router(ingest.router)
 app.include_router(queries.router)
 
 

@@ -29,6 +29,10 @@ docker compose --profile vision up --build vision
 
 Las detecciones se actualizan en `apps/vision/outputs/detections.json`.
 
+Si `VIGIA_CENTRAL_API_URL` está definido, cada snapshot se guarda primero en `EVENT_OUTBOX` y luego se publica en orden al backend. Los reintentos conservan el mismo `eventId`; el archivo solo se elimina después de un acuse HTTP 2xx.
+
+Para cámaras fuera de la red del servidor, instala el nodo junto a la cámara y conecta **el nodo**, no el RTSP, mediante la [VPN privada documentada](../../docs/operations/remote-camera-vpn.md).
+
 ## Ejecutar sin Docker
 
 La prueba inicial se validó con Python 3.14 y PyTorch en modo CPU. Para evitar descargar varios gigabytes de librerías CUDA, instala primero la distribución CPU de PyTorch.

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vigia.local/schemas/detection-envelope-1.1.json",
+  "title": "VIGIA Detection Envelope",
+  "description": "Evento idempotente publicado por un nodo edge hacia la plataforma central.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "sessionId",
+    "sequenceNumber",
+    "cameraId",
+    "generatedAt",
+    "nodeVersion",
+    "model",
+    "modelVersion",
+    "frameNumber",
+    "detections"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.1" },
+    "eventId": { "type": "string", "format": "uuid" },
+    "sessionId": { "type": "string", "format": "uuid" },
+    "sequenceNumber": { "type": "integer", "minimum": 0 },
+    "cameraId": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "nodeVersion": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "modelVersion": { "type": "string", "minLength": 1 },
+    "modelDigest": { "type": ["string", "null"] },
+    "frameNumber": { "type": "integer", "minimum": 0 },
+    "detections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trackId",
+          "vehicleType",
+          "confidence",
+          "firstSeen",
+          "lastSeen",
+          "direction",
+          "boundingBox",
+          "color",
+          "make",
+          "model",
+          "licensePlate"
+        ],
+        "properties": {
+          "trackId": { "type": "integer", "minimum": 0 },
+          "vehicleType": { "enum": ["car", "motorcycle"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "firstSeen": { "type": "string", "format": "date-time" },
+          "lastSeen": { "type": "string", "format": "date-time" },
+          "direction": {
+            "enum": [
+              "izquierda-a-derecha",
+              "derecha-a-izquierda",
+              "arriba-a-abajo",
+              "abajo-a-arriba",
+              "indeterminada"
+            ]
+          },
+          "boundingBox": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": { "type": "integer", "minimum": 0 }
+          },
+          "color": { "type": ["string", "null"] },
+          "make": { "type": ["string", "null"] },
+          "model": { "type": ["string", "null"] },
+          "licensePlate": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

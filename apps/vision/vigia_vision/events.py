@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -92,8 +93,7 @@ def update_tracks(
         last_seen_monotonic.pop(track_id, None)
 
 
-def write_snapshot(path: Path, camera_id: str, model: str, frame_number: int, tracks: dict[int, TrackState]) -> None:
-    payload = build_snapshot(camera_id, model, frame_number, tracks)
+def write_snapshot_payload(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as temporary:
         json.dump(payload, temporary, ensure_ascii=False, indent=2)
@@ -102,12 +102,43 @@ def write_snapshot(path: Path, camera_id: str, model: str, frame_number: int, tr
     temporary_path.replace(path)
 
 
-def build_snapshot(camera_id: str, model: str, frame_number: int, tracks: dict[int, TrackState]) -> dict[str, Any]:
+def write_snapshot(
+    path: Path,
+    camera_id: str,
+    model: str,
+    frame_number: int,
+    tracks: dict[int, TrackState],
+    **envelope: Any,
+) -> dict[str, Any]:
+    payload = build_snapshot(camera_id, model, frame_number, tracks, **envelope)
+    write_snapshot_payload(path, payload)
+    return payload
+
+
+def build_snapshot(
+    camera_id: str,
+    model: str,
+    frame_number: int,
+    tracks: dict[int, TrackState],
+    *,
+    event_id: str | uuid.UUID | None = None,
+    session_id: str | uuid.UUID | None = None,
+    sequence_number: int | None = None,
+    node_version: str = "0.2.0",
+    model_version: str | None = None,
+    model_digest: str | None = None,
+) -> dict[str, Any]:
     return {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
+        "eventId": str(event_id or uuid.uuid4()),
+        "sessionId": str(session_id or uuid.uuid4()),
+        "sequenceNumber": frame_number if sequence_number is None else sequence_number,
         "cameraId": camera_id,
         "generatedAt": utc_now(),
+        "nodeVersion": node_version,
         "model": model,
+        "modelVersion": model_version or model,
+        "modelDigest": model_digest,
         "frameNumber": frame_number,
         "detections": [track.public_dict() for track in sorted(tracks.values(), key=lambda item: item.track_id)],
     }

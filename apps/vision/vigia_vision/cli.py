@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import time
+import uuid
 from pathlib import Path
 
 from .config import Settings
 from .events import TrackState, update_tracks, write_snapshot
+from .publisher import SnapshotPublisher
 
 COCO_VEHICLE_CLASSES = [2, 3]  # car, motorcycle
 
@@ -59,6 +61,16 @@ def run(args: argparse.Namespace) -> None:
     tracks: dict[int, TrackState] = {}
     last_seen_monotonic: dict[int, float] = {}
     last_write = 0.0
+    session_id = uuid.uuid4()
+    sequence_number = 0
+    publisher = SnapshotPublisher(
+        settings.central_api_url,
+        settings.central_api_token,
+        settings.event_outbox,
+        queue_max=settings.event_queue_max,
+        timeout_seconds=settings.publish_timeout_seconds,
+    )
+    publisher.start()
 
     try:
         for frame_number, result in enumerate(results, start=1):
@@ -66,7 +78,20 @@ def run(args: argparse.Namespace) -> None:
             update_tracks(result, tracks, last_seen_monotonic, now_monotonic, args.retention)
 
             if now_monotonic - last_write >= args.write_every:
-                write_snapshot(output, settings.camera_id, model_name, frame_number, tracks)
+                sequence_number += 1
+                payload = write_snapshot(
+                    output,
+                    settings.camera_id,
+                    model_name,
+                    frame_number,
+                    tracks,
+                    session_id=session_id,
+                    sequence_number=sequence_number,
+                    node_version=settings.node_version,
+                    model_version=settings.model_version,
+                    model_digest=settings.model_digest,
+                )
+                publisher.enqueue(payload)
                 print(f"frame={frame_number} | tracks_activos={len(tracks)} | salida={output}")
                 last_write = now_monotonic
 
@@ -76,7 +101,21 @@ def run(args: argparse.Namespace) -> None:
         print("Detención solicitada por el usuario.")
     finally:
         final_frame = locals().get("frame_number", 0)
-        write_snapshot(output, settings.camera_id, model_name, final_frame, tracks)
+        sequence_number += 1
+        payload = write_snapshot(
+            output,
+            settings.camera_id,
+            model_name,
+            final_frame,
+            tracks,
+            session_id=session_id,
+            sequence_number=sequence_number,
+            node_version=settings.node_version,
+            model_version=settings.model_version,
+            model_digest=settings.model_digest,
+        )
+        publisher.enqueue(payload)
+        publisher.stop()
         print(f"Snapshot final guardado en {output}")
 
 

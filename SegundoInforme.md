@@ -118,7 +118,7 @@ La comunicación se define por mensajes independientes del transporte: `node.hea
 
 El proyecto siguió una estrategia incremental orientada a reducir incertidumbre técnica. La primera iteración validó la conexión RTSP de la Tapo C110 y la ejecución local de detección y tracking. La segunda separó el procesamiento en un servicio FastAPI, protegió credenciales mediante un proxy servidor y agregó una vista web. La tercera construyó el modelo central, el algoritmo puro de rutas, el seed de Barranquilla y sus pruebas.
 
-La iteración más reciente integró la consola con el backend y distinguió explícitamente el modo demostración de los datos centrales. Se incorporaron filtros, conversión horaria de Colombia a UTC, varias rutas candidatas, historial de sesión, exportación JSON, estados de carga y errores, diseño adaptable y pruebas de navegador definidas. Paralelamente, se prepararon herramientas para extraer y etiquetar frames de placas, auditar datasets, conservar divisiones temporales y ejecutar entrenamiento reproducible en Azure Machine Learning.
+La iteración más reciente integró la consola con el backend y distinguió explícitamente el modo demostración de los datos centrales. Se incorporaron filtros, conversión horaria de Colombia a UTC, varias rutas candidatas, historial de sesión, exportación JSON, estados de carga y errores, diseño adaptable y pruebas de navegador definidas. Paralelamente, se prepararon herramientas locales para extraer y etiquetar frames de placas, auditar datasets, conservar divisiones temporales y ejecutar entrenamientos reproducibles.
 
 Las decisiones arquitectónicas se documentaron como ADR. Se eligió una arquitectura híbrida y un monolito modular porque los microservicios completos introducirían fallos distribuidos antes de validar el caso de uso. Se eligió SQLite y Haversine para mantener baja la fricción del prototipo, con una ruta de migración a PostgreSQL/PostGIS cuando el volumen de cámaras y detecciones lo justifique. El algoritmo se aisló como función pura para probarlo sin base de datos.
 
@@ -185,7 +185,7 @@ La alternativa B también ofrece el mejor ajuste al objetivo académico porque p
 | Latencia crítica | Sensible a red y cola central | Inferencia local; centro procesa metadatos | Baja con GPU, depende de la canalización |
 | Throughput esperado | Limitado por decodificación/ancho de banda | Escala agregando nodos; centro recibe mensajes pequeños | Alto, con hardware y configuración especializados |
 | Carga concurrente | Un fallo central afecta captura y consulta | Captura local continúa; consulta central se degrada | Buen procesamiento, mayor complejidad operativa |
-| Dependencia externa | Servidor y almacenamiento centrales | Tecnologías abiertas; Azure solo para entrenamiento opcional | Dependencia fuerte del ecosistema NVIDIA |
+| Dependencia externa | Servidor y almacenamiento centrales | Tecnologías abiertas y entrenamiento local | Dependencia fuerte del ecosistema NVIDIA |
 | Acoplamiento interno | Video, inferencia y consulta unidos | Contrato separa edge, backend y web | Plugins separados, pero ligados a la plataforma |
 | Sustitución | Costosa | Alta si se conserva el contrato | Posible dentro de interfaces del SDK |
 | Fallo parcial | Impacto amplio | Se aísla por nodo o servicio | Aislamiento posible con orquestación |
@@ -235,7 +235,7 @@ flowchart LR
 
 `apps/web` es la consola. Consume dispositivos y consultas por proxies del lado servidor, presenta un mapa de Barranquilla, permite seleccionar cámara, radio, tipo, color, fecha y hora, y muestra hasta varias rutas. El modo demo es explícito y no reemplaza silenciosamente una falla real. El historial conserva veinte consultas en memoria y la exportación JSON informa el origen.
 
-`packages/contracts` contiene el esquema compartido `detection-snapshot-1.0`. `docs/architecture` y `docs/adr` registran límites y decisiones. `azure` y `apps/vision/training` preparan dataset, entrenamiento y evaluación del detector de placas en un clúster GPU que escala a cero cuando no se usa, una capacidad documentada por Azure Machine Learning [13]. Estos componentes soportan experimentación, pero el detector de placas no define el éxito del MVP.
+`packages/contracts` contiene el esquema compartido `detection-snapshot-1.0`. `docs/architecture` y `docs/adr` registran límites y decisiones. `apps/vision/training` reúne herramientas locales para preparar datasets, entrenar y evaluar el detector de placas. Estos componentes soportan experimentación, pero el detector de placas no define el éxito del MVP.
 
 Los componentes pendientes son el adaptador de ingestión, el broker o transporte elegido, la cola local, el agente de actualización, autenticación y observabilidad agregada. También falta incorporar el backend al `compose.yaml`: actualmente el compose levanta web y, opcionalmente, visión, pero no la plataforma central. Esta brecha impide llamar “despliegue integral” al estado actual.
 
@@ -340,7 +340,7 @@ sequenceDiagram
 
 # 11. Implementación y avance actual
 
-El repositorio contiene tres aplicaciones, contratos, documentación y configuración de entrenamiento. La rama local parte del commit `7ea9098` de `develop`, con cambios no confirmados que amplían la consola, el etiquetado de placas y Azure. Por tanto, el informe registra el estado del directorio de trabajo, no solo lo publicado en la rama remota.
+El repositorio contiene tres aplicaciones, contratos, documentación y herramientas locales de entrenamiento. La rama local parte del commit `7ea9098` de `develop`, con cambios no confirmados que amplían la consola y el etiquetado de placas. Por tanto, el informe registra el estado del directorio de trabajo, no solo lo publicado en la rama remota.
 
 El avance más importante es la existencia de un flujo demostrable desde datos centrales hasta la interfaz. El backend puede sembrar cámaras y detecciones, calcular rutas y devolverlas; la web puede consultar el API, representar alternativas y exportar resultados. En paralelo, el nodo físico puede procesar la Tapo y entregar preview, pero aún no publica sus snapshots al backend automáticamente.
 
@@ -352,7 +352,7 @@ El nodo y el backend usan Python. FastAPI proporciona endpoints, validación bas
 
 La consola utiliza Next.js 16.3.1, React 19.2.8, TypeScript 5 y MapLibre GL JS 6.x. Los Route Handlers actúan como backend para el frontend y permiten que URLs y errores internos permanezcan del lado servidor [11]. ESLint valida el código, el ejecutor nativo de Node cubre pruebas unitarias y Playwright define escenarios de navegador.
 
-La persistencia actual es SQLite; PostgreSQL/PostGIS permanece como evolución. Docker y Compose reproducen web y visión, aunque el backend todavía no está incluido. Azure Machine Learning se prepara para entrenamiento de placas con una GPU T4, máximo un nodo, mínimo cero y apagado tras 120 segundos; esta configuración controla costo, pero requiere cuota y un dataset privado correctamente versionado.
+La persistencia actual es SQLite; PostgreSQL/PostGIS permanece como evolución. Docker y Compose reproducen web y visión, aunque el backend todavía no está incluido. El entrenamiento de placas se ejecuta localmente en CPU o GPU, según el equipo disponible, con un dataset privado y correctamente versionado.
 
 ## 11.2 Componentes implementados
 
@@ -368,7 +368,7 @@ La integración cámara-nodo se validó mediante RTSP con una Tapo C110. El nodo
 
 La integración web-backend consume dispositivos y consultas centrales. El proxy normaliza fechas, aplica lista permitida de parámetros, deshabilita caché, limita tiempo de espera y transforma errores sin filtrar trazas internas. La consola no sustituye automáticamente una consulta fallida con datos demo, lo cual conserva la integridad de la evidencia.
 
-La integración con Azure está preparada como infraestructura declarativa, no validada como entrenamiento terminado. Existen scripts para extraer frames, importar YOLO de Roboflow, auditar cajas, conservar splits de manifiesto, construir el dataset y entrenar. El trabajo con placas debe reportarse como preparación experimental hasta que exista ejecución, métricas y peso evaluado sobre test independiente.
+Existen scripts locales para extraer frames, importar YOLO de Roboflow, auditar cajas, conservar splits de manifiesto, construir el dataset y entrenar. El trabajo con placas debe reportarse como preparación experimental hasta que exista ejecución, métricas y peso evaluado sobre un conjunto de prueba independiente.
 
 ## 11.4 Pendientes para la entrega final
 
@@ -388,7 +388,7 @@ La cámara debe estar en la misma red local y disponer de una cuenta RTSP/ONVIF.
 
 La operación preliminar carece de instalación remota automatizada. Para el cierre se propone un paquete de despliegue por nodo con identificador, endpoint central, credenciales de dispositivo, versión deseada y límites de cola. El operador no deberá editar manualmente el contenedor durante una actualización. Cada cambio producirá un registro de inicio, verificación, resultado y versión activa.
 
-El entrenamiento de placas puede ejecutarse localmente o como un *command job* en Azure ML. El dataset se carga como activo privado y el resultado se descarga como artefacto; el clúster escala a cero cuando está inactivo [13]. La ejecución debe guardar commit, datos, hiperparámetros, métricas y peso para que la comparación sea reproducible.
+El entrenamiento de placas se ejecuta localmente con `apps/vision/training/train_plate_detector.py`. La ejecución debe guardar commit, versión de datos, hiperparámetros, métricas y peso para que la comparación sea reproducible; datasets y pesos permanecen fuera de Git.
 
 Antes de un piloto, la operación necesita una lista de verificación: hora sincronizada, credenciales únicas, TLS, usuarios, política de retención, copia de seguridad, prueba de restauración, espacio disponible, temperatura del nodo, estado de cámara y versión. El MVP puede simular algunos controles, pero debe documentar cuáles no están presentes.
 
@@ -478,11 +478,10 @@ La semana final debe congelar versión, repetir todas las pruebas, generar evide
 10. MapLibre. (2026). *MapLibre GL JS Documentation*. <https://maplibre.org/maplibre-gl-js/docs/>
 11. Next.js. (2026). *Route Handlers*. <https://nextjs.org/docs/app/getting-started/route-handlers>
 12. OASIS. (2019). *MQTT Version 5.0*. <https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html>
-13. Microsoft. (2026). *Create compute clusters - Azure Machine Learning*. <https://learn.microsoft.com/en-us/azure/machine-learning/how-to-create-attach-compute-cluster?view=azureml-api-2>
-14. VIGIA. (2026). [Primer informe](./PrimerInforme.md).
-15. VIGIA. (2026). [Arquitectura del sistema](./docs/architecture/overview.md).
-16. VIGIA. (2026). [ADR-001: plataforma central modular y nodos edge](./docs/adr/001-hybrid-edge-architecture.md).
-17. VIGIA. (2026). [ADR-002: backend central, modelo de datos y reconstrucción de rutas](./docs/adr/002-backend-central.md).
-18. VIGIA. (2026). [Modelo de datos del backend](./docs/architecture/data-model.md).
-19. VIGIA. (2026). [Estrategia para detectar y leer placas](./docs/modeling/license-plates.md).
-20. VIGIA. (2026). [Contrato Detection Snapshot 1.0](./packages/contracts/detection-snapshot.schema.json).
+13. VIGIA. (2026). [Primer informe](./PrimerInforme.md).
+14. VIGIA. (2026). [Arquitectura del sistema](./docs/architecture/overview.md).
+15. VIGIA. (2026). [ADR-001: plataforma central modular y nodos edge](./docs/adr/001-hybrid-edge-architecture.md).
+16. VIGIA. (2026). [ADR-002: backend central, modelo de datos y reconstrucción de rutas](./docs/adr/002-backend-central.md).
+17. VIGIA. (2026). [Modelo de datos del backend](./docs/architecture/data-model.md).
+18. VIGIA. (2026). [Estrategia para detectar y leer placas](./docs/modeling/license-plates.md).
+19. VIGIA. (2026). [Contrato Detection Snapshot 1.0](./packages/contracts/detection-snapshot.schema.json).
