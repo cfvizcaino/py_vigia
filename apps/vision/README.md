@@ -33,6 +33,8 @@ Si `VIGIA_CENTRAL_API_URL` está definido, cada snapshot se guarda primero en `E
 
 Para cámaras fuera de la red del servidor, instala el nodo junto a la cámara y conecta **el nodo**, no el RTSP, mediante la [VPN privada documentada](../../docs/operations/remote-camera-vpn.md).
 
+El backend exige una [credencial individual por cámara](../../docs/operations/device-credentials.md). Emítela después de registrar el dispositivo e incorpora el secreto en `VIGIA_CENTRAL_API_TOKEN`; el antiguo token compartido no funciona en el modo predeterminado. Reinicia el nodo al cambiar su configuración.
+
 ## Ejecutar sin Docker
 
 La prueba inicial se validó con Python 3.14 y PyTorch en modo CPU. Para evitar descargar varios gigabytes de librerías CUDA, instala primero la distribución CPU de PyTorch.

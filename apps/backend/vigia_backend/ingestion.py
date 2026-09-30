@@ -30,15 +30,17 @@ class IngestionResult:
 
 def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> IngestionResult:
     """Inserta un evento una vez y actualiza tracks repetidos sin duplicarlos."""
+    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
+    if device is None:
+        raise DeviceNotFoundError(f"Unknown cameraId: {payload.camera_id}")
+
     existing_event = db.scalar(
         select(IngestedEvent).where(IngestedEvent.event_id == payload.event_id)
     )
     if existing_event is not None:
+        if existing_event.device_id != device.id or existing_event.session_id != payload.session_id:
+            raise SequenceConflictError("eventId belongs to another camera or session")
         return IngestionResult(payload.event_id, True, 0, 0)
-
-    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
-    if device is None:
-        raise DeviceNotFoundError(f"Unknown cameraId: {payload.camera_id}")
 
     sequence_owner = db.scalar(
         select(IngestedEvent).where(
