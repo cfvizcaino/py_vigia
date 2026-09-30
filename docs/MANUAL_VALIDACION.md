@@ -10,7 +10,7 @@ Este manual deja reproducible el incremento P0.1–P0.3 antes de comenzar P0.4. 
 - FFmpeg/ffprobe para diagnosticar RTSP.
 - Una cuenta de cámara creada en la aplicación Tapo.
 - Docker Compose, solo si se usará el arranque en contenedores.
-- Acceso a Internet para descargar dependencias, el peso YOLO inicial y consultar el OSRM público de desarrollo.
+- Acceso a Internet para descargar dependencias, el peso YOLO inicial y el extracto OSM para el enrutador propio.
 
 Comprueba las herramientas:
 
@@ -38,10 +38,11 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 cp .env.example .env
 python -m vigia_backend.seed
+python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
 ```
 
-En `apps/backend/.env`, reemplaza `INGEST_API_TOKEN` por un secreto largo de desarrollo. El seed reinicia exclusivamente la base configurada en `DATABASE_URL`; no lo ejecutes sobre datos que necesites conservar.
+Conserva `INGEST_AUTH_MODE=device` en `apps/backend/.env`. El comando de credenciales escribe el secreto en `.env.cam01-token` (0600); incorpora ese valor en el `.env` de visión. No repitas el seed después de emitirlo: el seed reinicia la base configurada en `DATABASE_URL` e invalida credenciales de los dispositivos recreados. No lo ejecutes sobre datos que necesites conservar. Si ya tienes entornos o `.env`, actualízalos sin sobrescribir tu configuración.
 
 Resultado esperado:
 
@@ -71,7 +72,7 @@ TAPO_PASSWORD=CONTRASENA_DE_CAMARA
 TAPO_STREAM=stream1
 VIGIA_CAMERA_ID=CAM-01
 VIGIA_CENTRAL_API_URL=http://127.0.0.1:8000
-VIGIA_CENTRAL_API_TOKEN=EL_MISMO_TOKEN_DEL_BACKEND
+VIGIA_CENTRAL_API_TOKEN=TOKEN_INDIVIDUAL_EMITIDO_PARA_CAM01
 ```
 
 Luego inicia el servicio:
@@ -130,7 +131,7 @@ Selecciona cada ruta y verifica que:
 - si OSRM no está disponible, aparezca **Estimación directa; enrutador vial no disponible** y la línea sea discontinua;
 - la exportación JSON y el historial de la sesión funcionen.
 
-El OSRM público es solo para desarrollo. Antes de un piloto debe configurarse `ROAD_ROUTER_URL` con una instancia propia o un proveedor con SLA.
+OSRM puede usarse en producción autogestionado sin cobro por consulta. Sigue [la receta local](./operations/osrm-self-hosted.md): preparar el extracto, procesarlo e iniciar el perfil `routing`. La web usa `http://127.0.0.1:5000` localmente y `http://osrm:5000` en Compose. Sin ese servicio se verá el fallback identificado. El demo público no es una dependencia de producción.
 
 ### 3.2 Cámara y publicación edge→centro
 
@@ -155,17 +156,17 @@ La aceptación es que la cola vuelva a cero, `lastDeliveredAt` se actualice y el
 
 ### 3.4 Sede remota mediante VPN
 
-La cámara y el edge permanecen juntos en la LAN remota; solo el edge entra a la VPN. No expongas RTSP/554 ni uses Tailscale Funnel.
+La cámara y el edge permanecen juntos en la LAN remota; solo el edge entra a WireGuard autogestionado. No se requiere una suscripción por cámara. La conectividad entrante del centro está por confirmar.
 
 Sigue [la guía de VPN](./operations/remote-camera-vpn.md) y valida desde el edge:
 
 ```bash
-tailscale status
-tailscale ping vigia-central
-curl -fsS https://vigia-central.NOMBRE-TAILNET.ts.net/health
+sudo wg show wg-vigia latest-handshakes
+curl --max-time 5 -fsS http://10.77.0.1:8443/health
+curl --max-time 5 -i http://10.77.0.1:8443/api/v1/devices
 ```
 
-El nodo debe publicar por el nombre MagicDNS del centro. La política incluida permite edge→centro en HTTPS, niega edge→edge y reserva la administración al grupo autorizado.
+Esperado: handshake reciente, salud 200 y CRUD 404. El proxy del centro solo admite ingestión/salud dentro del túnel cifrado. El firewall descarta edge→edge; preview remoto no se habilita por defecto. Sigue la guía para instalación, persistencia y comprobaciones de aislamiento.
 
 ## 4. Arranque con Docker Compose
 
@@ -174,6 +175,10 @@ Crea primero los dos `.env` y completa las credenciales como en el arranque loca
 ```bash
 docker compose up --build -d backend web
 docker compose exec backend python -m vigia_backend.seed
+docker compose exec backend python -m vigia_backend.device_credentials issue --camera CAM-01 --output /app/data/.env.cam01-token
+docker compose cp backend:/app/data/.env.cam01-token apps/vision/.env.cam01-token
+chmod 600 apps/vision/.env.cam01-token
+# Incorporar el token emitido en apps/vision/.env antes del siguiente comando.
 docker compose --profile vision up --build -d vision
 docker compose ps
 ```
@@ -210,6 +215,12 @@ source .venv/bin/activate
 python -m unittest discover -s tests -v
 ```
 
+Configuración VPN (desde la raíz, no modifica interfaces ni firewall):
+
+```bash
+python3 -m unittest discover -s infra/wireguard -p 'test_*.py' -v
+```
+
 Web:
 
 ```bash
@@ -242,8 +253,9 @@ ffprobe -rtsp_transport tcp 'rtsp://USUARIO:CONTRASENA@IP:554/stream1'
 - `MODEL_LOAD_ERROR`: peso ausente/incompatible o fallo durante la descarga inicial.
 - `DEPENDENCY_ERROR`: entorno virtual incompleto.
 - `PROCESSING_ERROR`: revisa el log del nodo; suele ser decodificación o inferencia.
-- `publisher.pendingEvents` no baja: verifica URL central, token compartido, VPN y `/health` del backend.
-- HTTP 401 al ingerir: `VIGIA_CENTRAL_API_TOKEN` e `INGEST_API_TOKEN` no coinciden.
+- `publisher.pendingEvents` no baja: verifica URL central, token individual, VPN y `/health` del backend.
+- HTTP 401 al ingerir: token ausente, desconocido, revocado o vencido; emite/instala uno válido.
+- HTTP 403 al ingerir: el token pertenece a una cámara distinta de `VIGIA_CAMERA_ID`.
 - HTTP 404 al ingerir: el `VIGIA_CAMERA_ID` no existe en el backend; ejecuta el seed o registra el dispositivo.
 - Ruta recta discontinua: OSRM no respondió; revisa `ROAD_ROUTER_URL` y la conectividad saliente.
 
@@ -259,4 +271,4 @@ P0.1–P0.3 quedan listos en código cuando todas estas casillas están verifica
 - suites automatizadas en verde;
 - secretos y artefactos fuera de Git.
 
-La validación física prolongada de VPN/cámara sigue siendo evidencia de campo, no una condición que pueda sustituirse con tests locales. Cumplido lo anterior, P0.4 comienza con migraciones, usuarios, roles `operator`/`admin`, protección de consultas/preview/exportaciones, auditoría y tokens revocables por nodo.
+La validación física prolongada de VPN/cámara sigue pendiente de evidencia de campo. P0.4 ya incorpora tokens revocables por nodo y auditoría de credenciales; continúa con migraciones, usuarios, roles `operator`/`admin` y protección/auditoría de consultas, preview y exportaciones.

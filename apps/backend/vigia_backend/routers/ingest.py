@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..db import get_db
+from ..device_credentials import authenticate
+from ..models import SecurityAudit
 from ..ingestion import DeviceNotFoundError, SequenceConflictError, ingest_detection_envelope
 from ..schemas import DetectionEnvelopeV11, IngestResponse
 
@@ -16,12 +18,22 @@ router = APIRouter(prefix="/api/v1/ingest", tags=["ingest"])
 settings = Settings.from_environment()
 
 
-def verify_device_token(x_vigia_device_token: str | None = Header(default=None)) -> None:
-    expected = settings.ingest_api_token
-    if expected is None:
-        return
-    if x_vigia_device_token is None or not secrets.compare_digest(x_vigia_device_token, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid device token")
+def verify_device_token(
+    payload: DetectionEnvelopeV11,
+    x_vigia_device_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> None:
+    if settings.ingest_auth_mode == "legacy":
+        expected = settings.ingest_api_token
+        allowed = bool(expected and x_vigia_device_token and secrets.compare_digest(x_vigia_device_token.encode(), expected.encode()))
+        reason = "invalid"
+    else:
+        allowed, reason = authenticate(db, x_vigia_device_token, payload.camera_id)
+    if not allowed:
+        db.add(SecurityAudit(action="ingest.denied", camera_id=payload.camera_id, outcome=reason))
+        db.commit()
+        code = status.HTTP_403_FORBIDDEN if reason == "wrong_camera" else status.HTTP_401_UNAUTHORIZED
+        raise HTTPException(status_code=code, detail="Device credential rejected")
 
 
 @router.post(

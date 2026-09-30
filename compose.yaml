@@ -8,7 +8,7 @@ services:
     environment:
       DATABASE_URL: sqlite:////app/data/vigia.db
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - vigia-backend-data:/app/data
     restart: unless-stopped
@@ -19,9 +19,9 @@ services:
     environment:
       BACKEND_API_URL: http://backend:8000
       VISION_API_URL: http://vision:8001
-      ROAD_ROUTER_URL: ${ROAD_ROUTER_URL:-https://router.project-osrm.org}
+      ROAD_ROUTER_URL: ${ROAD_ROUTER_URL:-http://osrm:5000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     restart: unless-stopped
     depends_on:
       - backend
@@ -34,7 +34,7 @@ services:
       - path: ./apps/vision/.env
         required: false
     ports:
-      - "8001:8001"
+      - "127.0.0.1:8001:8001"
     volumes:
       - ./apps/vision/outputs:/app/outputs
     environment:
@@ -42,6 +42,19 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+
+  osrm:
+    profiles: ["routing"]
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/region.osrm"]
+    volumes:
+      - ./infra/osrm/data:/data:ro,z
+    ports:
+      - "127.0.0.1:5000:5000"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
 
 volumes:
   vigia-backend-data:

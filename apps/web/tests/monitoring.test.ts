@@ -81,3 +81,18 @@ test("road geometry keeps an explicit straight-line fallback when routing is una
   assert.equal(geometry.source, "camera-chord");
   assert.deepEqual(geometry.points, points);
 });
+
+test("unconfigured routing uses the local service and never the public demo", async (context) => {
+  const previous = process.env.ROAD_ROUTER_URL;
+  delete process.env.ROAD_ROUTER_URL;
+  let requested = "";
+  context.mock.method(globalThis, "fetch", async (url: string) => { requested = String(url); throw new Error("local unavailable"); });
+  try {
+    const geometry = await resolveRoadGeometry([{ lng: -74.8172, lat: 11.0131 }, { lng: -74.8148, lat: 11.011 }]);
+    assert.equal(new URL(requested).origin, "http://127.0.0.1:5000");
+    assert.equal(geometry.source, "camera-chord");
+  } finally {
+    if (previous === undefined) delete process.env.ROAD_ROUTER_URL;
+    else process.env.ROAD_ROUTER_URL = previous;
+  }
+});

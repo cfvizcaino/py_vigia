@@ -38,12 +38,16 @@ Configura las URLs en `.env.local` si los servicios usan otros puertos:
 ```dotenv
 BACKEND_API_URL=http://127.0.0.1:8000
 VISION_API_URL=http://127.0.0.1:8001
-ROAD_ROUTER_URL=https://router.project-osrm.org
+ROAD_ROUTER_URL=http://127.0.0.1:5000
 ```
 
 Los valores son del servidor; las direcciones internas y credenciales RTSP no se
 publican al navegador. En contenedores, usa nombres de servicio accesibles desde
 el contenedor web, no `127.0.0.1`.
+
+El enrutador por defecto es local. Para preparar los datos y arrancarlo consulta
+[OSRM autogestionado](../../docs/operations/osrm-self-hosted.md). Si aún no está
+disponible, se muestra el fallback explícito sin enviar coordenadas a un proveedor externo.
 
 Inicia el backend siguiendo [su guía](../backend/README.md). Su seed contiene datos
 del **25 de agosto de 2026, desde las 09:30 de Colombia**. El botón **Cargar escenario

@@ -45,3 +45,9 @@ htmlcov/
 *.db-wal
 *.sqlite
 *.sqlite3
+
+# Infraestructura privada y extractos/cartografía procesada
+/infra/wireguard/private/
+/infra/osrm/data/
+*.osm.pbf
+*.osrm.*

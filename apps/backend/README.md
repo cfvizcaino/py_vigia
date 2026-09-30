@@ -11,6 +11,7 @@ Modelo alineado con [docs/architecture/data-model.md](../../docs/architecture/da
 - Algoritmo puro de rutas (`vigia_backend.routing.reconstruct_routes`) con tests.
 - Consulta `GET /api/v1/queries`: Haversine → detecciones → rutas candidatas (persistidas).
 - Ingestión `POST /api/v1/ingest/detections`: Detection Envelope 1.1, eventos idempotentes y actualización de tracks repetidos.
+- Credenciales individuales: emisión/revocación por CLI local, vigencia, hash y auditoría. [Guía operativa](../../docs/operations/device-credentials.md).
 - Decisiones: [ADR-002](../../docs/adr/002-backend-central.md).
 
 ## Ejecutar localmente
@@ -25,6 +26,7 @@ python -m venv .venv
 pip install -r requirements.txt
 cp .env.example .env
 python -m vigia_backend.seed
+python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
 ```
 

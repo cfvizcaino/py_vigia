@@ -21,7 +21,8 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 | Backend central (CRUD + consultas de rutas) | Funcional en `apps/backend` (SQLite; seed Barranquilla) |
 | Ingestión edge→centro | Detection Envelope 1.1, cola persistente y deduplicación |
 | Ruta sobre calles | OSRM configurable con fallback identificado |
-| VPN para sedes remotas | Diseño Tailscale/WireGuard y política de mínimo privilegio documentados |
+| VPN para sedes remotas | WireGuard autogestionado, generador e aislamiento; pendiente validación entre redes |
+| Identidad de nodos | Tokens por cámara con caducidad, revocación y hash; P0.4 en curso |
 | PostGIS y MQTT | Próximo hito |
 | Integración web con API central | Dispositivos, filtros, rutas candidatas, historial de sesión y exportación JSON |
 
@@ -85,7 +86,7 @@ Las horas de la consola corresponden a Colombia (UTC−5).
 docker compose --profile vision up --build
 ```
 
-Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Después del primer arranque, carga el escenario de desarrollo con `docker compose exec backend python -m vigia_backend.seed`. PostGIS y MQTT permanecen fuera hasta cerrar los hitos P0/P1.
+Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Después del primer arranque, carga el escenario de desarrollo con `docker compose exec backend python -m vigia_backend.seed` y emite la [credencial del nodo](./docs/operations/device-credentials.md). El perfil `routing` añade [OSRM propio](./docs/operations/osrm-self-hosted.md) tras preparar el extracto regional. Todos los puertos publicados escuchan solo en loopback. PostGIS y MQTT permanecen fuera hasta cerrar los hitos P0/P1.
 
 ## Documentación
 
@@ -94,6 +95,8 @@ Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Des
 - [Manual de arranque y validación](./docs/MANUAL_VALIDACION.md)
 - [Roadmap priorizado](./docs/ROADMAP.md)
 - [VPN para cámaras remotas](./docs/operations/remote-camera-vpn.md)
+- [OSRM propio sin cobro por consulta](./docs/operations/osrm-self-hosted.md)
+- [Credenciales individuales de nodos](./docs/operations/device-credentials.md)
 - [Arquitectura](./docs/architecture/overview.md)
 - [ADR-001: arquitectura híbrida](./docs/adr/001-hybrid-edge-architecture.md)
 - [ADR-002: backend central y rutas](./docs/adr/002-backend-central.md)
