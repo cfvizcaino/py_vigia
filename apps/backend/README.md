@@ -25,12 +25,17 @@ python -m venv .venv
 # source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+python -m vigia_backend.migrate upgrade
 python -m vigia_backend.seed
 python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
 ```
 
 Abrir docs interactivas: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+Para una base MVP existente, usar [adopción con respaldo](../../docs/operations/database-migrations.md) en lugar de seed. El arranque ya no crea tablas automáticamente.
+
+El ranking compara alternativas viales con pesos explícitos y conserva su geometría. Consulta [la fórmula y sus límites](../../docs/architecture/weighted-routes.md) y [cómo sincronizar OSRM](../../docs/operations/osrm-self-hosted.md).
 
 ## Endpoints
 

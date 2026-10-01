@@ -12,8 +12,8 @@ Primero se cierra un flujo vertical medible: cámara → edge → VPN → backen
 |---:|---|---|---|
 | 1 | P0.1 Ingestión edge→centro | Flujo con cámara real comprobado el 28/09; falta ensayo prolongado | Un evento real aparece una vez en backend aunque se reenvíe |
 | 2 | P0.2 VPN por nodo edge | WireGuard autogestionado preparado y generador probado; endpoint público por confirmar | Handshake entre redes, cámara privada y aislamiento entre nodos |
-| 3 | P0.3 Ruta ajustada a calles | Adaptador probado; servicio OSRM local y procesamiento preparados; falta grafo real | La línea sigue la red vial y declara cuándo no pudo hacerlo |
-| 4 | P0.4 Autenticación y auditoría | En curso: tokens por cámara, caducidad/revocación y auditoría de credenciales implementados | Operador/admin separados; preview, consulta y exportación protegidos |
+| 3 | P0.3 Ruta ajustada a calles | OSRM probado en Docker con extracto real; alternativas dirigidas, pesos y geometría evaluada; falta cobertura/evaluación independiente | La línea sigue la red vial y declara cuándo no pudo hacerlo |
+| 4 | P0.4 Autenticación y auditoría | Tokens por cámara, auditoría de credenciales y migraciones Alembic con adopción/backup probados | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | Pendiente | Versión válida activa; versión defectuosa revierte automáticamente |
 | 6 | P1.1 Evaluación independiente | Pendiente | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Pendiente | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
@@ -38,17 +38,17 @@ Primero se cierra un flujo vertical medible: cámara → edge → VPN → backen
 - Ejecutar cámara real + backend durante una sesión prolongada.
 - Cortar conectividad cinco minutos y registrar cola, recuperación y latencia.
 - Automatizar entrega/rotación de credenciales; su emisión individual y revocación local ya están implementadas.
-- Revisar las cámaras restantes con OSRM `nearest`; CAM-01→CAM-02 ya devolvió una geometría válida sobre Carrera 58 (354,4 m).
+- Ampliar el extracto al área metropolitana; los cuatro `nearest`, doce pares dirigidos y `Table` 4×4 ya pasaron en Docker con calles reales.
 - Confirmar acceso UDP al centro o infraestructura institucional de relay; el usuario todavía no conoce la conectividad disponible.
-- Construir y validar el grafo regional del OSRM propio. No depender de planes gratuitos con cuotas comerciales ni de infraestructura pagada obligatoria.
+- Validar pesos con recorridos independientes y tráfico/paradas: el seed usa tiempos supuestos que no siempre son compatibles con el nuevo grafo. No confundir puntajes con probabilidades calibradas.
 
 ## Incremento en curso: P0.4
 
-Primer corte terminado: `INGEST_AUTH_MODE=device` rechaza acceso anónimo y tokens comunes, vincula el token a `cameraId`, revoca y registra operaciones de credenciales. Se crean tablas aditivas con `create_all`; esto no sustituye migraciones versionadas. [Operación de credenciales](./operations/device-credentials.md).
+Primer corte terminado: `INGEST_AUTH_MODE=device` vincula tokens revocables a cámaras y registra operaciones. Segundo corte: Alembic `0001`/`0002`, arranque que exige revisión vigente, adopción del MVP solo tras validar esquema y crear backup 0600; no se usa `create_all` operativo. [Credenciales](./operations/device-credentials.md) · [Migraciones](./operations/database-migrations.md).
 
 Pendiente para cerrar P0.4:
 
-1. Migraciones Alembic para las tablas nuevas.
+1. Integrar las futuras tablas de usuarios/sesiones mediante nuevas revisiones Alembic.
 2. Usuarios con hash de contraseña o proveedor OIDC.
 3. Roles `operator` y `admin` aplicados en backend, no solo en interfaz.
 4. Auditoría de consultas, exportaciones, previews y comandos.
@@ -61,12 +61,12 @@ La última condición ya tiene pruebas HTTP. Las otras dos siguen pendientes; no
 ## Orden de ejecución siguiente
 
 1. Conectividad: confirmar IP/puerto UDP y validar dos redes con [WireGuard](./operations/remote-camera-vpn.md).
-2. Cartografía: preparar extracto regional y validar [OSRM propio](./operations/osrm-self-hosted.md).
-3. Continuar P0.4: migraciones, sesiones de personas, roles y auditoría de uso.
+2. Cartografía: ampliar cobertura y evaluar [ranking ponderado](./architecture/weighted-routes.md) con recorridos independientes; OSRM local ya responde.
+3. Continuar P0.4: sesiones de personas, roles y auditoría de uso.
 4. Medir desconexión de cinco minutos y carga 4/10/25 nodos; dimensionar con evidencia antes de declarar escalabilidad.
 
 ## Decisión sobre geometría de rutas
 
 El algoritmo de correlación decide qué secuencia de cámaras es plausible; OSRM calcula una geometría conducible entre esas cámaras usando la red de OpenStreetMap. Esa línea no demuestra la calle realmente recorrida: representa el camino vial más plausible para visualizar la hipótesis. Cuando OSRM no está disponible, la consola muestra una unión directa discontinua y la etiqueta como estimación.
 
-En la siguiente iteración el backend debe usar OSRM Table para recalcular `device_links` y alimentar al correlador con distancias/tiempos viales reales. Si más adelante existen puntos GPS intermedios, se usará OSRM Match; no corresponde usar map matching con solo posiciones fijas de cámaras.
+El backend ya sincroniza `device_links` desde OSRM Route con alternativas, distancias, tiempos y geometría. Se usa Route en lugar de Table para conservar las opciones completas; Table se valida como matriz de referencia. La consola consume la geometría puntuada, no recalcula siempre el camino rápido. Si existen trazas GPS intermedias se evaluará Match. La dirección de imagen se excluye hasta calibrar cámara→vía.

@@ -167,6 +167,8 @@ class RouteCandidateRead(BaseModel):
     vehicle_type: str
     color: str | None
     detections: list[RouteDetectionHop]
+    explanation: dict = Field(default_factory=dict)
+    road_geometry: dict | None = None
 
 
 class QueryRead(BaseModel):

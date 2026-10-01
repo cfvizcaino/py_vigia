@@ -59,7 +59,7 @@ La auditoría registra emisión, revocación y rechazo, sin secretos ni payloads
 
 ## Migrar el MVP anterior
 
-Hacer copia de la base antes del cambio. Las nuevas tablas son aditivas y se crean con el mecanismo `create_all` vigente; aún faltan migraciones versionadas Alembic. Emitir credenciales para los nodos registrados y desplegarlas antes de reiniciar el backend en modo `device`.
+Actualizar el esquema mediante [migraciones Alembic y adopción con respaldo](./database-migrations.md) antes del cambio. Emitir credenciales para los nodos registrados y desplegarlas antes de reiniciar el backend en modo `device`. El arranque ya no utiliza `create_all`.
 
 Solo si hace falta una transición controlada, `INGEST_AUTH_MODE=legacy` conserva el token común no vacío. No admite ingestión anónima y no cumple aislamiento por cámara. Retirar ese modo al terminar la migración. La instalación nueva nunca necesita `legacy`.
 

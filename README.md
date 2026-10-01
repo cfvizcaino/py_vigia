@@ -20,9 +20,10 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 | Preview seguro en la web | Implementado mediante API y proxy |
 | Backend central (CRUD + consultas de rutas) | Funcional en `apps/backend` (SQLite; seed Barranquilla) |
 | Ingestión edge→centro | Detection Envelope 1.1, cola persistente y deduplicación |
-| Ruta sobre calles | OSRM configurable con fallback identificado |
+| Ruta sobre calles | OSRM propio probado en Docker; alternativas dirigidas y ranking ponderado explicable |
 | VPN para sedes remotas | WireGuard autogestionado, generador e aislamiento; pendiente validación entre redes |
 | Identidad de nodos | Tokens por cámara con caducidad, revocación y hash; P0.4 en curso |
+| Migraciones de base | Alembic con adopción validada y respaldo del MVP; usuarios/roles aún pendientes |
 | PostGIS y MQTT | Próximo hito |
 | Integración web con API central | Dispositivos, filtros, rutas candidatas, historial de sesión y exportación JSON |
 
@@ -83,10 +84,12 @@ Las horas de la consola corresponden a Colombia (UTC−5).
 ### Docker
 
 ```bash
+docker compose build backend
+docker compose run --rm backend python -m vigia_backend.migrate upgrade
 docker compose --profile vision up --build
 ```
 
-Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Después del primer arranque, carga el escenario de desarrollo con `docker compose exec backend python -m vigia_backend.seed` y emite la [credencial del nodo](./docs/operations/device-credentials.md). El perfil `routing` añade [OSRM propio](./docs/operations/osrm-self-hosted.md) tras preparar el extracto regional. Todos los puertos publicados escuchan solo en loopback. PostGIS y MQTT permanecen fuera hasta cerrar los hitos P0/P1.
+Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Si ya existe una base MVP, utiliza [adopción con respaldo](./docs/operations/database-migrations.md) en vez de upgrade directo. Solo para una base nueva de prueba, carga el seed y emite la [credencial del nodo](./docs/operations/device-credentials.md). El perfil `routing` añade [OSRM propio](./docs/operations/osrm-self-hosted.md); después sincroniza las alternativas de las cámaras. El [ranking ponderado](./docs/architecture/weighted-routes.md) devuelve su explicación y geometría. Los puertos se configuran en loopback; verificar también los sockets efectivos del host. PostGIS y MQTT permanecen fuera hasta cerrar P0/P1.
 
 ## Documentación
 

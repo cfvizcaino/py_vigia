@@ -102,6 +102,9 @@ class DeviceLink(Base):
     from_device_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("devices.id"), nullable=False)
     to_device_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("devices.id"), nullable=False)
     road_distance_m: Mapped[float] = mapped_column(Float, nullable=False)
+    road_options: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    road_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    road_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Detection(Base):

@@ -19,7 +19,9 @@ from .models import (
     RouteResultDetection,
     User,
 )
-from .routing import DetectionPoint, RouteCandidate, reconstruct_routes
+from .routing import DetectionPoint, RoadOption, RouteCandidate, RoutingConfig, reconstruct_routes
+import json
+import os
 
 
 @dataclass(frozen=True)
@@ -57,15 +59,15 @@ def find_nearby_devices(db: Session, lat: float, lng: float, radius_m: float) ->
     return nearby
 
 
-def load_road_links_m(db: Session, device_ids: set[uuid.UUID]) -> dict[tuple[str, str], float]:
+def load_road_links_m(db: Session, device_ids: set[uuid.UUID]) -> dict:
     """Mapa (external_id_a, external_id_b) → metros; solo entre dispositivos candidatos."""
     if not device_ids:
         return {}
     devices = {
-        d.id: d.external_id
+        d.id: d
         for d in db.scalars(select(Device).where(Device.id.in_(device_ids))).all()
     }
-    links: dict[tuple[str, str], float] = {}
+    links = {}
     for link in db.scalars(
         select(DeviceLink).where(
             DeviceLink.from_device_id.in_(device_ids),
@@ -75,7 +77,14 @@ def load_road_links_m(db: Session, device_ids: set[uuid.UUID]) -> dict[tuple[str
         a = devices.get(link.from_device_id)
         b = devices.get(link.to_device_id)
         if a and b:
-            links[(a, b)] = link.road_distance_m
+            if link.road_source == "osrm":
+                endpoints = [[a.lng, a.lat], [b.lng, b.lat]]
+                links[(a.external_id, b.external_id)] = [
+                    RoadOption(**{key: item[key] for key in ("distance_m", "duration_s", "weight", "geometry", "source", "option_index")})
+                    for item in (link.road_options or []) if item.get("endpoints") == endpoints
+                ]
+            else:
+                links[(a.external_id, b.external_id)] = link.road_distance_m
     return links
 
 
@@ -143,6 +152,8 @@ def persist_route_results(
                 "vehicle_type": route.vehicle_type,
                 "color": route.color,
                 "detection_ids": list(route.detection_ids),
+                "explanation": route.explanation,
+                "road_geometry": route.road_geometry,
             },
         )
         db.add(row)
@@ -189,6 +200,7 @@ def execute_query(
         links,
         vehicle_type=vehicle_type,
         color=color,
+        config=RoutingConfig(**json.loads(os.getenv("ROUTING_CONFIG_JSON", "{}"))),
     )
 
     query = Query(

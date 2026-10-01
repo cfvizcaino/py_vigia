@@ -9,6 +9,17 @@
   --orange: #ff9a62;
   --font: "Aptos", "Segoe UI", Arial, sans-serif;
 }
+
+.route-evidence { margin: 0 20px 16px; border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; line-height: 1.6; }
+.route-evidence summary { cursor: pointer; color: var(--teal); padding: 4px 0; }
+.route-evidence summary:focus-visible { outline: 2px solid var(--orange); outline-offset: 4px; }
+.route-evidence p { color: var(--muted); max-width: 70ch; }
+.route-evidence dl { margin: 16px 0; }
+.route-evidence dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.route-evidence dd { margin: 0; font-variant-numeric: tabular-nums; }
+.route-evidence ol { padding-left: 20px; }
+.route-evidence li { margin-top: 12px; }
+.route-evidence li span { display: block; color: var(--muted); }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 14px; }
 button, input, select { font: inherit; }
