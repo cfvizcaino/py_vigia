@@ -58,6 +58,11 @@ Pendiente para declarar P0.4 cerrado en operación:
 
 No declarar la aplicación apta para exposición pública solo por tener VPN y login.
 
+## Base del piloto (08/10/2026)
+
+- PostgreSQL 17 en Compose con respaldo `pg_dump`, prueba de restauración y pruebas específicas; corrige reintentos concurrentes de ingestión que antes daban 500. [Guía](./operations/postgres.md).
+- Dataset sintético de puntajes con verdad de terreno y evaluador (recall@k, Jaccard, enlaces falsos), en una consola aislada. Primer resultado: recall@1 0,286, recall@3 0,429, enlaces falsos 0,26. Hallazgo: el top-k no diversifica y en hora pico no recupera trayectorias. [Dataset](./operations/scoring-dataset.md). Es una base para P1.1, no su evaluación independiente.
+
 ## Orden de ejecución siguiente
 
 1. Conectividad: confirmar IP/puerto UDP y validar dos redes con [WireGuard](./operations/remote-camera-vpn.md).

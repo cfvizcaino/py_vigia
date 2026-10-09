@@ -18,14 +18,15 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 | Tapo C110 | Conexión RTSP validada |
 | Detección y tracking | Línea base funcional con YOLO + ByteTrack |
 | Preview seguro en la web | Implementado mediante API y proxy |
-| Backend central (CRUD + consultas de rutas) | Funcional en `apps/backend` (SQLite; seed Barranquilla) |
+| Backend central (CRUD + consultas de rutas) | Funcional en `apps/backend`; PostgreSQL 17 en Compose, SQLite para desarrollo y pruebas |
+| Dataset de puntajes | 10 escenarios sintéticos con verdad de terreno y evaluador recall@k / enlaces falsos |
 | Ingestión edge→centro | Detection Envelope 1.1, cola persistente y deduplicación |
 | Ruta sobre calles | OSRM propio probado en Docker; alternativas dirigidas y ranking ponderado explicable |
 | VPN para sedes remotas | WireGuard autogestionado, generador e aislamiento; pendiente validación entre redes |
 | Identidad de nodos | Tokens por cámara con caducidad, revocación y hash; emisión por CLI o API admin |
 | Acceso de personas | Login, sesiones revocables, roles `operator`/`admin` en backend y auditoría de uso |
 | Migraciones de base | Alembic `0001`–`0003` con adopción validada y respaldo del MVP |
-| PostGIS y MQTT | Próximo hito |
+| PostGIS y MQTT | En espera (P2) |
 | Integración web con API central | Dispositivos, filtros, rutas candidatas, historial de sesión y exportación JSON |
 
 ## Estructura
@@ -85,13 +86,15 @@ Las horas de la consola corresponden a Colombia (UTC−5).
 ### Docker
 
 ```bash
-docker compose build backend
+(umask 077 && printf 'VIGIA_DB_PASSWORD=%s\n' "$(openssl rand -hex 24)" > .env)
+docker compose up -d db
+docker compose build backend web
 docker compose run --rm backend python -m vigia_backend.migrate upgrade
 docker compose run --rm backend python -m vigia_backend.users create --email admin@ejemplo.org --name Admin --role admin
 docker compose --profile vision up --build
 ```
 
-Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Si ya existe una base MVP, utiliza [adopción con respaldo](./docs/operations/database-migrations.md) en vez de upgrade directo. Solo para una base nueva de prueba, carga el seed y emite la [credencial del nodo](./docs/operations/device-credentials.md). El perfil `routing` añade [OSRM propio](./docs/operations/osrm-self-hosted.md); después sincroniza las alternativas de las cámaras. El [ranking ponderado](./docs/architecture/weighted-routes.md) devuelve su explicación y geometría. Los puertos se configuran en loopback; verificar también los sockets efectivos del host. PostGIS y MQTT permanecen fuera hasta cerrar P0/P1.
+Compose levanta PostgreSQL ([guía y respaldos](./docs/operations/postgres.md)), backend y web; el perfil `vision` añade el nodo de cámara. Si ya existe una base MVP, utiliza [adopción con respaldo](./docs/operations/database-migrations.md) en vez de upgrade directo. Solo para una base nueva de prueba, carga el seed y emite la [credencial del nodo](./docs/operations/device-credentials.md). El perfil `routing` añade [OSRM propio](./docs/operations/osrm-self-hosted.md); después sincroniza las alternativas de las cámaras. El [ranking ponderado](./docs/architecture/weighted-routes.md) devuelve su explicación y geometría. Los puertos se configuran en loopback; verificar también los sockets efectivos del host. PostGIS y MQTT permanecen fuera hasta cerrar P0/P1. El perfil `scoring` levanta una consola aparte con el [dataset sintético de puntajes](./docs/operations/scoring-dataset.md).
 
 ## Documentación
 
@@ -103,6 +106,8 @@ Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Si 
 - [OSRM propio sin cobro por consulta](./docs/operations/osrm-self-hosted.md)
 - [Credenciales individuales de nodos](./docs/operations/device-credentials.md)
 - [Acceso de personas, roles y auditoría](./docs/operations/user-access.md)
+- [PostgreSQL, respaldos y restauración](./docs/operations/postgres.md)
+- [Dataset sintético de puntajes y rutas](./docs/operations/scoring-dataset.md)
 - [Arquitectura](./docs/architecture/overview.md)
 - [ADR-001: arquitectura híbrida](./docs/adr/001-hybrid-edge-architecture.md)
 - [ADR-002: backend central y rutas](./docs/adr/002-backend-central.md)
