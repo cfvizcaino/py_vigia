@@ -1,30 +1,59 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:movil/main.dart';
+import 'package:movil/api_client.dart';
+import 'package:movil/app.dart';
+import 'package:movil/session.dart';
+
+class _MemoryTokenStore implements TokenStore {
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> write(String token) async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const VigiaApp());
+  testWidgets('login ofrece demo claramente marcada y aviso permanente', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          preferencesProvider.overrideWithValue(preferences),
+          tokenStoreProvider.overrideWithValue(_MemoryTokenStore()),
+        ],
+        child: const VigiaApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Explorar demo'), findsOneWidget);
+    expect(
+      find.text(
+        'Trayectorias estimadas; no constituyen una identificación confirmada',
+      ),
+      findsOneWidget,
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.ensureVisible(find.text('Explorar demo'));
+    await tester.tap(find.text('Explorar demo'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('DEMOSTRACIÓN'), findsOneWidget);
+    expect(find.text('Cámaras'), findsWidgets);
   });
 }
