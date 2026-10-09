@@ -1,0 +1,10 @@
+# Only code, migrations and the synthetic dataset belong in the image.
+venv/
+.venv/
+data/
+tests/
+.pytest_cache/
+**/__pycache__/
+*.py[cod]
+.env
+.env.*

@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY vigia_backend ./vigia_backend
 COPY alembic.ini ./
 COPY migrations ./migrations
+COPY datasets ./datasets
 
 EXPOSE 8000
 HEALTHCHECK --interval=20s --timeout=4s --start-period=10s --retries=3 \

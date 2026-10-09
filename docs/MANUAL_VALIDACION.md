@@ -182,9 +182,10 @@ Esperado: handshake reciente, salud 200 y CRUD 404. El proxy del centro solo adm
 
 ## 4. Arranque con Docker Compose
 
-Crea primero los dos `.env` y completa las credenciales como en el arranque local. Después:
+Crea primero los dos `.env` y completa las credenciales como en el arranque local. Compose usa PostgreSQL: crea también el `.env` de la raíz con `VIGIA_DB_PASSWORD` ([guía](./operations/postgres.md)). El seed reinicia datos: úsalo solo en una base de prueba, nunca en la del piloto. Después:
 
 ```bash
+docker compose up -d db
 docker compose build backend
 docker compose run --rm backend python -m vigia_backend.migrate upgrade
 docker compose up --build -d backend web
@@ -210,7 +211,7 @@ Para detener los servicios sin borrar la base:
 docker compose --profile vision down
 ```
 
-No agregues `-v` salvo que quieras eliminar deliberadamente el volumen de la base de desarrollo.
+No agregues `-v`: borraría el volumen de PostgreSQL con los datos del piloto. Respalda antes de cualquier cambio con `bash infra/postgres/backup.sh`.
 
 ## 5. Pruebas automatizadas
 

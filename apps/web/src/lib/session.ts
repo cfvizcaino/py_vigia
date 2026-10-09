@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { backendUrl } from "./backend-api";
 
 /** The bearer token lives only in an httpOnly cookie; browser code never reads it. */
-export const SESSION_COOKIE = "vigia_session";
+// Configurable so two consoles on the same host (pilot and scoring dataset) keep separate sessions.
+export const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME ?? "vigia_session";
 const headers = { "Cache-Control": "no-store" };
 
 export type SessionUser = { id: string; email: string; display_name: string; role: "operator" | "admin" };

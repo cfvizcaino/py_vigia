@@ -5,6 +5,7 @@ from __future__ import annotations
 import secrets
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..config import Settings
@@ -47,7 +48,13 @@ def ingest_detections(
     db: Session = Depends(get_db),
 ) -> IngestResponse:
     try:
-        result = ingest_detection_envelope(db, payload)
+        try:
+            result = ingest_detection_envelope(db, payload)
+        except IntegrityError:
+            # A concurrent retry of the same event (or track) committed first. Re-evaluate
+            # against the committed state: it becomes "duplicate" or a sequence conflict.
+            db.rollback()
+            result = ingest_detection_envelope(db, payload)
     except DeviceNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except SequenceConflictError as exc:
