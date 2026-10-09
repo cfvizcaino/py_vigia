@@ -8,7 +8,7 @@ import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
-import { COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult } from "@/lib/monitoring";
+import { COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Trayectorias" | "Administración";
@@ -37,6 +37,13 @@ function DevicesCard({ cameras, selected, onSelect }: { cameras: Device[]; selec
 
 const ROLE_LABELS = { operator: "Operador", admin: "Administrador" } as const;
 
+// Only the scoring database returns cases; elsewhere the list is empty and the picker stays hidden.
+function fetchScenarios(signal: AbortSignal): Promise<Scenario[]> {
+  return fetch("/api/monitoring/scenarios", { cache: "no-store", signal })
+    .then(async (response) => response.ok ? response.json() as Promise<Scenario[]> : [])
+    .catch(() => []);
+}
+
 /** A 401 means the server-side session ended: reload so the gate asks to sign in again. */
 function sessionEnded(response: Response) {
   if (response.status !== 401) return false;
@@ -61,6 +68,8 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const [error, setError] = useState("");
   const [connectionError, setConnectionError] = useState("");
   const [exportError, setExportError] = useState("");
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarioId, setScenarioId] = useState("");
   const [record, setRecord] = useState<SearchRecord | null>(null);
   const [history, setHistory] = useState<SearchRecord[]>([]);
   const [routeId, setRouteId] = useState("");
@@ -90,7 +99,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     connectionRef.current = controller;
     fetch("/api/monitoring/devices", { cache: "no-store", signal: controller.signal })
       .then(async (response) => { if (sessionEnded(response) || !response.ok) throw new Error(); return response.json() as Promise<Device[]>; })
-      .then((devices) => { setCameras(devices); setSource("central"); setSelectedCamera(devices[0]?.external_id ?? ""); setUpdatedAt(observationTime(new Date().toISOString())); })
+      .then((devices) => { setCameras(devices); setSource("central"); setSelectedCamera(devices[0]?.external_id ?? ""); setUpdatedAt(observationTime(new Date().toISOString())); fetchScenarios(controller.signal).then(setScenarios); })
       .catch(() => { if (!controller.signal.aborted) setSource("offline"); })
       .finally(() => { if (!controller.signal.aborted) setDate(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())); });
     return () => { controller.abort(); queryRef.current?.abort(); };
@@ -128,6 +137,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       setCameras(devices);
       setSource("central");
       setSelectedCamera(devices[0]?.external_id ?? "");
+      fetchScenarios(controller.signal).then(setScenarios);
       setRecord(null);
       setHistory([]);
       setError("");
@@ -140,6 +150,19 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     } finally {
       if (!controller.signal.aborted) setConnecting(false);
     }
+  }
+
+  function applyScenario(id: string) {
+    setScenarioId(id);
+    const scenario = scenarios.find((item) => item.id === id);
+    if (!scenario) return;
+    setSelectedCamera(scenario.camera_id);
+    setDate(scenario.date);
+    setTimeFrom(scenario.time_from);
+    setTimeTo(scenario.time_to);
+    setVehicle(scenario.vehicle_type ?? "");
+    setColor(scenario.color ?? "");
+    setRadius(scenario.radius_m);
   }
 
   function loadScenario() { setDate("2026-08-25"); setTimeFrom("09:20"); setTimeTo("10:30"); setVehicle("car"); setColor("white"); setRadius(2000); setSelectedCamera("CAM-01"); }
@@ -223,13 +246,14 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     <div className="query-fields">
       <fieldset disabled={searching || connecting || source === "loading" || source === "offline"}>
         <label>Punto de búsqueda<select value={selected?.external_id ?? ""} onChange={(event) => setSelectedCamera(event.target.value)} required>{!cameras.length && <option value="">Sin dispositivos</option>}{cameras.map((camera) => <option key={camera.id} value={camera.external_id}>{camera.external_id} · {camera.name}</option>)}</select></label>
-        <div className="field-row"><label>Vehículo<select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="">Todos</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></select></label><label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option value="">Todos</option>{Object.entries(COLORS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div>
+        <div className="field-row"><label>Vehículo<select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="">Todos</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></select></label><label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option value="">Todos</option>{Object.entries(COLORS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}{color && !COLORS[color] && <option value={color}>{color}</option>}</select></label></div>
         <label>Fecha · hora de Colombia<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>
         <div className="field-row"><label>Desde<input type="time" value={timeFrom} onChange={(event) => setTimeFrom(event.target.value)} required/></label><label>Hasta<input type="time" value={timeTo} onChange={(event) => setTimeTo(event.target.value)} required/></label></div>
         <label className="radius-label">Radio de búsqueda<output>{radius >= 1000 ? `${(radius / 1000).toLocaleString("es-CO")} km` : `${radius} m`}</output><input type="range" min="100" max="5000" step="100" value={radius} onChange={(event) => setRadius(Number(event.target.value))}/></label>
         <div className="range-ticks"><span>100 m</span><span>5 km</span></div>
         <button className="primary-action" type="submit" disabled={!selected}>{searching ? <><span className="spinner"/>Buscando coincidencias…</> : <><Icon name="search" size={17}/>{source === "demo" ? "Buscar en la demostración" : "Buscar coincidencias"}<Icon name="arrow" size={17}/></>}</button>
-        <button className="text-action scenario-action" type="button" onClick={loadScenario}>Cargar escenario de prueba · 25 ago.</button>
+        {scenarios.length ? <label className="scenario-picker">Caso del dataset de pruebas<select value={scenarioId} onChange={(event) => applyScenario(event.target.value)}><option value="">Elige un caso para llenar el formulario</option>{scenarios.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.title}</option>)}</select></label>
+          : <button className="text-action scenario-action" type="button" onClick={loadScenario}>Cargar escenario de prueba · 25 ago.</button>}
       </fieldset>
       {error && <p className="error-message" role="alert">{error}</p>}
       <p className="form-help"><Icon name="shield" size={15}/>La consulta cruza metadatos de las cámaras dentro del radio seleccionado.</p>
@@ -297,7 +321,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
         <section className="cameras-grid"><div><CameraPreview active={selected?.external_id === "CAM-01" && selected.kind === "physical"} large/><div className="camera-selection"><Icon name="pin" size={17}/><span>Seleccionada: <b>{selected?.name ?? "Ninguna"}</b>{selected && <small>{selected.lat.toFixed(4)}, {selected.lng.toFixed(4)}</small>}</span></div></div><DevicesCard cameras={cameras.filter((camera) => `${camera.name} ${camera.external_id}`.toLowerCase().includes(deviceFilter.toLowerCase()))} selected={selected?.external_id ?? ""} onSelect={setSelectedCamera}/></section>
         {mapPanel}
       </> : view === "Trayectorias" ? <>
-        <section className="history-layout"><article className="panel history-card"><div className="card-heading"><div><span className="section-kicker">Esta sesión · últimas 20</span><h2>Historial de consultas</h2></div><span className="count-badge">{history.length}</span></div>{history.length ? <div className="history-list">{history.map((item, index) => <button key={item.result.query.id} className={record === item ? "selected" : ""} onClick={() => { setRecord(item); setRouteId(item.result.routes[0]?.id ?? ""); }}><span className="history-icon"><Icon name="route"/></span><span><b>{item.result.query.vehicle_type ? vehicleLabel(item.result.query.vehicle_type) : "Todos los vehículos"} · {COLORS[item.result.query.color ?? ""] ?? "Todos los colores"}</b><small>{observationDate(item.result.query.time_from)} · {observationTime(item.result.query.time_from)} · {item.source === "demo" ? "Demo" : "Central"}</small></span><span className="history-rank">{item.result.routes.length} rutas<small>#{history.length - index}</small></span></button>)}</div> : <div className="empty-state"><Icon name="clock" size={30}/><b>Aún no hay consultas</b><p>Las búsquedas realizadas aparecerán aquí durante esta sesión.</p><button className="secondary-action" onClick={() => setView("Consultas")}>Crear una consulta<Icon name="arrow" size={16}/></button></div>}</article>{routePanel}</section>{mapPanel}
+        <section className="history-layout"><article className="panel history-card"><div className="card-heading"><div><span className="section-kicker">Esta sesión · últimas 20</span><h2>Historial de consultas</h2></div><span className="count-badge">{history.length}</span></div>{history.length ? <div className="history-list">{history.map((item, index) => <button key={item.result.query.id} className={record === item ? "selected" : ""} onClick={() => { setRecord(item); setRouteId(item.result.routes[0]?.id ?? ""); }}><span className="history-icon"><Icon name="route"/></span><span><b>{item.result.query.vehicle_type ? vehicleLabel(item.result.query.vehicle_type) : "Todos los vehículos"} · {COLORS[item.result.query.color ?? ""] ?? item.result.query.color ?? "Todos los colores"}</b><small>{observationDate(item.result.query.time_from)} · {observationTime(item.result.query.time_from)} · {item.source === "demo" ? "Demo" : "Central"}</small></span><span className="history-rank">{item.result.routes.length} rutas<small>#{history.length - index}</small></span></button>)}</div> : <div className="empty-state"><Icon name="clock" size={30}/><b>Aún no hay consultas</b><p>Las búsquedas realizadas aparecerán aquí durante esta sesión.</p><button className="secondary-action" onClick={() => setView("Consultas")}>Crear una consulta<Icon name="arrow" size={16}/></button></div>}</article>{routePanel}</section>{mapPanel}
       </> : <><section className="content-grid">{mapPanel}{queryForm}</section><section className="lower-grid">{routePanel}<DevicesCard cameras={cameras} selected={selected?.external_id ?? ""} onSelect={setSelectedCamera}/></section></>}
       <footer className="workspace-footer"><span><span className="footer-mark">V</span>VIGIA · Tecnología que conecta a tu comunidad.</span><span>Barranquilla, Colombia <i/>UTC−5</span></footer>
     </section>

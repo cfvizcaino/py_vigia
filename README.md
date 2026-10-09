@@ -108,6 +108,7 @@ Compose levanta PostgreSQL ([guía y respaldos](./docs/operations/postgres.md)),
 - [Acceso de personas, roles y auditoría](./docs/operations/user-access.md)
 - [PostgreSQL, respaldos y restauración](./docs/operations/postgres.md)
 - [Dataset sintético de puntajes y rutas](./docs/operations/scoring-dataset.md)
+- [Prueba de resiliencia P1.2](./docs/operations/resilience.md) · [evidencia 08/10/2026](./docs/evidence/p12-resiliencia-20261008.md)
 - [Arquitectura](./docs/architecture/overview.md)
 - [ADR-001: arquitectura híbrida](./docs/adr/001-hybrid-edge-architecture.md)
 - [ADR-002: backend central y rutas](./docs/adr/002-backend-central.md)

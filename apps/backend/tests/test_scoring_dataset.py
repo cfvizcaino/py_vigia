@@ -2,6 +2,15 @@
 
 from datetime import datetime
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
+
+from tests.asgi_client import ASGITestClient
+from tests.auth_helpers import bearer
+from vigia_backend.api import app
+from vigia_backend.db import Base, get_db
+from vigia_backend.models import Device
 from vigia_backend.scoring_dataset import DEFAULT_PATH, evaluate, load_dataset
 
 
@@ -36,3 +45,28 @@ def test_report_exposes_comparable_metrics():
     assert summary["trajectories"] > 0
     for key in ("recall_at_1", "recall_at_3", "mean_best_jaccard_top3", "false_link_rate_topk"):
         assert 0 <= summary[key] <= 1
+
+
+def test_scenarios_are_listed_only_on_a_scoring_database():
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        def get_test_db():
+            yield db
+        app.dependency_overrides[get_db] = get_test_db
+        try:
+            client = ASGITestClient(app, headers=bearer(db, "operator"))
+            assert ASGITestClient(app).get("/api/v1/scenarios").status_code == 401
+            db.add(Device(external_id="CAM-01", name="Tapo", kind="physical", status="online", lat=11, lng=-74))
+            db.commit()
+            assert client.get("/api/v1/scenarios").json() == []  # Pilot database: no picker.
+            db.add(Device(external_id="SC-07", name="Calle 81", kind="simulated", status="simulated", lat=11.008375, lng=-74.809824))
+            db.commit()
+            cases = client.get("/api/v1/scenarios").json()
+        finally:
+            app.dependency_overrides.clear()
+    assert len(cases) == 10
+    assert cases[0] == {"id": "S01", "title": "Recorrido limpio", "challenge": "control", "camera_id": "SC-07",
+                        "radius_m": 2500.0, "date": "2026-09-15", "time_from": "07:00", "time_to": "07:20",
+                        "vehicle_type": "car", "color": "white"}
+    assert cases[2]["color"] is None and cases[2]["vehicle_type"] == "motorcycle"

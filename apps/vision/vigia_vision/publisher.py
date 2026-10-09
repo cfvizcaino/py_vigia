@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import random
 import threading
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -12,9 +13,18 @@ from urllib.request import Request, urlopen
 
 from .events import utc_now
 
+# The central answered and will never accept this exact event: set it aside and keep the
+# queue moving instead of blocking every later event behind it (head-of-line blocking).
+EVENT_REJECTED = frozenset({400, 409, 413, 422})
+# 401/403/404 concern the whole node (token, camera registration): retry, never discard.
+MAX_BACKOFF_SECONDS = 30.0
+
 
 class SnapshotPublisher:
-    """Guarda primero en disco y elimina solo después del acuse central."""
+    """Guarda primero en disco y elimina solo después del acuse central.
+
+    Los eventos rechazados de forma definitiva pasan a ``outbox/rejected`` para revisión.
+    """
 
     def __init__(
         self,
@@ -24,18 +34,28 @@ class SnapshotPublisher:
         *,
         queue_max: int = 10_000,
         timeout_seconds: float = 10.0,
+        initial_backoff_seconds: float = 1.0,
+        max_backoff_seconds: float = MAX_BACKOFF_SECONDS,
     ) -> None:
         self.central_api_url = central_api_url.rstrip("/") if central_api_url else None
         self.device_token = device_token
         self.outbox = outbox
         self.queue_max = queue_max
         self.timeout_seconds = timeout_seconds
+        self.initial_backoff_seconds = initial_backoff_seconds
+        self.max_backoff_seconds = max_backoff_seconds
         self._stop_event = threading.Event()
         self._wake_event = threading.Event()
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._last_delivered_at: str | None = None
         self._last_error: str | None = None
+        self._delivered = 0
+        self._retries = 0
+
+    @property
+    def rejected_dir(self) -> Path:
+        return self.outbox / "rejected"
 
     @property
     def enabled(self) -> bool:
@@ -86,9 +106,13 @@ class SnapshotPublisher:
         with self._lock:
             last_delivered_at = self._last_delivered_at
             last_error = self._last_error
+            delivered, retries = self._delivered, self._retries
         return {
             "enabled": self.enabled,
             "pendingEvents": self.pending_count(),
+            "rejectedEvents": sum(1 for _ in self.rejected_dir.glob("*.json")) if self.rejected_dir.exists() else 0,
+            "deliveredEvents": delivered,
+            "retries": retries,
             "lastDeliveredAt": last_delivered_at,
             "lastError": last_error,
         }
@@ -97,7 +121,7 @@ class SnapshotPublisher:
         return next(iter(sorted(self.outbox.glob("*.json"))), None)
 
     def _run(self) -> None:
-        backoff_seconds = 1.0
+        backoff_seconds = self.initial_backoff_seconds
         while not self._stop_event.is_set():
             path = self._next_event()
             if path is None:
@@ -111,13 +135,34 @@ class SnapshotPublisher:
                 with self._lock:
                     self._last_delivered_at = utc_now()
                     self._last_error = None
-                backoff_seconds = 1.0
-            except (OSError, ValueError, HTTPError, URLError) as exc:
-                with self._lock:
-                    self._last_error = type(exc).__name__
-                if self._stop_event.wait(backoff_seconds):
-                    return
-                backoff_seconds = min(backoff_seconds * 2, 60.0)
+                    self._delivered += 1
+                backoff_seconds = self.initial_backoff_seconds
+            except HTTPError as exc:
+                if exc.code in EVENT_REJECTED:
+                    self._reject(path, exc.code)
+                    continue
+                backoff_seconds = self._back_off(f"HTTP_{exc.code}", backoff_seconds)
+            except ValueError:
+                # Unreadable file (e.g. truncated by a power cut): it can never be sent as is.
+                self._reject(path, "INVALID_JSON")
+            except (OSError, URLError) as exc:
+                backoff_seconds = self._back_off(type(exc).__name__, backoff_seconds)
+            if self._stop_event.is_set():
+                return
+
+    def _back_off(self, error: str, backoff_seconds: float) -> float:
+        with self._lock:
+            self._last_error = error
+            self._retries += 1
+        # Jitter keeps many nodes from retrying in lockstep when the central comes back.
+        self._stop_event.wait(backoff_seconds * random.uniform(0.8, 1.2))
+        return min(backoff_seconds * 2, self.max_backoff_seconds)
+
+    def _reject(self, path: Path, reason: int | str) -> None:
+        self.rejected_dir.mkdir(parents=True, exist_ok=True)
+        path.replace(self.rejected_dir / f"{path.stem}.{reason}.json")
+        with self._lock:
+            self._last_error = f"REJECTED_{reason}"
 
     def _send(self, payload: dict[str, Any]) -> None:
         if self.central_api_url is None:
