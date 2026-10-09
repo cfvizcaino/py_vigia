@@ -280,3 +280,18 @@ class CredentialIssued(CredentialRead):
     """Incluye el secreto solo en la respuesta de emisión; no se puede recuperar después."""
 
     secret: str
+
+
+class ScenarioRead(BaseModel):
+    """Caso del dataset sintético con la hora local de Colombia lista para el formulario."""
+
+    id: str
+    title: str
+    challenge: str
+    camera_id: str
+    radius_m: float
+    date: str
+    time_from: str
+    time_to: str
+    vehicle_type: VehicleType | None
+    color: str | None

@@ -7,7 +7,7 @@ export function backendUrl(path: string) {
 }
 
 /** Only fixed API paths are accepted; the upstream address stays on the server. */
-export async function backendResponse(path: "/devices" | "/queries", input?: unknown, token?: string | null) {
+export async function backendResponse(path: "/devices" | "/queries" | "/scenarios", input?: unknown, token?: string | null) {
   let search = "";
   if (path === "/queries") {
     try {

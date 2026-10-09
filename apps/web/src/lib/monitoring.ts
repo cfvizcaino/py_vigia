@@ -63,7 +63,7 @@ export type QueryResult = {
   routes: CandidateRoute[];
 };
 
-export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris / plata", red: "Rojo", blue: "Azul", green: "Verde" };
+export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris", silver: "Plateado", red: "Rojo", blue: "Azul", green: "Verde", yellow: "Amarillo" };
 export const STATUS_LABELS: Record<string, string> = { online: "En línea", offline: "Sin conexión", simulated: "Simulada" };
 export const vehicleLabel = (type: string) => type === "motorcycle" ? "Motocicleta" : "Automóvil";
 export const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -94,3 +94,17 @@ export function validateQuery(value: unknown): QueryInput {
   if (input.color !== undefined && (typeof input.color !== "string" || !input.color.trim() || input.color.length > 64)) throw new Error("Color no válido.");
   return { lat: input.lat, lng: input.lng, radius_m: input.radius_m, time_from: input.time_from, time_to: input.time_to, ...(input.vehicle_type ? { vehicle_type: input.vehicle_type } : {}), ...(input.color ? { color: input.color } : {}) };
 }
+
+/** A case of the synthetic scoring dataset, with Colombian local date and times. */
+export type Scenario = {
+  id: string;
+  title: string;
+  challenge: string;
+  camera_id: string;
+  radius_m: number;
+  date: string;
+  time_from: string;
+  time_to: string;
+  vehicle_type: "car" | "motorcycle" | null;
+  color: string | null;
+};

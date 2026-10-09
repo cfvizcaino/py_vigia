@@ -60,7 +60,7 @@ docker compose --profile scoring run --rm backend-scoring python -m vigia_backen
 docker compose --profile scoring up -d
 ```
 
-Abrir <http://127.0.0.1:3200>, elegir `SC-07 · Calle 81`, radio 2,5 km, fecha 15/09/2026 y la ventana del caso (S01 = 07:00–07:20, S02 = 07:20–07:40, …) con sus filtros.
+Abrir <http://127.0.0.1:3200>, iniciar sesión y usar **Caso del dataset de pruebas**, debajo del formulario: llena cámara, fecha, horario, radio y filtros del caso; luego **Buscar coincidencias**. El backend publica los casos en `GET /api/v1/scenarios` solo cuando la base tiene cámaras `SC-`; en el piloto la lista está vacía y el selector no aparece.
 
 `load` reemplaza todo el contenido de la base indicada. Por seguridad exige que el nombre contenga `scoring`, que se confirme con `--confirm-database`, y que la base no tenga cámaras reales ni eventos de nodos. La cookie de sesión de esta consola es distinta (`vigia_scoring_session`), así que puede usarse a la vez que la del piloto.
 

@@ -109,7 +109,7 @@ def _iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _parse(value: str) -> datetime:
+def parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
@@ -193,9 +193,9 @@ def _candidates(data: dict, case: dict) -> list[dict]:
     cameras = {c["external_id"]: c for c in data["cameras"]}
     center = cameras[case["center_camera"]]
     nearby = {cid for cid, c in cameras.items() if haversine_m(center["lat"], center["lng"], c["lat"], c["lng"]) <= case["radius_m"]}
-    start, end = _parse(case["time_from"]), _parse(case["time_to"])
+    start, end = parse_timestamp(case["time_from"]), parse_timestamp(case["time_to"])
     return [d for d in data["detections"]
-            if d["camera_id"] in nearby and start <= _parse(d["observed_at"]) <= end
+            if d["camera_id"] in nearby and start <= parse_timestamp(d["observed_at"]) <= end
             and (case["vehicle_type"] is None or d["vehicle_type"] == case["vehicle_type"])
             and (case["color"] is None or d["color"] == case["color"])]
 
@@ -208,7 +208,7 @@ def evaluate(data: dict, config: RoutingConfig | None = None, top_k: int = 3) ->
         candidates = _candidates(data, case)
         owner = {d["id"]: d["vehicle_id"] for d in candidates}
         points = [DetectionPoint(d["id"], d["camera_id"], d["vehicle_type"], d["color"], d["direction"],
-                                 d["confidence"], _parse(d["observed_at"])) for d in candidates]
+                                 d["confidence"], parse_timestamp(d["observed_at"])) for d in candidates]
         routes = reconstruct_routes(points, links, vehicle_type=case["vehicle_type"], color=case["color"], config=cfg)
         by_vehicle = defaultdict(list)
         for d in sorted(candidates, key=lambda d: (d["observed_at"], d["id"])):
@@ -286,7 +286,7 @@ def load_into_database(db, data: dict) -> dict:
     for d in data["detections"]:
         db.add(Detection(id=uuid.uuid5(NAMESPACE, f"{data['version']}:{d['id']}"), device_id=devices[d["camera_id"]].id,
                          vehicle_type=d["vehicle_type"], color=d["color"], direction=d["direction"],
-                         confidence=d["confidence"], observed_at=_parse(d["observed_at"])))
+                         confidence=d["confidence"], observed_at=parse_timestamp(d["observed_at"])))
     db.commit()
     return {"cameras": len(devices), "links": len(data["road_links"]), "detections": len(data["detections"])}
 
