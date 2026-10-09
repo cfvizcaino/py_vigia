@@ -11,7 +11,8 @@ Modelo alineado con [docs/architecture/data-model.md](../../docs/architecture/da
 - Algoritmo puro de rutas (`vigia_backend.routing.reconstruct_routes`) con tests.
 - Consulta `GET /api/v1/queries`: Haversine → detecciones → rutas candidatas (persistidas).
 - Ingestión `POST /api/v1/ingest/detections`: Detection Envelope 1.1, eventos idempotentes y actualización de tracks repetidos.
-- Credenciales individuales: emisión/revocación por CLI local, vigencia, hash y auditoría. [Guía operativa](../../docs/operations/device-credentials.md).
+- Credenciales individuales: emisión/revocación por CLI local o API admin, vigencia, hash y auditoría. [Guía operativa](../../docs/operations/device-credentials.md).
+- Personas: contraseña `scrypt`, sesiones revocables, roles `operator`/`admin` y auditoría de consultas, exportaciones, previews y cambios. [Guía](../../docs/operations/user-access.md).
 - Decisiones: [ADR-002](../../docs/adr/002-backend-central.md).
 
 ## Ejecutar localmente
@@ -27,6 +28,7 @@ pip install -r requirements.txt
 cp .env.example .env
 python -m vigia_backend.migrate upgrade
 python -m vigia_backend.seed
+python -m vigia_backend.users create --email admin@ejemplo.org --name Admin --role admin
 python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
 ```
@@ -41,13 +43,20 @@ El ranking compara alternativas viales con pesos explícitos y conserva su geome
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/health` | Salud del servicio |
-| GET/POST | `/api/v1/devices` | Listar / crear dispositivo |
-| GET/PATCH/DELETE | `/api/v1/devices/{id}` | Leer / actualizar / borrar |
-| GET/POST | `/api/v1/detections` | Listar (filtros opcionales) / crear |
-| GET/PATCH/DELETE | `/api/v1/detections/{id}` | Leer / actualizar / borrar |
-| GET | `/api/v1/queries` | Consultar trayectorias estimadas |
-| POST | `/api/v1/ingest/detections` | Recibir eventos 1.1 desde nodos edge |
+| GET | `/health` | Salud del servicio (pública) |
+| POST | `/api/v1/auth/login`, `/api/v1/auth/logout` | Abrir / revocar sesión |
+| GET | `/api/v1/auth/me` | Sesión actual |
+| GET/POST | `/api/v1/devices` | Listar (operador) / crear (admin) |
+| GET/PATCH/DELETE | `/api/v1/devices/{id}` | Leer (operador) / actualizar o borrar (admin) |
+| GET/POST | `/api/v1/detections` | Listar (operador) / crear (admin) |
+| GET/PATCH/DELETE | `/api/v1/detections/{id}` | Leer (operador) / actualizar o borrar (admin) |
+| GET | `/api/v1/queries` | Consultar trayectorias estimadas (auditada) |
+| POST | `/api/v1/queries/{id}/export` | Exportación en servidor (propia o admin; auditada) |
+| GET | `/api/v1/admin/audit` | Auditoría (admin) |
+| POST/DELETE | `/api/v1/admin/...credentials` | Credenciales de nodos (admin) |
+| POST | `/api/v1/ingest/detections` | Recibir eventos 1.1 desde nodos edge (token de dispositivo) |
+
+Salvo `/health` e ingestión, todo exige `Authorization: Bearer <token>`.
 
 ### Ejemplo de consulta
 

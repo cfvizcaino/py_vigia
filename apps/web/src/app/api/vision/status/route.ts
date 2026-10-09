@@ -1,6 +1,9 @@
+import { authorize } from "@/lib/session";
 import { fetchVision } from "@/lib/vision-api";
 
 export async function GET() {
+  const denied = await authorize();  // Polled often: checked, not audited.
+  if (denied) return denied;
   try {
     const response = await fetchVision("/api/v1/status");
     if (!response.ok) throw new Error("Vision service unavailable");

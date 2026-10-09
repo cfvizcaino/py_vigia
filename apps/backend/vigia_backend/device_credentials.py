@@ -1,7 +1,7 @@
-"""Administración local de credenciales de ingestión, disponible solo por CLI.
+"""Credenciales de ingestión por cámara: CLI local y API de administradores.
 
-Ejecutar con acceso administrativo al host/base. No expone alta/revocación en
-el CRUD HTTP todavía sin autenticar. Los archivos de salida son 0600.
+La CLI requiere acceso administrativo al host/base y escribe archivos 0600.
+Por HTTP solo el rol admin emite/revoca (routers/admin.py), con auditoría.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def issue(db: Session, camera_id: str, days: int = 90) -> tuple[DeviceCredential, str]:
+def issue(db: Session, camera_id: str, days: int = 90, user_id: uuid.UUID | None = None) -> tuple[DeviceCredential, str]:
     if not 1 <= days <= 365:
         raise ValueError("La vigencia debe estar entre 1 y 365 días")
     device = db.scalar(select(Device).where(Device.external_id == camera_id))
@@ -36,18 +36,18 @@ def issue(db: Session, camera_id: str, days: int = 90) -> tuple[DeviceCredential
     credential = DeviceCredential(device_id=device.id, token_hash=token_hash(secret), expires_at=utc_now() + timedelta(days=days))
     db.add(credential)
     db.flush()
-    db.add(SecurityAudit(action="credential.issued", camera_id=camera_id, credential_id=credential.id, outcome="allowed"))
+    db.add(SecurityAudit(action="credential.issued", camera_id=camera_id, credential_id=credential.id, outcome="allowed", user_id=user_id))
     return credential, secret
 
 
-def revoke(db: Session, credential_id: uuid.UUID) -> None:
+def revoke(db: Session, credential_id: uuid.UUID, user_id: uuid.UUID | None = None) -> None:
     credential = db.get(DeviceCredential, credential_id)
     if credential is None:
         raise ValueError("Credencial no registrada")
     if credential.revoked_at is None:
         credential.revoked_at = utc_now()
         device = db.get(Device, credential.device_id)
-        db.add(SecurityAudit(action="credential.revoked", camera_id=device.external_id if device else None, credential_id=credential.id, outcome="allowed"))
+        db.add(SecurityAudit(action="credential.revoked", camera_id=device.external_id if device else None, credential_id=credential.id, outcome="allowed", user_id=user_id))
 
 
 def authenticate(db: Session, token: str | None, camera_id: str) -> tuple[bool, str]:

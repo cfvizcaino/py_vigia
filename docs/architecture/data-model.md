@@ -32,6 +32,8 @@ erDiagram
         string display_name
         string role
         datetime created_at
+        string password_hash
+        bool is_active
     }
 
     devices {
@@ -109,8 +111,10 @@ Administración básica de acceso y autoría de consultas.
 | `display_name` | TEXT | no | |
 | `role` | TEXT | no | `admin` \| `operator` (valores iniciales) |
 | `created_at` | TIMESTAMPTZ | no | |
+| `password_hash` | TEXT | sí | `scrypt$N$r$p$sal$hash`; nulo = no puede iniciar sesión |
+| `is_active` | BOOLEAN | no | deshabilitar revoca sesiones |
 
-Sin contraseñas en esta iteración (auth llega después, según overview). El seed puede crear un usuario `operator` de demostración.
+Las sesiones viven en `user_sessions` (hash SHA-256 del token, vencimiento y revocación) y la auditoría de uso en `security_audit` (`user_id`, `detail`). El operador del seed no tiene contraseña. Ver [acceso de personas](../operations/user-access.md).
 
 ### `devices`
 

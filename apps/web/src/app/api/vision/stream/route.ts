@@ -1,8 +1,12 @@
+import { authorize } from "@/lib/session";
 import { fetchVisionStream } from "@/lib/vision-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // The single edge node is CAM-01; the backend authorizes and audits each video opening.
+  const denied = await authorize({ preview: { camera_id: "CAM-01", kind: "stream" } });
+  if (denied) return denied;
   try {
     const response = await fetchVisionStream("/api/v1/stream.mjpg");
     if (!response.ok || !response.body) return new Response(null, { status: 503 });

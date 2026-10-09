@@ -22,8 +22,9 @@ El prototipo actual conecta una cámara física Tapo C110 mediante RTSP, detecta
 | Ingestión edge→centro | Detection Envelope 1.1, cola persistente y deduplicación |
 | Ruta sobre calles | OSRM propio probado en Docker; alternativas dirigidas y ranking ponderado explicable |
 | VPN para sedes remotas | WireGuard autogestionado, generador e aislamiento; pendiente validación entre redes |
-| Identidad de nodos | Tokens por cámara con caducidad, revocación y hash; P0.4 en curso |
-| Migraciones de base | Alembic con adopción validada y respaldo del MVP; usuarios/roles aún pendientes |
+| Identidad de nodos | Tokens por cámara con caducidad, revocación y hash; emisión por CLI o API admin |
+| Acceso de personas | Login, sesiones revocables, roles `operator`/`admin` en backend y auditoría de uso |
+| Migraciones de base | Alembic `0001`–`0003` con adopción validada y respaldo del MVP |
 | PostGIS y MQTT | Próximo hito |
 | Integración web con API central | Dispositivos, filtros, rutas candidatas, historial de sesión y exportación JSON |
 
@@ -72,7 +73,7 @@ npm install
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000), selecciona `CAM-01` y revisa la vista procesada.
+Abre [http://localhost:3000](http://localhost:3000), inicia sesión con una cuenta creada por CLI ([acceso de personas](./docs/operations/user-access.md)), selecciona `CAM-01` y revisa la vista procesada. **Explorar demo** funciona sin sesión y sin contactar el servicio central.
 
 La consola consulta el backend en `http://127.0.0.1:8000`; puedes configurar
 `BACKEND_API_URL` en `apps/web/.env.local`. Inícialo siguiendo la
@@ -86,6 +87,7 @@ Las horas de la consola corresponden a Colombia (UTC−5).
 ```bash
 docker compose build backend
 docker compose run --rm backend python -m vigia_backend.migrate upgrade
+docker compose run --rm backend python -m vigia_backend.users create --email admin@ejemplo.org --name Admin --role admin
 docker compose --profile vision up --build
 ```
 
@@ -100,6 +102,7 @@ Compose levanta backend y web; el perfil `vision` añade el nodo de cámara. Si 
 - [VPN para cámaras remotas](./docs/operations/remote-camera-vpn.md)
 - [OSRM propio sin cobro por consulta](./docs/operations/osrm-self-hosted.md)
 - [Credenciales individuales de nodos](./docs/operations/device-credentials.md)
+- [Acceso de personas, roles y auditoría](./docs/operations/user-access.md)
 - [Arquitectura](./docs/architecture/overview.md)
 - [ADR-001: arquitectura híbrida](./docs/adr/001-hybrid-edge-architecture.md)
 - [ADR-002: backend central y rutas](./docs/adr/002-backend-central.md)

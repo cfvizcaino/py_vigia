@@ -35,9 +35,10 @@ test("proxy normalizes Colombian hours to UTC before SQLite compares observation
   context.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     requested = url;
     assert.equal(init.cache, "no-store");
+    assert.equal(new Headers(init.headers).get("Authorization"), "Bearer session-token");
     return Response.json({ routes: [] });
   });
-  const response = await backendResponse("/queries", { ...DEMO_QUERY, arbitrary: "discard" });
+  const response = await backendResponse("/queries", { ...DEMO_QUERY, arbitrary: "discard" }, "session-token");
   const url = new URL(requested);
   assert.equal(url.pathname, "/api/v1/queries");
   assert.equal(url.searchParams.get("time_from"), "2026-08-25T14:20:00.000Z");
@@ -51,18 +52,30 @@ test("proxy normalizes Colombian hours to UTC before SQLite compares observation
 test("proxy validates before contacting backend and reports outages as 503", async (context) => {
   let called = false;
   context.mock.method(globalThis, "fetch", async () => { called = true; throw new Error("private upstream address"); });
-  assert.equal((await backendResponse("/queries", {})).status, 400);
+  assert.equal((await backendResponse("/queries", {}, "session-token")).status, 400);
   assert.equal(called, false);
-  const unavailable = await backendResponse("/devices");
+  const unavailable = await backendResponse("/devices", undefined, "session-token");
   assert.equal(unavailable.status, 503);
   assert.equal((await unavailable.text()).includes("private upstream"), false);
 });
 
 test("backend rejection is surfaced rather than replaced with demo results", async (context) => {
   context.mock.method(globalThis, "fetch", async () => new Response("internal trace", { status: 500 }));
-  const result = await backendResponse("/queries", DEMO_QUERY);
+  const result = await backendResponse("/queries", DEMO_QUERY, "session-token");
   assert.equal(result.status, 502);
   assert.equal((await result.json()).routes, undefined);
+});
+
+test("proxy refuses anonymous calls locally and maps backend auth errors", async (context) => {
+  let called = false;
+  context.mock.method(globalThis, "fetch", async () => { called = true; return new Response(null, { status: 403 }); });
+  assert.equal((await backendResponse("/devices")).status, 401);
+  assert.equal(called, false);
+  const forbidden = await backendResponse("/devices", undefined, "session-token");
+  assert.equal(forbidden.status, 403);
+  assert.match((await forbidden.json()).error, /rol/);
+  context.mock.method(globalThis, "fetch", async () => new Response(null, { status: 401 }));
+  assert.equal((await backendResponse("/queries", DEMO_QUERY, "expired")).status, 401);
 });
 
 test("road geometry follows OSRM coordinates and rejects invalid camera sequences", async (context) => {

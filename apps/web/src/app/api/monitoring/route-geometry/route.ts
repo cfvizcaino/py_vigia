@@ -1,8 +1,11 @@
 import { resolveRoadGeometry } from "@/lib/road-routing";
+import { authorize } from "@/lib/session";
 
 const headers = { "Cache-Control": "no-store" };
 
 export async function POST(request: Request) {
+  const denied = await authorize();
+  if (denied) return denied;
   try {
     const body = await request.json() as { points?: unknown };
     return Response.json(await resolveRoadGeometry(body.points), { headers });

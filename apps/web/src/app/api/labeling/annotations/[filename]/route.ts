@@ -1,3 +1,4 @@
+import { authorize } from "@/lib/session";
 import { readBoxes, saveBoxes, validateBoxes } from "@/lib/plate-dataset";
 
 export const runtime = "nodejs";
@@ -6,6 +7,9 @@ export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ filename: string }> };
 
 export async function GET(_request: Request, context: Context) {
+  // Plate frames are sensitive training data: dataset labeling is an admin task.
+  const denied = await authorize({ role: "admin" });
+  if (denied) return denied;
   try {
     const { filename } = await context.params;
     const annotation = await readBoxes(filename);
@@ -16,6 +20,9 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function PUT(request: Request, context: Context) {
+  // Plate frames are sensitive training data: dataset labeling is an admin task.
+  const denied = await authorize({ role: "admin" });
+  if (denied) return denied;
   try {
     const { filename } = await context.params;
     const body = (await request.json()) as { boxes?: unknown };

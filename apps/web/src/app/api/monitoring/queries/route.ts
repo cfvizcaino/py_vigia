@@ -1,4 +1,5 @@
 import { backendResponse } from "@/lib/backend-api";
+import { sessionToken } from "@/lib/session";
 
 // The backend's GET persists a query. Expose POST to avoid prefetch/replay by caches.
 export async function POST(request: Request) {
@@ -8,5 +9,5 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "El cuerpo debe ser JSON válido." }, { status: 400 });
   }
-  return backendResponse("/queries", input);
+  return backendResponse("/queries", input, await sessionToken());
 }
