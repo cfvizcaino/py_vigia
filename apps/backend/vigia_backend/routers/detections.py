@@ -1,4 +1,4 @@
-"""CRUD HTTP de detecciones vehiculares."""
+"""CRUD HTTP de detecciones: lectura para operadores; altas/correcciones manuales solo admin."""
 
 from __future__ import annotations
 
@@ -8,11 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..auth import Principal, audit, require_admin, require_operator
 from ..db import get_db
 from ..models import Detection, Device
 from ..schemas import DetectionCreate, DetectionRead, DetectionUpdate
 
-router = APIRouter(prefix="/api/v1/detections", tags=["detections"])
+router = APIRouter(prefix="/api/v1/detections", tags=["detections"], dependencies=[Depends(require_operator)])
 
 
 @router.get("", response_model=list[DetectionRead])
@@ -43,13 +44,15 @@ def get_detection(detection_id: uuid.UUID, db: Session = Depends(get_db)) -> Det
 
 
 @router.post("", response_model=DetectionRead, status_code=status.HTTP_201_CREATED)
-def create_detection(payload: DetectionCreate, db: Session = Depends(get_db)) -> Detection:
+def create_detection(payload: DetectionCreate, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> Detection:
     device = db.get(Device, payload.device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
     detection = Detection(**payload.model_dump())
     db.add(detection)
+    db.flush()
+    audit(db, principal, "detection.created", detail={"detection": str(detection.id), "camera": device.external_id})
     db.commit()
     db.refresh(detection)
     return detection
@@ -59,24 +62,27 @@ def create_detection(payload: DetectionCreate, db: Session = Depends(get_db)) ->
 def update_detection(
     detection_id: uuid.UUID,
     payload: DetectionUpdate,
+    principal: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> Detection:
     detection = db.get(Detection, detection_id)
     if detection is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection not found")
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
         setattr(detection, key, value)
-
+    audit(db, principal, "detection.updated", detail={"detection": str(detection_id), "fields": sorted(changes)})
     db.commit()
     db.refresh(detection)
     return detection
 
 
 @router.delete("/{detection_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_detection(detection_id: uuid.UUID, db: Session = Depends(get_db)) -> None:
+def delete_detection(detection_id: uuid.UUID, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> None:
     detection = db.get(Detection, detection_id)
     if detection is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection not found")
     db.delete(detection)
+    audit(db, principal, "detection.deleted", detail={"detection": str(detection_id)})
     db.commit()

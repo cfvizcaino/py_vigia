@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -31,7 +32,7 @@ def new_uuid() -> uuid.UUID:
 
 
 class User(Base):
-    """Operador que autoriza consultas; sin contraseña hasta implementar auth."""
+    """Persona que opera (`operator`) o administra (`admin`); sin hash no puede iniciar sesión."""
 
     __tablename__ = "users"
 
@@ -40,6 +41,8 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="operator")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
 
     queries: Mapped[list["Query"]] = relationship(back_populates="user")
 
@@ -80,7 +83,7 @@ class DeviceCredential(Base):
 
 
 class SecurityAudit(Base):
-    """Auditoría mínima de credenciales, sin tokens ni imágenes/payloads."""
+    """Auditoría de credenciales y uso (consultas, exportaciones, previews); sin secretos ni imágenes."""
 
     __tablename__ = "security_audit"
 
@@ -90,6 +93,23 @@ class SecurityAudit(Base):
     credential_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     outcome: Mapped[str] = mapped_column(String(32), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True, index=True)
+    detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class UserSession(Base):
+    """Sesión revocable de una persona; solo se guarda el hash del token portador."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=new_uuid)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class DeviceLink(Base):

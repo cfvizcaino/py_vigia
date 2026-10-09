@@ -1,5 +1,5 @@
-import { OperationsConsole } from "@/components/operations-console";
+import { ConsoleGate } from "@/components/console-gate";
 
 export default function Home() {
-  return <OperationsConsole/>;
+  return <ConsoleGate/>;
 }

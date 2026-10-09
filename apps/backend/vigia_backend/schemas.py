@@ -193,3 +193,89 @@ class QueryExecuteResponse(BaseModel):
     nearby_devices: list[NearbyDeviceRead]
     candidate_detection_count: int
     routes: list[RouteCandidateRead]
+
+
+UserRole = Literal["operator", "admin"]
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    display_name: str
+    role: UserRole
+
+
+class LoginResponse(BaseModel):
+    """El token se entrega una sola vez; el servidor guarda únicamente su hash."""
+
+    token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_at: datetime
+    user: UserRead
+
+
+class SessionRead(BaseModel):
+    user: UserRead
+    expires_at: datetime
+
+
+class PreviewAccessRequest(BaseModel):
+    camera_id: str = Field(min_length=1, max_length=64)
+    kind: Literal["stream", "snapshot"]
+
+
+class QueryExportRoute(BaseModel):
+    rank: int
+    confidence: float
+    has_distant_gaps: bool
+    camera_ids: list[str]
+    detection_ids: list[uuid.UUID]
+    summary: dict | list | None
+
+
+class QueryExportResponse(BaseModel):
+    """Exportación generada y auditada en servidor a partir de lo persistido."""
+
+    notice: str
+    timezone: str
+    exported_at: datetime
+    exported_by: str
+    query: QueryRead
+    routes: list[QueryExportRoute]
+
+
+class AuditRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    action: str
+    outcome: str
+    occurred_at: datetime
+    user_id: uuid.UUID | None
+    camera_id: str | None
+    credential_id: uuid.UUID | None
+    detail: dict | None
+
+
+class CredentialIssueRequest(BaseModel):
+    days: int = Field(default=90, ge=1, le=365)
+
+
+class CredentialRead(BaseModel):
+    id: uuid.UUID
+    camera_id: str
+    created_at: datetime
+    expires_at: datetime
+    revoked: bool
+
+
+class CredentialIssued(CredentialRead):
+    """Incluye el secreto solo en la respuesta de emisión; no se puede recuperar después."""
+
+    secret: str

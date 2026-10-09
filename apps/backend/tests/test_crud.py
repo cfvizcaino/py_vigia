@@ -13,6 +13,7 @@ from sqlalchemy.pool import StaticPool
 from vigia_backend.api import app
 from vigia_backend.db import Base, get_db
 from tests.asgi_client import ASGITestClient
+from tests.auth_helpers import bearer
 
 
 class DevicesDetectionsCrudTests(unittest.TestCase):
@@ -34,7 +35,9 @@ class DevicesDetectionsCrudTests(unittest.TestCase):
                 db.close()
 
         app.dependency_overrides[get_db] = override_get_db
-        self.client = ASGITestClient(app)
+        with TestingSession() as db:
+            admin = bearer(db, "admin")
+        self.client = ASGITestClient(app, headers=admin)
 
     def tearDown(self) -> None:
         app.dependency_overrides.clear()

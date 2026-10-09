@@ -17,6 +17,7 @@ from .models import (
     Query,
     RouteResult,
     RouteResultDetection,
+    SecurityAudit,
     User,
 )
 from .routing import DetectionPoint, RoadOption, RouteCandidate, RoutingConfig, reconstruct_routes
@@ -37,16 +38,6 @@ class QueryExecution:
     candidate_detections: list[Detection]
     routes: list[RouteCandidate]
     persisted_route_ids: list[uuid.UUID]
-
-
-def get_or_create_demo_user(db: Session) -> User:
-    user = db.scalar(select(User).where(User.email == "demo@vigia.local"))
-    if user is not None:
-        return user
-    user = User(email="demo@vigia.local", display_name="Operador demo", role="operator")
-    db.add(user)
-    db.flush()
-    return user
 
 
 def find_nearby_devices(db: Session, lat: float, lng: float, radius_m: float) -> list[NearbyDevice]:
@@ -180,12 +171,11 @@ def execute_query(
     time_to: datetime,
     vehicle_type: str | None,
     color: str | None,
-    user: User | None = None,
+    user: User,
 ) -> QueryExecution:
     if time_to < time_from:
         raise ValueError("time_to must be greater than or equal to time_from")
 
-    operator = user or get_or_create_demo_user(db)
     nearby = find_nearby_devices(db, lat, lng, radius_m)
     device_ids = [item.device.id for item in nearby]
     device_by_id = {item.device.id: item.device for item in nearby}
@@ -204,7 +194,7 @@ def execute_query(
     )
 
     query = Query(
-        user_id=operator.id,
+        user_id=user.id,
         lat=lat,
         lng=lng,
         radius_m=radius_m,
@@ -216,6 +206,13 @@ def execute_query(
     db.add(query)
     db.flush()
     route_ids = persist_route_results(db, query, routes)
+    # Same transaction: a stored query always has its audit entry (coordinates live in `queries`).
+    db.add(SecurityAudit(
+        action="query.executed",
+        user_id=user.id,
+        outcome="allowed",
+        detail={"query": str(query.id), "radius_m": radius_m, "detections": len(detections), "routes": len(routes)},
+    ))
     db.commit()
     db.refresh(query)
 

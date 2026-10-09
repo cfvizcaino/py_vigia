@@ -1,9 +1,13 @@
+import { authorize } from "@/lib/session";
 import { listFrames } from "@/lib/plate-dataset";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // Plate frames are sensitive training data: dataset labeling is an admin task.
+  const denied = await authorize({ role: "admin" });
+  if (denied) return denied;
   try {
     const frames = await listFrames();
     return Response.json(

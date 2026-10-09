@@ -15,6 +15,7 @@ from vigia_backend.db import Base, get_db
 from vigia_backend.geo import haversine_m
 from vigia_backend.models import Detection, Device, DeviceLink, RouteResult, User
 from tests.asgi_client import ASGITestClient
+from tests.auth_helpers import bearer
 
 
 class HaversineTests(unittest.TestCase):
@@ -51,8 +52,7 @@ class QueryEndpointTests(unittest.TestCase):
         self.db.close()
 
     def _seed_minimal(self) -> None:
-        user = User(email="demo@vigia.local", display_name="Operador demo", role="operator")
-        self.db.add(user)
+        self.headers = bearer(self.db, "operator")
         cam1 = Device(
             external_id="CAM-01",
             name="Tapo",
@@ -102,6 +102,7 @@ class QueryEndpointTests(unittest.TestCase):
     def test_get_queries_returns_ranked_routes(self) -> None:
         response = self.client.get(
             "/api/v1/queries",
+            headers=self.headers,
             params={
                 "lat": 11.012,
                 "lng": -74.816,
@@ -131,6 +132,7 @@ class QueryEndpointTests(unittest.TestCase):
     def test_get_queries_rejects_inverted_time_window(self) -> None:
         response = self.client.get(
             "/api/v1/queries",
+            headers=self.headers,
             params={
                 "lat": 11.012,
                 "lng": -74.816,

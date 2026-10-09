@@ -9,13 +9,14 @@ from httpx import ASGITransport, AsyncClient, Response
 
 
 class ASGITestClient:
-    def __init__(self, app: Any) -> None:
+    def __init__(self, app: Any, headers: dict[str, str] | None = None) -> None:
         self.app = app
+        self.headers = headers or {}
 
     def request(self, method: str, url: str, **kwargs: Any) -> Response:
         async def execute() -> Response:
             transport = ASGITransport(app=self.app)
-            async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            async with AsyncClient(transport=transport, base_url="http://testserver", headers=self.headers) as client:
                 return await client.request(method, url, **kwargs)
 
         return asyncio.run(execute())

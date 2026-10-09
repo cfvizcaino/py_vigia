@@ -81,3 +81,16 @@ def test_road_revision_downgrade_upgrade_preserves_legacy_data(tmp_path):
         assert connection.scalar(text("SELECT email FROM users")) == "keep@example.org"
     upgrade(engine)
     require_current(engine)
+
+def test_auth_revision_keeps_existing_users_without_login(tmp_path):
+    engine = legacy_engine(tmp_path)
+    adopt_legacy(engine, tmp_path / "backup.db")
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT password_hash, is_active FROM users")).one()
+    assert row == (None, 1)  # Kept active, but cannot log in until a password is set by CLI.
+    with engine.begin() as connection:
+        command.downgrade(configuration(connection), "0002")
+        assert "user_sessions" not in inspect(connection).get_table_names()
+        assert connection.scalar(text("SELECT email FROM users")) == "keep@example.org"
+    upgrade(engine)
+    require_current(engine)

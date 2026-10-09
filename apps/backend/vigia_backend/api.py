@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import __version__
 from .config import Settings
 from .db import init_db
-from .routers import detections, devices, ingest, queries
+from .routers import admin, auth, detections, devices, ingest, queries
 
 settings = Settings.from_environment()
 
@@ -31,9 +31,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(devices.router)
 app.include_router(detections.router)
 app.include_router(ingest.router)

@@ -41,6 +41,7 @@ uv pip install -r requirements.txt
 cp .env.example .env
 python -m vigia_backend.migrate upgrade
 python -m vigia_backend.seed
+python -m vigia_backend.users create --email admin@ejemplo.org --name Admin --role admin
 python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
 ```
@@ -188,6 +189,7 @@ docker compose build backend
 docker compose run --rm backend python -m vigia_backend.migrate upgrade
 docker compose up --build -d backend web
 docker compose exec backend python -m vigia_backend.seed
+docker compose exec backend python -m vigia_backend.users create --email admin@ejemplo.org --name Admin --role admin
 docker compose exec backend python -m vigia_backend.device_credentials issue --camera CAM-01 --output /app/data/.env.cam01-token
 docker compose cp backend:/app/data/.env.cam01-token apps/vision/.env.cam01-token
 chmod 600 apps/vision/.env.cam01-token
@@ -284,4 +286,4 @@ P0.1–P0.3 quedan listos en código cuando todas estas casillas están verifica
 - suites automatizadas en verde;
 - secretos y artefactos fuera de Git.
 
-La validación física prolongada de VPN/cámara sigue pendiente de evidencia de campo. P0.4 incorpora tokens revocables, auditoría de credenciales y migraciones Alembic con respaldo. Continúa con usuarios, roles `operator`/`admin` y protección/auditoría de consultas, preview y exportaciones.
+La validación física prolongada de VPN/cámara sigue pendiente de evidencia de campo. P0.4 incorpora tokens revocables, auditoría de credenciales y migraciones Alembic con respaldo. El tercer corte añade usuarios, roles `operator`/`admin` y protección/auditoría de consultas, preview y exportaciones: la consola pide iniciar sesión. Ver [acceso de personas](./operations/user-access.md).

@@ -13,7 +13,7 @@ Primero se cierra un flujo vertical medible: cámara → edge → VPN → backen
 | 1 | P0.1 Ingestión edge→centro | Flujo con cámara real comprobado el 28/09; falta ensayo prolongado | Un evento real aparece una vez en backend aunque se reenvíe |
 | 2 | P0.2 VPN por nodo edge | WireGuard autogestionado preparado y generador probado; endpoint público por confirmar | Handshake entre redes, cámara privada y aislamiento entre nodos |
 | 3 | P0.3 Ruta ajustada a calles | OSRM probado en Docker con extracto real; alternativas dirigidas, pesos y geometría evaluada; falta cobertura/evaluación independiente | La línea sigue la red vial y declara cuándo no pudo hacerlo |
-| 4 | P0.4 Autenticación y auditoría | Tokens por cámara, auditoría de credenciales y migraciones Alembic con adopción/backup probados | Operador/admin separados; preview, consulta y exportación protegidos |
+| 4 | P0.4 Autenticación y auditoría | Tokens por cámara, migraciones Alembic, usuarios con contraseña, sesiones, roles `operator`/`admin` en backend y auditoría de uso; validado en Docker Compose | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | Pendiente | Versión válida activa; versión defectuosa revierte automáticamente |
 | 6 | P1.1 Evaluación independiente | Pendiente | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Pendiente | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
@@ -46,23 +46,23 @@ Primero se cierra un flujo vertical medible: cámara → edge → VPN → backen
 
 Primer corte terminado: `INGEST_AUTH_MODE=device` vincula tokens revocables a cámaras y registra operaciones. Segundo corte: Alembic `0001`/`0002`, arranque que exige revisión vigente, adopción del MVP solo tras validar esquema y crear backup 0600; no se usa `create_all` operativo. [Credenciales](./operations/device-credentials.md) · [Migraciones](./operations/database-migrations.md).
 
-Pendiente para cerrar P0.4:
+Tercer corte terminado (08/10/2026): revisión Alembic `0003`; personas con hash `scrypt`, sesiones revocables con bloqueo por intentos; roles `operator`/`admin` aplicados en el backend; auditoría de inicios de sesión, consultas, exportaciones (generadas en servidor), previews, cambios y credenciales; emisión/revocación de credenciales de nodos por API de administrador; login en la consola web con cookie `HttpOnly`. [Acceso de personas](./operations/user-access.md).
 
-1. Integrar las futuras tablas de usuarios/sesiones mediante nuevas revisiones Alembic.
-2. Usuarios con hash de contraseña o proveedor OIDC.
-3. Roles `operator` y `admin` aplicados en backend, no solo en interfaz.
-4. Auditoría de consultas, exportaciones, previews y comandos.
-5. Integrar las credenciales ya implementadas con aprovisionamiento y auditoría de administradores.
+Las tres pruebas negativas de aceptación tienen cobertura HTTP: anónimo sin consulta/preview/exportación, operador sin actualización ni credenciales, y nodo A incapaz de publicar como nodo B. Se validaron además contra el stack Compose real.
 
-La aceptación exige pruebas negativas: anónimo sin consulta/preview, operador sin actualización y nodo A incapaz de publicar como nodo B.
+Pendiente para declarar P0.4 cerrado en operación:
 
-La última condición ya tiene pruebas HTTP. Las otras dos siguen pendientes; no declarar la aplicación apta para exposición pública por tener VPN. El proxy de la VPN no publica los CRUD y Compose enlaza los servicios a loopback.
+1. Crear las cuentas reales y retirar el uso del operador del seed.
+2. Pantalla de administración (personas y auditoría) en la web; hoy es CLI + API.
+3. TLS y límite por IP en el proxy si la consola sale de loopback/VPN. Evaluar OIDC/MFA.
+
+No declarar la aplicación apta para exposición pública solo por tener VPN y login.
 
 ## Orden de ejecución siguiente
 
 1. Conectividad: confirmar IP/puerto UDP y validar dos redes con [WireGuard](./operations/remote-camera-vpn.md).
 2. Cartografía: ampliar cobertura y evaluar [ranking ponderado](./architecture/weighted-routes.md) con recorridos independientes; OSRM local ya responde.
-3. Continuar P0.4: sesiones de personas, roles y auditoría de uso.
+3. P0.5: actualización con rollback automático; P0.4 queda en operación (cuentas reales y TLS).
 4. Medir desconexión de cinco minutos y carga 4/10/25 nodos; dimensionar con evidencia antes de declarar escalabilidad.
 
 ## Decisión sobre geometría de rutas

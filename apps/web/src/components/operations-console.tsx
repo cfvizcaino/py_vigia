@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CameraPreview } from "./camera-preview";
+import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
@@ -32,14 +33,24 @@ function DevicesCard({ cameras, selected, onSelect }: { cameras: Device[]; selec
   </article>;
 }
 
-export function OperationsConsole() {
+const ROLE_LABELS = { operator: "Operador", admin: "Administrador" } as const;
+
+/** A 401 means the server-side session ended: reload so the gate asks to sign in again. */
+function sessionEnded(response: Response) {
+  if (response.status !== 401) return false;
+  window.location.reload();
+  return true;
+}
+
+/** `user` null means the anonymous demo: no request reaches the central service. */
+export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const [view, setView] = useState<View>("Resumen");
-  const [source, setSource] = useState<Source>("loading");
-  const [cameras, setCameras] = useState<Device[]>([]);
+  const [source, setSource] = useState<Source>(user ? "loading" : "demo");
+  const [cameras, setCameras] = useState<Device[]>(user ? [] : DEMO_DEVICES);
   const [selectedCamera, setSelectedCamera] = useState("CAM-01");
   const [vehicle, setVehicle] = useState("car");
   const [color, setColor] = useState("white");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(user ? "" : "2026-08-25");
   const [timeFrom, setTimeFrom] = useState("09:20");
   const [timeTo, setTimeTo] = useState("10:30");
   const [radius, setRadius] = useState(2000);
@@ -47,6 +58,7 @@ export function OperationsConsole() {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
   const [connectionError, setConnectionError] = useState("");
+  const [exportError, setExportError] = useState("");
   const [record, setRecord] = useState<SearchRecord | null>(null);
   const [history, setHistory] = useState<SearchRecord[]>([]);
   const [routeId, setRouteId] = useState("");
@@ -69,15 +81,16 @@ export function OperationsConsole() {
   const routeMode = routeGeometryLoading ? "loading" : routeGeometry?.source ?? (cameraRoutePoints.length > 1 ? "camera-chord" : "none");
 
   useEffect(() => {
+    if (!user) return;
     const controller = new AbortController();
     connectionRef.current = controller;
     fetch("/api/monitoring/devices", { cache: "no-store", signal: controller.signal })
-      .then(async (response) => { if (!response.ok) throw new Error(); return response.json() as Promise<Device[]>; })
+      .then(async (response) => { if (sessionEnded(response) || !response.ok) throw new Error(); return response.json() as Promise<Device[]>; })
       .then((devices) => { setCameras(devices); setSource("central"); setSelectedCamera(devices[0]?.external_id ?? ""); setUpdatedAt(observationTime(new Date().toISOString())); })
       .catch(() => { if (!controller.signal.aborted) setSource("offline"); })
       .finally(() => { if (!controller.signal.aborted) setDate(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())); });
     return () => { controller.abort(); queryRef.current?.abort(); };
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (cameraRoutePoints.length < 2 || activeRoute?.road_geometry) return;
@@ -105,6 +118,7 @@ export function OperationsConsole() {
     setConnectionError("");
     try {
       const response = await fetch("/api/monitoring/devices", { cache: "no-store", signal: controller.signal });
+      if (sessionEnded(response)) return;
       if (!response.ok) throw new Error("El servicio central no está disponible. Puedes explorar la consola en modo demostración.");
       const devices = await response.json() as Device[];
       setCameras(devices);
@@ -153,6 +167,7 @@ export function OperationsConsole() {
       if (source === "demo") data = runDemoQuery(input);
       else {
         const response = await fetch("/api/monitoring/queries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input), signal: controller.signal });
+        if (sessionEnded(response)) return;
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? "No fue posible ejecutar la consulta.");
         data = body;
@@ -168,15 +183,35 @@ export function OperationsConsole() {
     }
   }
 
-  function exportResult() {
+  async function exportResult() {
     if (!record) return;
-    const blob = new Blob([JSON.stringify({ source: record.source, timezone: "America/Bogota", notice: "Trayectorias estimadas; no constituyen una identificación confirmada.", ...record.result }, null, 2)], { type: "application/json" });
+    let payload: unknown = { source: record.source, timezone: "America/Bogota", notice: "Trayectorias estimadas; no constituyen una identificación confirmada.", ...record.result };
+    if (record.source === "central") {
+      // Central exports are built and audited by the backend from what it persisted.
+      setExportError("");
+      try {
+        const response = await fetch(`/api/monitoring/queries/${record.result.query.id}/export`, { method: "POST" });
+        if (sessionEnded(response)) return;
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? "No fue posible exportar la consulta.");
+        payload = { source: "central", ...body };
+      } catch (error) {
+        setExportError(error instanceof Error ? error.message : "No fue posible exportar la consulta.");
+        return;
+      }
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `vigia-${record.result.query.id}.json`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    window.location.reload();
   }
 
   const queryForm = <form className="panel query-card" onSubmit={search}>
@@ -199,6 +234,7 @@ export function OperationsConsole() {
 
   const routePanel = <article className="panel routes-card" aria-busy={searching}>
     <div className="card-heading"><div><span className="section-kicker">Reconstrucción de recorrido</span><h2>Trayectorias estimadas</h2></div>{record && <button className="icon-button" onClick={exportResult} aria-label="Exportar resultados JSON" title="Exportar resultados JSON"><Icon name="download" size={18}/></button>}</div>
+    {exportError && <p className="error-message export-error" role="alert">{exportError}</p>}
     <div className="result-announcement" role="status" aria-live="polite">{searching ? "Consultando cámaras cercanas…" : result ? `${result.candidate_detection_count} detecciones · ${result.routes.length} rutas candidatas · ${record?.source === "demo" ? "Demostración" : "Servicio central"}` : "Los resultados aparecerán después de una búsqueda."}</div>
     {result && <div className="result-context">{observationDate(result.query.time_from)} · {observationTime(result.query.time_from)}–{observationTime(result.query.time_to)} · UTC−5 · Radio {result.query.radius_m} m</div>}
     {activeRoute ? <>
@@ -235,10 +271,10 @@ export function OperationsConsole() {
       <nav className="main-nav" aria-label="Navegación principal">{navigation.map((item, index) => <button key={item.label} aria-current={view === item.label ? "page" : undefined} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><Icon name={item.icon}/><span>{item.label}</span><small>0{index + 1}</small></button>)}</nav>
       <div className="sidebar-network" aria-hidden="true"><div className="radar"><i/><i/><i/><span className="radar-dot a"/><span className="radar-dot b"/><Icon name="shield" size={25}/></div><span>Una comunidad.<br/><b>Muchas miradas.</b></span></div>
       <div className="privacy-note"><Icon name="shield" size={19}/><div><b>Inteligencia en el origen</b><p>Detección local. Consultas por metadatos. Una red que colabora.</p></div></div>
-      <div className="profile"><span className="avatar">OP</span><div><b>Consola de operación</b><small>Entorno de desarrollo</small></div><span className="version">v0.2</span></div>
+      <div className="profile"><span className="avatar">{user ? user.display_name.slice(0, 2).toUpperCase() : "DE"}</span><div><b>{user?.display_name ?? "Demostración"}</b><small>{user ? `${ROLE_LABELS[user.role]} · ${user.email}` : "Sin sesión · datos de ejemplo"}</small></div><span className="version">v0.3</span></div>
     </aside>
     <section className="workspace" id="workspace">
-      <header className="topbar"><div className="breadcrumb">VIGIA <span>/</span> Operaciones <span>/</span><b>{view}</b></div><span className={`system-status ${source}`}><i/>{source === "central" ? "Servicio central conectado" : source === "demo" ? "Entorno de demostración" : source === "loading" ? "Conectando servicio…" : "Servicio central desconectado"}</span></header>
+      <header className="topbar"><div className="breadcrumb">VIGIA <span>/</span> Operaciones <span>/</span><b>{view}</b></div><div className="topbar-actions"><span className={`system-status ${source}`}><i/>{source === "central" ? "Servicio central conectado" : source === "demo" ? "Entorno de demostración" : source === "loading" ? "Conectando servicio…" : "Servicio central desconectado"}</span>{user ? <button className="text-action session-action" onClick={logout}>Cerrar sesión</button> : <button className="text-action session-action" onClick={() => window.location.reload()}>Iniciar sesión</button>}</div></header>
       <section className="page-heading"><div><p className="eyebrow"><span/>OBSERVA. CONECTA. COMPRENDE.</p><h1>{view === "Resumen" ? <>La ciudad, <span>en perspectiva.</span></> : view === "Cámaras" ? <>Una red. <span>Más alcance.</span></> : view === "Consultas" ? <>Sigue <span>las señales.</span></> : <>Conecta <span>el recorrido.</span></>}</h1><p>{navigation.find((item) => item.label === view)?.detail}. Información para entender lo que ocurre.</p></div><button className="secondary-action" onClick={() => { setView("Consultas"); document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" }); }}><Icon name="search" size={17}/>Nueva consulta<Icon name="arrow" size={17}/></button></section>
       <div className={`source-banner ${source}`} role="status"><span className="source-icon"><Icon name={source === "central" ? "activity" : "layers"} size={18}/></span><div><b>{source === "central" ? "Datos del servicio central" : source === "demo" ? "Modo demostración · datos de ejemplo" : source === "loading" ? "Conectando tu red de cámaras" : "Tu consola está lista. Conecta tu red."}</b><span>{source === "central" ? `Última lectura de dispositivos: ${updatedAt}. Los nodos simulados conservan su etiqueta.` : source === "demo" ? "Escenario del 25 de agosto de 2026. Las rutas y sus porcentajes son ilustrativos." : source === "loading" ? "Consultando los dispositivos registrados…" : "El servicio central no responde. Reintenta la conexión o explora un escenario de prueba."}</span></div><div className="banner-actions">{source === "offline" && <button className="demo-button" onClick={openDemo}>Explorar demo<Icon name="arrow" size={14}/></button>}{source !== "loading" && <button className="text-action" disabled={connecting || searching} onClick={connect}><Icon name="refresh" size={15}/>{connecting ? "Conectando…" : source === "central" ? "Actualizar red" : "Conectar servicio"}</button>}</div></div>
       {connectionError && <p className="error-message" role="alert">{connectionError}</p>}
