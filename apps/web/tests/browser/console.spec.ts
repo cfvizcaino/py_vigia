@@ -81,3 +81,37 @@ test("camera filtering works without a vision stream", async ({ page }) => {
   await expect(page.locator(".camera-selection")).toContainText("Calle 84");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("weighted route explains evidence and uses the evaluated geometry", async ({ page }, testInfo) => {
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  const result = runDemoQuery(DEMO_QUERY);
+  const first = result.routes[0];
+  first.road_geometry = { source: "road-network", distance_m: 900, points: [
+    { lng: -74.8172, lat: 11.0131 }, { lng: -74.816, lat: 11.012 }, { lng: -74.8148, lat: 11.011 },
+  ] };
+  first.explanation = {
+    model: "weighted-evidence-v2", calibrated_probability: false,
+    weights: { detection: .35, time: .4, appearance: .15, road: .1 },
+    geometric_mean: .8, coverage_bonus: 0, search_pruned: false,
+    segments: [{ from_camera: "CAM-01", to_camera: "CAM-02", option_index: 1,
+      distance_m: 900, observed_seconds: 81, expected_seconds: 81, source: "osrm", score: .8,
+      gap_penalty: .85, source_penalty: 1 }],
+  };
+  let geometryCalls = 0;
+  await page.unroute("**/api/monitoring/route-geometry");
+  await page.route("**/api/monitoring/route-geometry", (route) => { geometryCalls++; return route.abort(); });
+  await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: result }));
+  await page.goto("/");
+  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await page.getByText("¿Por qué aparece esta ruta?", { exact: true }).click();
+  await expect(page.getByText("Es un puntaje de compatibilidad", { exact: false })).toBeVisible();
+  await expect(page.getByText("CAM-01 → CAM-02 · alternativa 2")).toBeVisible();
+  await expect(page.getByText("Geometría vial OSRM · alternativa evaluada · 0.90 km")).toBeVisible();
+  await expect(page.getByText("Compatibilidad temporal", { exact: true })).toBeVisible();
+  expect(geometryCalls).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("weighted-evidence.png"), fullPage: true });
+});

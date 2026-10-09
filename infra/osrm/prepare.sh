@@ -5,9 +5,11 @@ engine="${CONTAINER_ENGINE:-docker}"
 image="ghcr.io/project-osrm/osrm-backend:v6.0.0"
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 data_dir="$root_dir/infra/osrm/data"
+input="$data_dir/region.osm.pbf"
+[[ -s "$input" ]] || input="$data_dir/region.osm"
 command -v "$engine" >/dev/null || { echo "Falta $engine (o define CONTAINER_ENGINE=podman)." >&2; exit 1; }
-if [[ ! -s "$data_dir/region.osm.pbf" ]]; then
-  echo "Coloca un extracto OSM de tu región en $data_dir/region.osm.pbf" >&2
+if [[ ! -s "$input" ]]; then
+  echo "Coloca un extracto OSM en $data_dir/region.osm.pbf (o region.osm para pruebas pequeñas)" >&2
   exit 1
 fi
 if [[ -e "$data_dir/region.osrm.mldgr" ]]; then
@@ -16,9 +18,9 @@ if [[ -e "$data_dir/region.osrm.mldgr" ]]; then
 fi
 for stage in extract partition customize; do
   if [[ "$stage" == extract ]]; then
-    "$engine" run --rm -v "$data_dir:/data:z" "$image" osrm-extract -p /opt/car.lua /data/region.osm.pbf
+    "$engine" run --rm -v "$data_dir:/data:z" "$image" osrm-extract --threads 2 -p /opt/car.lua "/data/$(basename "$input")"
   else
-    "$engine" run --rm -v "$data_dir:/data:z" "$image" "osrm-$stage" /data/region.osrm
+    "$engine" run --rm -v "$data_dir:/data:z" "$image" "osrm-$stage" --threads 2 /data/region.osrm
   fi
 done
 echo "Grafo MLD listo. Arranca: docker compose --profile routing up -d osrm"

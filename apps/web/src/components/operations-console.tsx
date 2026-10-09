@@ -63,7 +63,7 @@ export function OperationsConsole() {
     return camera ? [{ lat: camera.lat, lng: camera.lng }] : [];
   }) ?? [], [activeRoute, result]);
   const routeGeometryKey = cameraRoutePoints.map(({ lat, lng }) => `${lat},${lng}`).join(";");
-  const routeGeometry = resolvedGeometry?.key === routeGeometryKey ? resolvedGeometry.value : null;
+  const routeGeometry = activeRoute?.road_geometry ?? (resolvedGeometry?.key === routeGeometryKey ? resolvedGeometry.value : null);
   const routeGeometryLoading = cameraRoutePoints.length > 1 && routeGeometry === null;
   const routePoints = routeGeometry?.points ?? cameraRoutePoints;
   const routeMode = routeGeometryLoading ? "loading" : routeGeometry?.source ?? (cameraRoutePoints.length > 1 ? "camera-chord" : "none");
@@ -80,7 +80,7 @@ export function OperationsConsole() {
   }, []);
 
   useEffect(() => {
-    if (cameraRoutePoints.length < 2) return;
+    if (cameraRoutePoints.length < 2 || activeRoute?.road_geometry) return;
     const controller = new AbortController();
     fetch("/api/monitoring/route-geometry", {
       method: "POST",
@@ -95,7 +95,7 @@ export function OperationsConsole() {
       .then((geometry) => setResolvedGeometry({ key: routeGeometryKey, value: geometry }))
       .catch(() => { if (!controller.signal.aborted) setResolvedGeometry({ key: routeGeometryKey, value: { points: cameraRoutePoints, source: "camera-chord", distance_m: null } }); });
     return () => controller.abort();
-  }, [cameraRoutePoints, routeGeometryKey]);
+  }, [cameraRoutePoints, routeGeometryKey, activeRoute?.road_geometry]);
 
   async function connect() {
     connectionRef.current?.abort();
@@ -202,8 +202,19 @@ export function OperationsConsole() {
     <div className="result-announcement" role="status" aria-live="polite">{searching ? "Consultando cámaras cercanas…" : result ? `${result.candidate_detection_count} detecciones · ${result.routes.length} rutas candidatas · ${record?.source === "demo" ? "Demostración" : "Servicio central"}` : "Los resultados aparecerán después de una búsqueda."}</div>
     {result && <div className="result-context">{observationDate(result.query.time_from)} · {observationTime(result.query.time_from)}–{observationTime(result.query.time_to)} · UTC−5 · Radio {result.query.radius_m} m</div>}
     {activeRoute ? <>
-      <div className="route-options" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={16}/>Ruta {route.rank}<span>{percent(route.confidence)}</span></button>)}</div>
-      <div className="route-summary"><span className="vehicle-illustration"><Icon name={activeRoute.vehicle_type === "car" ? "car" : "route"} size={30}/></span><div><b>{vehicleLabel(activeRoute.vehicle_type)} · {COLORS[activeRoute.color ?? ""] ?? activeRoute.color ?? "Color desconocido"}</b><small>{activeRoute.camera_ids.length} pasos por cámaras</small></div><span className="confidence">{percent(activeRoute.confidence)}<small>confianza estimada</small></span></div>
+      <div className="route-options" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={16}/>Ruta {route.rank}<span>{Math.round(route.confidence * 100)}/100</span></button>)}</div>
+      <div className="route-summary"><span className="vehicle-illustration"><Icon name={activeRoute.vehicle_type === "car" ? "car" : "route"} size={30}/></span><div><b>{vehicleLabel(activeRoute.vehicle_type)} · {COLORS[activeRoute.color ?? ""] ?? activeRoute.color ?? "Color desconocido"}</b><small>{activeRoute.camera_ids.length} pasos por cámaras</small></div><span className="confidence">{Math.round(activeRoute.confidence * 100)}<small>puntaje / 100</small></span></div>
+      {activeRoute.explanation?.segments && <details className="route-evidence" key={activeRoute.id}>
+        <summary>¿Por qué aparece esta ruta?</summary>
+        <p>Es un puntaje de compatibilidad, no una probabilidad de identificación. Compara tiempos, detecciones y alternativas viales.</p>
+        <dl>{Object.entries(activeRoute.explanation.weights).map(([key, value]) => <div key={key}><dt>{{ detection: "Calidad de detección", time: "Compatibilidad temporal", appearance: "Apariencia disponible", road: "Costo vial" }[key] ?? key}</dt><dd>{percent(value)}</dd></div>)}</dl>
+        <ol>{activeRoute.explanation.segments.map((segment, index) => <li key={index}>
+          <b>{segment.from_camera} → {segment.to_camera} · alternativa {segment.option_index + 1}</b>
+          <span>{Math.round(segment.distance_m)} m · {Math.round(segment.observed_seconds)} s observados / {Math.round(segment.expected_seconds)} s de referencia</span>
+          <span>Puntaje del tramo: {Math.round(segment.score * 100)}/100. {segment.source === "osrm" ? "Red vial OSRM." : "Enlace no verificado; referencia de velocidad supuesta."}{segment.gap_penalty < 1 ? " Penalización por tramo sin observaciones intermedias." : ""}</span>
+        </li>)}</ol>
+        <p>Agregación geométrica de tramos + {Math.round(activeRoute.explanation.coverage_bonus * 100)} puntos por observaciones adicionales. Dirección de imagen no usada: falta calibrar cámaras.{activeRoute.explanation.search_pruned ? " Búsqueda acotada: pueden existir otras candidatas." : ""}</p>
+      </details>}
       <ol className="timeline">{activeRoute.detections.map((hop, index) => <li key={hop.detection_id}><span className="timeline-dot">{String(index + 1).padStart(2, "0")}</span><div><b>{result?.nearby_devices.find((device) => device.external_id === hop.camera_id)?.name ?? hop.camera_id}</b><small>{hop.camera_id} · {hop.direction.replaceAll("-", " ")}</small></div><div className="hop-time"><b>{observationTime(hop.observed_at)}</b><small>{percent(hop.confidence)} coincidencia</small></div></li>)}</ol>
       <p className={`route-caution ${activeRoute.has_distant_gaps ? "warning" : ""}`}><Icon name="layers" size={16}/>{activeRoute.has_distant_gaps ? "Hay tramos distantes sin observaciones intermedias. Revisa las rutas alternativas." : "La ruta une observaciones y expresa una estimación, no una identificación confirmada."}</p>
     </> : <div className="empty-state"><span className="empty-icon"><Icon name="route" size={30}/></span><b>{searching ? "Reconstruyendo las señales" : result ? "Sin trayectorias para estos filtros" : "Cada señal cuenta una parte"}</b><p>{result ? "Prueba otro color, amplía el radio o ajusta el horario. Una detección aislada puede no formar una ruta." : "Busca un vehículo para conectar sus detecciones y explorar sus posibles recorridos."}</p></div>}
@@ -212,7 +223,7 @@ export function OperationsConsole() {
   const mapPanel = <article className="panel map-card">
     <div className="card-heading"><div><span className="section-kicker">Territorio conectado</span><h2>Mapa de operaciones</h2></div><span className="location-label"><Icon name="pin" size={14}/>Barranquilla, CO</span></div>
     <VigiaMap cameras={cameras} selectedId={selected?.external_id ?? ""} onSelect={setSelectedCamera} routePoints={routePoints} routeMode={routeMode} radius={view === "Trayectorias" && result ? result.query.radius_m : radius} center={view === "Trayectorias" && result ? result.query : selected}/>
-    <div className="map-footer"><div className="legend"><span><i className="physical"/>Física</span><span><i className="simulated"/>Simulada</span><span><i className="offline"/>Sin conexión</span></div><span>{routeMode === "loading" ? "Ajustando el recorrido a la red vial…" : routeMode === "road-network" ? `Geometría vial OSRM${routeGeometry?.distance_m ? ` · ${(routeGeometry.distance_m / 1000).toFixed(2)} km` : ""}` : routeMode === "camera-chord" ? "Estimación directa; enrutador vial no disponible" : "Selecciona un nodo para explorar"}</span></div>
+    <div className="map-footer"><div className="legend"><span><i className="physical"/>Física</span><span><i className="simulated"/>Simulada</span><span><i className="offline"/>Sin conexión</span></div><span>{routeMode === "loading" ? "Ajustando el recorrido a la red vial…" : routeMode === "road-network" ? `Geometría vial OSRM · ${activeRoute?.road_geometry ? "alternativa evaluada" : "solo referencia visual"}${routeGeometry?.distance_m ? ` · ${(routeGeometry.distance_m / 1000).toFixed(2)} km` : ""}` : routeMode === "camera-chord" ? "Estimación directa; enrutador vial no disponible" : "Selecciona un nodo para explorar"}</span></div>
   </article>;
 
   return <main className="app-shell">
@@ -236,7 +247,7 @@ export function OperationsConsole() {
         {([
           { label: "Cámaras registradas", value: cameras.length, detail: `${cameras.filter((c) => c.kind === "physical").length} físicas · ${cameras.filter((c) => c.kind === "simulated").length} simuladas`, icon: "camera", tone: "teal" },
           { label: "Detecciones candidatas", value: result?.candidate_detection_count ?? "—", detail: result ? "En la consulta seleccionada" : "A la espera de tu consulta", icon: "search", tone: "orange" },
-          { label: "Rutas posibles", value: result?.routes.length ?? "—", detail: result ? "Ordenadas por confianza" : "Conecta las observaciones", icon: "route", tone: "violet" },
+          { label: "Rutas posibles", value: result?.routes.length ?? "—", detail: result ? "Ordenadas por puntaje" : "Conecta las observaciones", icon: "route", tone: "violet" },
           { label: "Tiempo de consulta", value: record ? `${record.elapsed.toFixed(2)} s` : "—", detail: record?.source === "demo" ? "Procesamiento local de ejemplo" : "Medido desde esta consola", icon: "clock", tone: "blue" },
         ] as const).map((metric, index) => <article className={`metric ${metric.tone}`} key={metric.label}><div className="metric-top"><span>{metric.label}</span><Icon name={metric.icon} size={19}/></div><strong>{metric.value}</strong><div className="metric-bottom"><small>{metric.detail}</small><span className="metric-number">0{index + 1}</span></div></article>)}
       </section>

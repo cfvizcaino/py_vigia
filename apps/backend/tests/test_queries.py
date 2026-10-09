@@ -13,7 +13,7 @@ from sqlalchemy.pool import StaticPool
 from vigia_backend.api import app
 from vigia_backend.db import Base, get_db
 from vigia_backend.geo import haversine_m
-from vigia_backend.models import Detection, Device, DeviceLink, User
+from vigia_backend.models import Detection, Device, DeviceLink, RouteResult, User
 from tests.asgi_client import ASGITestClient
 
 
@@ -123,6 +123,10 @@ class QueryEndpointTests(unittest.TestCase):
         self.assertFalse(best["has_distant_gaps"])
         self.assertIn("id", body["query"])
         self.assertTrue(uuid.UUID(best["id"]))
+        self.assertEqual(best["explanation"]["model"], "weighted-evidence-v2")
+        stored = self.db.get(RouteResult, uuid.UUID(best["id"]))
+        self.assertEqual(stored.summary["explanation"], best["explanation"])
+        self.assertFalse(best["explanation"]["calibrated_probability"])
 
     def test_get_queries_rejects_inverted_time_window(self) -> None:
         response = self.client.get(

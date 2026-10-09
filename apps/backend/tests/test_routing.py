@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from vigia_backend.routing import DetectionPoint, reconstruct_routes
+from vigia_backend.routing import DetectionPoint, RoadOption, RoutingConfig, reconstruct_routes
 
 LINKS = {
     ("CAM-01", "CAM-02"): 420.0,
@@ -129,3 +129,65 @@ def test_returns_multiple_ranked_estimates_not_a_single_certainty() -> None:
     if len(routes) > 1:
         assert routes[0].confidence >= routes[1].confidence
         assert {r.rank for r in routes} == set(range(1, len(routes) + 1))
+
+
+def test_longer_alternative_wins_when_elapsed_time_supports_it():
+    points = [_det("a", "A", "car", "white", "indeterminada", 0),
+              _det("b", "B", "car", "white", "indeterminada", 1.35)]
+    links = {("A", "B"): [RoadOption(600, 25, 25, ((0, 0), (1, 1)), "osrm", 0),
+                           RoadOption(900, 60, 60, ((0, 0), (2, 1), (1, 1)), "osrm", 1)]}
+    routes = reconstruct_routes(points, links)
+    assert len(routes) == 2
+    assert routes[0].explanation["segments"][0]["option_index"] == 1
+    assert routes[0].road_geometry["distance_m"] == 900
+    assert routes[0].road_geometry["points"][1]["lng"] == 2
+    assert routes[0].confidence > routes[1].confidence
+    # Changing actual weights changes the winner, not merely the explanation.
+    shortest = reconstruct_routes(points, links, config=RoutingConfig(detection_weight=0, time_weight=0, appearance_weight=0, road_weight=1))
+    assert shortest[0].explanation["segments"][0]["option_index"] == 0
+
+def test_one_way_links_are_not_invented_in_reverse():
+    points = [_det("b", "B", "car", "white", "indeterminada", 0),
+              _det("a", "A", "car", "white", "indeterminada", .9)]
+    assert reconstruct_routes(points, {("A", "B"): 420}) == []
+
+def test_unmapped_image_directions_do_not_reject_real_world_motion():
+    points = [_det("a", "A", "car", "white", "izquierda-a-derecha", 0),
+              _det("b", "B", "car", "white", "derecha-a-izquierda", .9)]
+    best = reconstruct_routes(points, {("A", "B"): 420})[0]
+    assert best.explanation["direction_used"] is False
+
+def test_missing_color_is_not_positive_identity_evidence():
+    points = [_det("a", "A", "car", None, "indeterminada", 0),
+              _det("b", "B", "car", None, "indeterminada", .9)]
+    best = reconstruct_routes(points, {("A", "B"): 420})[0]
+    assert best.explanation["segments"][0]["components"]["appearance"] == .4
+    assert best.explanation["calibrated_probability"] is False
+
+def test_explanation_reproduces_score():
+    points = [_det("a", "A", "car", "white", "indeterminada", 0),
+              _det("b", "B", "car", "white", "indeterminada", .9)]
+    best = reconstruct_routes(points, {("A", "B"): 420})[0]
+    s = best.explanation["segments"][0]
+    expected = sum(s["contributions"].values()) * s["gap_penalty"] * s["source_penalty"]
+    assert best.confidence == pytest.approx(expected, abs=.0001)
+    assert s["source"] == "legacy-unverified"
+
+def test_rejects_invalid_weights_and_excessive_search():
+    with pytest.raises(ValueError):
+        RoutingConfig(time_weight=.8)
+    with pytest.raises(ValueError):
+        RoutingConfig(time_weight=float("nan"))
+    points = [_det(str(i), "A", "car", None, "indeterminada", i) for i in range(4)]
+    with pytest.raises(ValueError, match="reduce ventana"):
+        reconstruct_routes(points, {}, config=RoutingConfig(max_detections=3))
+
+def test_bounded_search_discloses_pruning_and_is_deterministic():
+    points = [_det("a", "A", "car", "white", "indeterminada", 0),
+              _det("b", "B", "car", "white", "indeterminada", .9),
+              _det("c", "C", "car", "white", "indeterminada", .95)]
+    links = {("A", "B"): 420, ("A", "C"): 430}
+    config = RoutingConfig(beam_width=1)
+    routes = reconstruct_routes(points, links, config=config)
+    assert routes[0].explanation["search_pruned"] is True
+    assert routes == reconstruct_routes(list(reversed(points)), links, config=config)

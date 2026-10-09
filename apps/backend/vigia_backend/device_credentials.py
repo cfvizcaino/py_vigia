@@ -79,7 +79,7 @@ def main() -> None:
     commands.add_parser("list")
     commands.add_parser("audit")
     args = parser.parse_args()
-    init_db()  # Additive tables, compatible with the current create_all MVP.
+    init_db()  # Require an explicitly migrated schema.
     try:
         with SessionLocal() as db:
             if args.command == "issue":

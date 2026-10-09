@@ -40,6 +40,20 @@ export type CandidateRoute = {
   vehicle_type: string;
   color: string | null;
   detections: RouteHop[];
+  road_geometry?: import("./road-routing").RoadGeometry | null;
+  explanation?: {
+    model: string;
+    calibrated_probability: boolean;
+    weights: Record<string, number>;
+    geometric_mean: number;
+    coverage_bonus: number;
+    search_pruned: boolean;
+    segments: {
+      from_camera: string; to_camera: string; option_index: number;
+      distance_m: number; observed_seconds: number; expected_seconds: number;
+      source: string; score: number; gap_penalty: number; source_penalty: number;
+    }[];
+  };
 };
 
 export type QueryResult = {

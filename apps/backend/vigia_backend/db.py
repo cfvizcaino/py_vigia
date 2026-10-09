@@ -53,6 +53,6 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    from . import models  # noqa: F401
+    from .migrate import require_current
 
-    Base.metadata.create_all(bind=engine)
+    require_current(engine)

@@ -17,7 +17,7 @@ settings = Settings.from_environment()
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Crea las tablas al arrancar; migraciones Alembic vendrán después.
+    # El arranque no altera silenciosamente el esquema ni estampa bases antiguas.
     init_db()
     yield
 

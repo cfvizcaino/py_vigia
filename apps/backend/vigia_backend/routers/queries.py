@@ -76,6 +76,8 @@ def run_query(
                 vehicle_type=route.vehicle_type,
                 color=route.color,
                 detections=hops,
+                explanation=route.explanation,
+                road_geometry=route.road_geometry,
             )
         )
 

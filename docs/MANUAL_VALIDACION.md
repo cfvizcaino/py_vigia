@@ -1,6 +1,8 @@
 # Manual de arranque y validación de VIGIA
 
-Este manual deja reproducible el incremento P0.1–P0.3 antes de comenzar P0.4. El flujo esperado es cámara Tapo → nodo de visión → cola persistente → backend central → consulta → ruta ajustada a calles → consola web.
+Este manual cubre P0.1–P0.3 y los primeros incrementos de P0.4: credenciales individuales y migraciones versionadas. El flujo esperado es cámara Tapo → nodo de visión → cola persistente → backend central → consulta ponderada → ruta ajustada a calles → consola web.
+
+Para probar directamente el entorno separado dejado en este equipo, ver [sesión local P0.4, servicios y reinicio](./operations/p04-validation-session.md).
 
 ## 1. Requisitos
 
@@ -37,6 +39,7 @@ uv venv --python 3.12 .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
 cp .env.example .env
+python -m vigia_backend.migrate upgrade
 python -m vigia_backend.seed
 python -m vigia_backend.device_credentials issue --camera CAM-01 --output .env.cam01-token
 uvicorn vigia_backend.api:app --host 127.0.0.1 --port 8000
@@ -121,17 +124,25 @@ Abre <http://127.0.0.1:3000>. Las URL por defecto de `.env.example` ya apuntan a
 3. Conserva automóvil blanco, radio de 2 km y horario 09:20–10:30 de Colombia.
 4. Ejecuta la búsqueda.
 
-Con el seed actual deben aparecer 5 detecciones candidatas y 2 rutas. La primera conecta `CAM-01` con `CAM-02`; la otra conecta `CAM-03` con `CAM-04`. Los porcentajes son confianza del algoritmo, no una identificación inequívoca.
+Con el seed hay cinco detecciones candidatas en esa ventana. El número y ranking de rutas dependen de los enlaces sincronizados: los tiempos sintéticos originales no se recalibran silenciosamente para encajar con el mapa real. Debe aparecer CAM-01→CAM-02 y un puntaje explicable; no exigir dos rutas fijas. Abrir **¿Por qué aparece esta ruta?** para ver pesos, tiempo observado/referencia y penalizaciones. El puntaje no es una probabilidad de identidad.
 
 Selecciona cada ruta y verifica que:
 
 - el mapa encuadre la secuencia de cámaras;
 - el pie indique **Geometría vial OSRM** y una distancia cuando el enrutador responda;
 - la línea siga las calles, en vez de unir las cámaras con una recta;
-- si OSRM no está disponible, aparezca **Estimación directa; enrutador vial no disponible** y la línea sea discontinua;
+- con enlaces sincronizados, el pie diga **alternativa evaluada** y use la geometría persistida incluso si OSRM se detiene; sin ellos, diga **solo referencia visual**, o fallback discontinuo si el enrutador tampoco responde;
 - la exportación JSON y el historial de la sesión funcionen.
 
 OSRM puede usarse en producción autogestionado sin cobro por consulta. Sigue [la receta local](./operations/osrm-self-hosted.md): preparar el extracto, procesarlo e iniciar el perfil `routing`. La web usa `http://127.0.0.1:5000` localmente y `http://osrm:5000` en Compose. Sin ese servicio se verá el fallback identificado. El demo público no es una dependencia de producción.
+
+Luego sincroniza las cámaras desde el backend:
+
+```bash
+python -m vigia_backend.road_network --camera CAM-01 --camera CAM-02 --camera CAM-03 --camera CAM-04
+```
+
+Para una base existente sin Alembic, **antes de arrancar** seguir [adopción con respaldo](./operations/database-migrations.md); no ejecutar seed. La [explicación técnica del ranking](./architecture/weighted-routes.md) incluye una prueba donde gana una ruta más larga.
 
 ### 3.2 Cámara y publicación edge→centro
 
@@ -173,6 +184,8 @@ Esperado: handshake reciente, salud 200 y CRUD 404. El proxy del centro solo adm
 Crea primero los dos `.env` y completa las credenciales como en el arranque local. Después:
 
 ```bash
+docker compose build backend
+docker compose run --rm backend python -m vigia_backend.migrate upgrade
 docker compose up --build -d backend web
 docker compose exec backend python -m vigia_backend.seed
 docker compose exec backend python -m vigia_backend.device_credentials issue --camera CAM-01 --output /app/data/.env.cam01-token
@@ -259,7 +272,7 @@ ffprobe -rtsp_transport tcp 'rtsp://USUARIO:CONTRASENA@IP:554/stream1'
 - HTTP 404 al ingerir: el `VIGIA_CAMERA_ID` no existe en el backend; ejecuta el seed o registra el dispositivo.
 - Ruta recta discontinua: OSRM no respondió; revisa `ROAD_ROUTER_URL` y la conectividad saliente.
 
-## 7. Salida para comenzar P0.4
+## 7. Salida y continuidad de P0.4
 
 P0.1–P0.3 quedan listos en código cuando todas estas casillas están verificadas:
 
@@ -271,4 +284,4 @@ P0.1–P0.3 quedan listos en código cuando todas estas casillas están verifica
 - suites automatizadas en verde;
 - secretos y artefactos fuera de Git.
 
-La validación física prolongada de VPN/cámara sigue pendiente de evidencia de campo. P0.4 ya incorpora tokens revocables por nodo y auditoría de credenciales; continúa con migraciones, usuarios, roles `operator`/`admin` y protección/auditoría de consultas, preview y exportaciones.
+La validación física prolongada de VPN/cámara sigue pendiente de evidencia de campo. P0.4 incorpora tokens revocables, auditoría de credenciales y migraciones Alembic con respaldo. Continúa con usuarios, roles `operator`/`admin` y protección/auditoría de consultas, preview y exportaciones.
