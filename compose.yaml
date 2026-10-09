@@ -79,6 +79,19 @@ services:
     depends_on:
       - backend-scoring
 
+  # P1.2 resilience harness target (infra/resilience/run.py); its own database.
+  backend-resilience:
+    profiles: ["resilience"]
+    image: vigia/backend:local
+    environment:
+      DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia_resilience
+    ports:
+      - "127.0.0.1:8300:8000"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
   vision:
     profiles: ["vision"]
     build:
