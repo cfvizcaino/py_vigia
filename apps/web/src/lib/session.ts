@@ -47,3 +47,19 @@ export async function authorize(options: { role?: "admin"; preview?: { camera_id
     return Response.json({ error: "No se pudo validar la sesión con el servicio central." }, { status: 503, headers });
   }
 }
+
+
+/** Forwards an admin call; the backend decides (403 for operators) and audits. */
+export async function backendJson(path: string, init: RequestInit = {}) {
+  try {
+    const response = await backendFetch(path, init);
+    if (!response.ok) {
+      return sessionError(response.status)
+        ?? Response.json({ error: response.status === 404 ? "El recurso no existe." : "El servicio central rechazó la operación." }, { status: response.status < 500 ? response.status : 502, headers });
+    }
+    if (response.status === 204) return new Response(null, { status: 204 });
+    return Response.json(await response.json(), { status: response.status, headers });
+  } catch {
+    return Response.json({ error: "No se pudo conectar con el servicio central." }, { status: 503, headers });
+  }
+}

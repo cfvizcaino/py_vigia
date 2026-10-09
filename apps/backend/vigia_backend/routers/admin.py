@@ -3,31 +3,54 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ..auth import Principal, require_admin
 from ..db import get_db
 from ..device_credentials import issue, revoke
-from ..models import Device, DeviceCredential, SecurityAudit
+from ..models import Device, DeviceCredential, SecurityAudit, User
 from ..schemas import AuditRead, CredentialIssued, CredentialIssueRequest, CredentialRead
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+# Groups shown in the admin screen; each maps to action prefixes.
+AUDIT_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "sessions": ("auth.", "user."),
+    "queries": ("query.",),
+    "preview": ("preview.",),
+    "changes": ("device.", "detection."),
+    "credentials": ("credential.", "ingest."),
+    "denied": ("authz.",),
+}
 
 
 @router.get("/audit", response_model=list[AuditRead])
 def list_audit(
     action: str | None = Query(default=None, max_length=64),
+    category: Literal["sessions", "queries", "preview", "changes", "credentials", "denied"] | None = None,
+    before: datetime | None = Query(default=None, description="Paginación: solo eventos anteriores a este instante"),
     limit: int = Query(default=100, ge=1, le=500),
     _: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
-) -> list[SecurityAudit]:
-    statement = select(SecurityAudit).order_by(SecurityAudit.occurred_at.desc()).limit(limit)
+) -> list[AuditRead]:
+    statement = (
+        select(SecurityAudit, User.email)
+        .outerjoin(User, User.id == SecurityAudit.user_id)
+        .order_by(SecurityAudit.occurred_at.desc())
+        .limit(limit)
+    )
     if action is not None:
         statement = statement.where(SecurityAudit.action == action)
-    return list(db.scalars(statement).all())
+    if category is not None:
+        statement = statement.where(or_(*(SecurityAudit.action.startswith(prefix) for prefix in AUDIT_CATEGORIES[category])))
+    if before is not None:
+        statement = statement.where(SecurityAudit.occurred_at < before)
+    return [AuditRead.model_validate(row).model_copy(update={"user_email": email}) for row, email in db.execute(statement).all()]
 
 
 @router.get("/credentials", response_model=list[CredentialRead])

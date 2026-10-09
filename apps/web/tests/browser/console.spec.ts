@@ -178,3 +178,67 @@ test("an expired session during a search returns to sign-in", async ({ page }) =
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
 });
+
+test("admin reviews the audit trail and issues then revokes a node credential", async ({ page }) => {
+  await page.unroute("**/api/auth/session");
+  await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: { ...OPERATOR, role: "admin", display_name: "Admin" }, expires_at: "2026-10-09T08:00:00Z" } }));
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  const audit = [
+    { action: "query.exported", outcome: "allowed", occurred_at: "2026-10-08T15:00:00Z", user_id: "u1", user_email: "ana@vigia.test", camera_id: null, credential_id: null, detail: { query: "53918754-07d0", routes: 3 } },
+    { action: "authz.denied", outcome: "forbidden", occurred_at: "2026-10-08T14:59:00Z", user_id: "u1", user_email: "ana@vigia.test", camera_id: null, credential_id: null, detail: { required: ["admin"] } },
+  ];
+  const categories: string[] = [];
+  await page.route("**/api/admin/audit**", (route) => {
+    const category = new URL(route.request().url()).searchParams.get("category") ?? "";
+    categories.push(category);
+    return route.fulfill({ json: category === "denied" ? [audit[1]] : audit });
+  });
+  let credentials = [{ id: "11111111-1111-4111-8111-111111111111", camera_id: "CAM-01", created_at: "2026-10-01T00:00:00Z", expires_at: "2099-01-01T00:00:00Z", revoked: false }];
+  await page.route("**/api/admin/credentials", async (route) => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toEqual({ camera_id: "CAM-02", days: 30 });
+      const created = { id: "22222222-2222-4222-8222-222222222222", camera_id: "CAM-02", created_at: "2026-10-08T00:00:00Z", expires_at: "2099-01-01T00:00:00Z", revoked: false };
+      credentials = [...credentials, created];
+      return route.fulfill({ status: 201, json: { ...created, secret: "vigia_secreto_de_prueba" } });
+    }
+    return route.fulfill({ json: credentials });
+  });
+  let revoked = "";
+  await page.route("**/api/admin/credentials/*", (route) => {
+    revoked = route.request().url().split("/").at(-1) ?? "";
+    credentials = credentials.map((item) => item.id === revoked ? { ...item, revoked: true } : item);
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Administración", exact: false }).first().click();
+  await expect(page.getByRole("heading", { name: "Auditoría de uso" })).toBeVisible();
+  await expect(page.getByText("Exportación de consulta")).toBeVisible();
+  await expect(page.getByText("Sin permiso", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Denegados" }).click();
+  await expect(page.getByText("Exportación de consulta")).toHaveCount(0);
+  expect(categories).toContain("denied");
+
+  await page.getByRole("combobox", { name: "Cámara", exact: true }).selectOption("CAM-02");
+  await page.getByRole("combobox", { name: "Vigencia" }).selectOption("30");
+  await page.getByRole("button", { name: "Emitir credencial" }).click();
+  await expect(page.getByText("vigia_secreto_de_prueba")).toBeVisible();
+  await page.getByRole("button", { name: "Ya lo guardé" }).click();
+  await expect(page.getByText("vigia_secreto_de_prueba")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Revocar credencial de CAM-01" }).click();
+  await page.getByRole("button", { name: "Revocar", exact: true }).click();
+  await expect(page.getByText("Revocada", { exact: true })).toBeVisible();
+  expect(revoked).toBe("11111111-1111-4111-8111-111111111111");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("operators do not see the administration entry", async ({ page }) => {
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  await signedIn(page);
+  await page.goto("/");
+  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Administración", exact: false })).toHaveCount(0);
+});

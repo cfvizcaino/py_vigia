@@ -258,6 +258,7 @@ class AuditRead(BaseModel):
     outcome: str
     occurred_at: datetime
     user_id: uuid.UUID | None
+    user_email: str | None = None
     camera_id: str | None
     credential_id: uuid.UUID | None
     detail: dict | None

@@ -73,6 +73,15 @@ Otras operaciones: `set-password --email …` y `disable --email …` revocan to
 
 Todas las rutas protegidas esperan `Authorization: Bearer <token>`. Un cliente móvil usa el mismo flujo.
 
+## Pantalla de administración
+
+Solo para `admin`, en **Administración** dentro de la consola:
+
+- **Auditoría de uso**: eventos más recientes con persona, resultado (texto + ícono) y detalle. Filtros por Sesiones, Consultas, Video, Cambios, Credenciales y Denegados; paginación con **Cargar anteriores** (`?category=` y `?before=` en `GET /api/v1/admin/audit`, que ahora incluye `user_email`). En móvil cada evento se muestra como tarjeta.
+- **Credenciales de nodos**: emitir por cámara y vigencia (30–365 días), copiar el token una única vez y revocar con confirmación. El estado se muestra como Activa, Vencida o Revocada.
+
+La entrada no aparece para operadores. Aunque la abrieran, el backend responde 403.
+
 ## Validación realizada (08/10/2026)
 
 - 62 pruebas backend, 10 unitarias web y 14 Playwright (escritorio y móvil) en verde.
@@ -82,5 +91,5 @@ Todas las rutas protegidas esperan `Authorization: Bearer <token>`. Un cliente m
 
 - Sin MFA ni OIDC. El diseño admite añadir un proveedor sin cambiar los roles.
 - El bloqueo es por cuenta; no limita por IP. Exponer la consola fuera de la VPN exige además TLS y límite de velocidad en el proxy.
-- No hay alta/edición de personas por HTTP ni pantalla de auditoría en la web; se usa la CLI y `GET /api/v1/admin/audit`.
+- No hay alta/edición de personas por HTTP; se usa la CLI.
 - El veto de etiquetado de placas para operadores se decide en la web (consultando el rol al backend) y no queda en la auditoría.
