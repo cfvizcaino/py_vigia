@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from .db import get_db
@@ -21,13 +22,16 @@ class Principal:
     session: UserSession
 
 
-def _bearer(authorization: str | None) -> str | None:
-    scheme, _, token = (authorization or "").partition(" ")
-    return token.strip() if scheme.lower() == "bearer" and token.strip() else None
+# Declared as a security scheme so /docs offers a single "Authorize" button.
+# auto_error=False: a missing or non-Bearer header falls through to our own 401 below.
+bearer_scheme = HTTPBearer(auto_error=False, description="Token devuelto por POST /api/v1/auth/login")
 
 
-def current_principal(authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Principal:
-    resolved = resolve_session(db, _bearer(authorization))
+def current_principal(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> Principal:
+    resolved = resolve_session(db, credentials.credentials if credentials else None)
     if resolved is None:
         # Anonymous rejections are not persisted: they would let anyone fill the audit table.
         raise HTTPException(
