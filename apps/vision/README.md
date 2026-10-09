@@ -31,6 +31,17 @@ Las detecciones se actualizan en `apps/vision/outputs/detections.json`.
 
 Si `VIGIA_CENTRAL_API_URL` está definido, cada snapshot se guarda primero en `EVENT_OUTBOX` y luego se publica en orden al backend. Los reintentos conservan el mismo `eventId`; el archivo solo se elimina después de un acuse HTTP 2xx.
 
+Qué hace la cola ante cada respuesta:
+
+| Respuesta del centro | Acción |
+|---|---|
+| 2xx (incluye `duplicate`) | Borra el archivo y sigue |
+| 400, 409, 413, 422 | El evento nunca será aceptado: lo mueve a `EVENT_OUTBOX/rejected/` con el código en el nombre y sigue con el siguiente |
+| 401, 403, 404 | Problema del nodo (token, cámara no registrada): reintenta sin descartar |
+| 5xx, 429, timeout, red caída | Reintenta con espera exponencial de 1 s hasta 30 s, con jitter de ±20 % |
+
+Un archivo JSON ilegible (por ejemplo, truncado por un corte de energía) también pasa a `rejected/`. `GET /api/v1/status` expone en `publisher` los eventos pendientes, rechazados, entregados, los reintentos y el último error. Revisa `rejected/` si su conteo crece: esos eventos no llegaron al centro.
+
 Para cámaras fuera de la red del servidor, instala el nodo junto a la cámara y conecta **el nodo**, no el RTSP, mediante la [VPN privada documentada](../../docs/operations/remote-camera-vpn.md).
 
 El backend exige una [credencial individual por cámara](../../docs/operations/device-credentials.md). Emítela después de registrar el dispositivo e incorpora el secreto en `VIGIA_CENTRAL_API_TOKEN`; el antiguo token compartido no funciona en el modo predeterminado. Reinicia el nodo al cambiar su configuración.
