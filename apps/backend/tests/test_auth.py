@@ -212,3 +212,21 @@ def test_admin_issues_and_revokes_device_credentials_over_http(db):
     assert {"credential.issued", "credential.revoked"} <= {row["action"] for row in trail}
     assert all(row["user_id"] for row in trail if row["action"].startswith("credential."))
     assert secret not in json.dumps(trail)
+
+
+def test_audit_filters_by_category_shows_actor_and_paginates(db):
+    admin = client(bearer(db, "admin"))
+    operator = client(bearer(db, "operator"))
+    operator.get("/api/v1/queries", params=QUERY)
+    operator.post("/api/v1/auth/preview-access", json={"camera_id": "CAM-01", "kind": "stream"})
+    operator.get("/api/v1/admin/audit")  # denied, audited
+
+    queries = admin.get("/api/v1/admin/audit", params={"category": "queries"}).json()
+    assert [row["action"] for row in queries] == ["query.executed"]
+    assert queries[0]["user_email"] == "operator@vigia.test"
+    assert [row["action"] for row in admin.get("/api/v1/admin/audit", params={"category": "denied"}).json()] == ["authz.denied"]
+    assert admin.get("/api/v1/admin/audit", params={"category": "bogus"}).status_code == 422
+
+    everything = admin.get("/api/v1/admin/audit").json()
+    older = admin.get("/api/v1/admin/audit", params={"before": everything[1]["occurred_at"]}).json()
+    assert len(older) == len(everything) - 2

@@ -1,6 +1,6 @@
 # OSRM propio: rutas por calles sin cobro por consulta
 
-OSRM **sí puede usarse en producción**. Es un motor de rutas abierto sobre datos de OpenStreetMap. Lo que VIGIA no debe usar como dependencia permanente es el servidor compartido `router.project-osrm.org`: su política limita el uso razonable no comercial a una solicitud por segundo y no garantiza disponibilidad, latencia ni actualización de datos. Que VIGIA sea gratuito no elimina esos límites. [Política oficial del demo](https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server).
+OSRM **sí puede usarse en producción**. Es un motor de rutas abierto sobre datos de OpenStreetMap. Lo que no se debe usar como dependencia permanente es el servidor compartido `router.project-osrm.org`: su política limita el uso razonable no comercial a una solicitud por segundo y no garantiza disponibilidad, latencia ni actualización de datos. Que VIGIA sea gratuito no elimina esos límites. [Política oficial del demo](https://github.com/Project-OSRM/osrm-backend/wiki/Demo-server).
 
 La alternativa adoptada es ejecutar OSRM en infraestructura propia con datos de Barranquilla y alrededores. No hay pago por cámara o solicitud. La capacidad la determinan RAM, CPU, almacenamiento, región y concurrencia; se debe medir y mantener el servicio. Las coordenadas consultadas permanecen en el despliegue.
 

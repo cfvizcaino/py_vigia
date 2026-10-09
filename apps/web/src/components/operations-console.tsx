@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AdminPanel } from "./admin-panel";
 import { CameraPreview } from "./camera-preview";
 import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
@@ -10,7 +11,7 @@ import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
 import { COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult } from "@/lib/monitoring";
 import type { RoadGeometry } from "@/lib/road-routing";
 
-type View = "Resumen" | "Cámaras" | "Consultas" | "Trayectorias";
+type View = "Resumen" | "Cámaras" | "Consultas" | "Trayectorias" | "Administración";
 type Source = "loading" | "central" | "offline" | "demo";
 type SearchRecord = { result: QueryResult; source: "central" | "demo"; elapsed: number };
 const navigation: { label: View; icon: IconName; detail: string }[] = [
@@ -18,6 +19,7 @@ const navigation: { label: View; icon: IconName; detail: string }[] = [
   { label: "Cámaras", icon: "camera", detail: "Dispositivos y transmisión" },
   { label: "Consultas", icon: "search", detail: "Encuentra coincidencias" },
   { label: "Trayectorias", icon: "route", detail: "Explora los recorridos" },
+  { label: "Administración", icon: "key", detail: "Auditoría y credenciales de nodos" },
 ];
 
 function DevicesCard({ cameras, selected, onSelect }: { cameras: Device[]; selected: string; onSelect: (id: string) => void }) {
@@ -67,6 +69,8 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const [resolvedGeometry, setResolvedGeometry] = useState<{ key: string; value: RoadGeometry } | null>(null);
   const connectionRef = useRef<AbortController | null>(null);
   const queryRef = useRef<AbortController | null>(null);
+  // The admin entry is only a shortcut: the backend still rejects non-admin calls.
+  const visibleNavigation = navigation.filter((item) => item.label !== "Administración" || user?.role === "admin");
   const selected = cameras.find((camera) => camera.external_id === selectedCamera) ?? cameras[0];
   const result = record?.result;
   const activeRoute = result?.routes.find((route) => route.id === routeId) ?? result?.routes[0];
@@ -268,27 +272,27 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       <Link className="brand" href="/" aria-label="VIGIA, inicio"><span className="brand-mark"><Icon name="shield" size={27}/></span><span><strong>VIGIA<span>●</span></strong><small>INTELIGENCIA COMUNITARIA</small></span></Link>
       <div className="workspace-label"><span className="small-orbit"/>RED BARRANQUILLA<Icon name="layers" size={14}/></div>
       <span className="nav-label">CENTRO DE OPERACIONES</span>
-      <nav className="main-nav" aria-label="Navegación principal">{navigation.map((item, index) => <button key={item.label} aria-current={view === item.label ? "page" : undefined} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><Icon name={item.icon}/><span>{item.label}</span><small>0{index + 1}</small></button>)}</nav>
+      <nav className="main-nav" aria-label="Navegación principal">{visibleNavigation.map((item, index) => <button key={item.label} aria-current={view === item.label ? "page" : undefined} className={view === item.label ? "active" : ""} onClick={() => setView(item.label)}><Icon name={item.icon}/><span>{item.label}</span><small>0{index + 1}</small></button>)}</nav>
       <div className="sidebar-network" aria-hidden="true"><div className="radar"><i/><i/><i/><span className="radar-dot a"/><span className="radar-dot b"/><Icon name="shield" size={25}/></div><span>Una comunidad.<br/><b>Muchas miradas.</b></span></div>
       <div className="privacy-note"><Icon name="shield" size={19}/><div><b>Inteligencia en el origen</b><p>Detección local. Consultas por metadatos. Una red que colabora.</p></div></div>
       <div className="profile"><span className="avatar">{user ? user.display_name.slice(0, 2).toUpperCase() : "DE"}</span><div><b>{user?.display_name ?? "Demostración"}</b><small>{user ? `${ROLE_LABELS[user.role]} · ${user.email}` : "Sin sesión · datos de ejemplo"}</small></div><span className="version">v0.3</span></div>
     </aside>
     <section className="workspace" id="workspace">
       <header className="topbar"><div className="breadcrumb">VIGIA <span>/</span> Operaciones <span>/</span><b>{view}</b></div><div className="topbar-actions"><span className={`system-status ${source}`}><i/>{source === "central" ? "Servicio central conectado" : source === "demo" ? "Entorno de demostración" : source === "loading" ? "Conectando servicio…" : "Servicio central desconectado"}</span>{user ? <button className="text-action session-action" onClick={logout}>Cerrar sesión</button> : <button className="text-action session-action" onClick={() => window.location.reload()}>Iniciar sesión</button>}</div></header>
-      <section className="page-heading"><div><p className="eyebrow"><span/>OBSERVA. CONECTA. COMPRENDE.</p><h1>{view === "Resumen" ? <>La ciudad, <span>en perspectiva.</span></> : view === "Cámaras" ? <>Una red. <span>Más alcance.</span></> : view === "Consultas" ? <>Sigue <span>las señales.</span></> : <>Conecta <span>el recorrido.</span></>}</h1><p>{navigation.find((item) => item.label === view)?.detail}. Información para entender lo que ocurre.</p></div><button className="secondary-action" onClick={() => { setView("Consultas"); document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" }); }}><Icon name="search" size={17}/>Nueva consulta<Icon name="arrow" size={17}/></button></section>
+      <section className="page-heading"><div><p className="eyebrow"><span/>OBSERVA. CONECTA. COMPRENDE.</p><h1>{view === "Resumen" ? <>La ciudad, <span>en perspectiva.</span></> : view === "Cámaras" ? <>Una red. <span>Más alcance.</span></> : view === "Consultas" ? <>Sigue <span>las señales.</span></> : view === "Administración" ? <>Cada acción, <span>con autor.</span></> : <>Conecta <span>el recorrido.</span></>}</h1><p>{navigation.find((item) => item.label === view)?.detail}. Información para entender lo que ocurre.</p></div><button className="secondary-action" onClick={() => { setView("Consultas"); document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" }); }}><Icon name="search" size={17}/>Nueva consulta<Icon name="arrow" size={17}/></button></section>
       <div className={`source-banner ${source}`} role="status"><span className="source-icon"><Icon name={source === "central" ? "activity" : "layers"} size={18}/></span><div><b>{source === "central" ? "Datos del servicio central" : source === "demo" ? "Modo demostración · datos de ejemplo" : source === "loading" ? "Conectando tu red de cámaras" : "Tu consola está lista. Conecta tu red."}</b><span>{source === "central" ? `Última lectura de dispositivos: ${updatedAt}. Los nodos simulados conservan su etiqueta.` : source === "demo" ? "Escenario del 25 de agosto de 2026. Las rutas y sus porcentajes son ilustrativos." : source === "loading" ? "Consultando los dispositivos registrados…" : "El servicio central no responde. Reintenta la conexión o explora un escenario de prueba."}</span></div><div className="banner-actions">{source === "offline" && <button className="demo-button" onClick={openDemo}>Explorar demo<Icon name="arrow" size={14}/></button>}{source !== "loading" && <button className="text-action" disabled={connecting || searching} onClick={connect}><Icon name="refresh" size={15}/>{connecting ? "Conectando…" : source === "central" ? "Actualizar red" : "Conectar servicio"}</button>}</div></div>
       {connectionError && <p className="error-message" role="alert">{connectionError}</p>}
 
-      <section className="metrics" aria-label="Métricas de la red y última consulta">
+      {view !== "Administración" && <section className="metrics" aria-label="Métricas de la red y última consulta">
         {([
           { label: "Cámaras registradas", value: cameras.length, detail: `${cameras.filter((c) => c.kind === "physical").length} físicas · ${cameras.filter((c) => c.kind === "simulated").length} simuladas`, icon: "camera", tone: "teal" },
           { label: "Detecciones candidatas", value: result?.candidate_detection_count ?? "—", detail: result ? "En la consulta seleccionada" : "A la espera de tu consulta", icon: "search", tone: "orange" },
           { label: "Rutas posibles", value: result?.routes.length ?? "—", detail: result ? "Ordenadas por puntaje" : "Conecta las observaciones", icon: "route", tone: "violet" },
           { label: "Tiempo de consulta", value: record ? `${record.elapsed.toFixed(2)} s` : "—", detail: record?.source === "demo" ? "Procesamiento local de ejemplo" : "Medido desde esta consola", icon: "clock", tone: "blue" },
         ] as const).map((metric, index) => <article className={`metric ${metric.tone}`} key={metric.label}><div className="metric-top"><span>{metric.label}</span><Icon name={metric.icon} size={19}/></div><strong>{metric.value}</strong><div className="metric-bottom"><small>{metric.detail}</small><span className="metric-number">0{index + 1}</span></div></article>)}
-      </section>
+      </section>}
 
-      {view === "Cámaras" ? <>
+      {view === "Administración" && user?.role === "admin" ? <AdminPanel cameras={cameras}/> : view === "Cámaras" ? <>
         <div className="camera-toolbar"><h2>Dispositivos de la red</h2><label className="device-search"><Icon name="search" size={17}/><input aria-label="Filtrar cámaras" placeholder="Buscar nombre o identificador…" value={deviceFilter} onChange={(event) => setDeviceFilter(event.target.value)}/></label></div>
         <section className="cameras-grid"><div><CameraPreview active={selected?.external_id === "CAM-01" && selected.kind === "physical"} large/><div className="camera-selection"><Icon name="pin" size={17}/><span>Seleccionada: <b>{selected?.name ?? "Ninguna"}</b>{selected && <small>{selected.lat.toFixed(4)}, {selected.lng.toFixed(4)}</small>}</span></div></div><DevicesCard cameras={cameras.filter((camera) => `${camera.name} ${camera.external_id}`.toLowerCase().includes(deviceFilter.toLowerCase()))} selected={selected?.external_id ?? ""} onSelect={setSelectedCamera}/></section>
         {mapPanel}

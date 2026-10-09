@@ -15,6 +15,10 @@ const paths = {
   activity: <path d="M2 12h5l3-8 4 16 3-8h5"/>,
   layers: <><path d="m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></>,
   close: <path d="m6 6 12 12M6 18 18 6"/>,
+  check: <path d="m5 12 5 5 9-10"/>,
+  key: <><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9m-4 4 3 3m-6 0 2 2"/></>,
+  copy: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
+  alert: <><path d="M12 3 2 20h20Z"/><path d="M12 10v4m0 3v.5"/></>,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof paths;
