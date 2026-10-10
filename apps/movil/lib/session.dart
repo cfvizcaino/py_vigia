@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,7 +18,9 @@ final sessionProvider = NotifierProvider<SessionController, SessionState>(
   SessionController.new,
 );
 
-const defaultApiUrl = 'http://10.0.2.2:8000';
+// 10.0.2.2 is the host as seen from the Android emulator; in a browser the
+// backend is reached directly on the same computer.
+const defaultApiUrl = kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000';
 const _apiUrlKey = 'vigia_api_base_url';
 
 class SessionState {
