@@ -242,3 +242,36 @@ test("operators do not see the administration entry", async ({ page }) => {
   await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Administración", exact: false })).toHaveCount(0);
 });
+
+test("on the scoring database a dataset case fills the whole query form", async ({ page }) => {
+  const devices = [
+    { id: "sc-1", external_id: "SC-01", name: "Carrera 58 · norte (dataset)", kind: "simulated", status: "simulated", lat: 11.01277, lng: -74.817474, camera_model: null },
+    { id: "sc-7", external_id: "SC-07", name: "Calle 81 (dataset)", kind: "simulated", status: "simulated", lat: 11.008375, lng: -74.809824, camera_model: null },
+  ];
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: devices }));
+  await page.route("**/api/monitoring/scenarios", (route) => route.fulfill({ json: [
+    { id: "S01", title: "Recorrido limpio", challenge: "control", camera_id: "SC-07", radius_m: 2500, date: "2026-09-15", time_from: "07:00", time_to: "07:20", vehicle_type: "car", color: "white" },
+    { id: "S02", title: "Dos vehículos iguales que se cruzan", challenge: "confusor", camera_id: "SC-07", radius_m: 2500, date: "2026-09-15", time_from: "07:20", time_to: "07:40", vehicle_type: "car", color: "silver" },
+    { id: "S03", title: "Color no detectado", challenge: "apariencia incompleta", camera_id: "SC-07", radius_m: 2500, date: "2026-09-15", time_from: "07:40", time_to: "08:00", vehicle_type: "motorcycle", color: null },
+  ] }));
+  let sent: Record<string, unknown> | null = null;
+  await page.route("**/api/monitoring/queries", async (route) => {
+    sent = route.request().postDataJSON();
+    await route.fulfill({ json: runDemoQuery(DEMO_QUERY) });
+  });
+  await signedIn(page);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Cargar escenario de prueba" })).toHaveCount(0);
+  const color = page.getByRole("combobox", { name: "Color", exact: true });
+  await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S02");
+  await expect(color).toHaveValue("silver");
+  await expect(color.locator("option:checked")).toHaveText("Plateado");
+  await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S03");
+  await expect(color).toHaveValue("");
+  await expect(page.getByRole("combobox", { name: "Punto de búsqueda" })).toHaveValue("SC-07");
+  await expect(page.locator(".radius-label output")).toHaveText("2,5 km");
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await expect.poll(() => sent).toEqual({ lat: 11.008375, lng: -74.809824, radius_m: 2500,
+    time_from: "2026-09-15T07:40:00-05:00", time_to: "2026-09-15T08:00:00-05:00", vehicle_type: "motorcycle" });
+});

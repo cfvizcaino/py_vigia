@@ -16,7 +16,7 @@ Primero se cierra un flujo vertical medible: cámara → edge → VPN → backen
 | 4 | P0.4 Autenticación y auditoría | Tokens por cámara, migraciones Alembic, usuarios con contraseña, sesiones, roles `operator`/`admin` en backend y auditoría de uso; validado en Docker Compose | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | Pendiente | Versión válida activa; versión defectuosa revierte automáticamente |
 | 6 | P1.1 Evaluación independiente | Pendiente | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
-| 7 | P1.2 Resiliencia y E2E | Pendiente | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
+| 7 | P1.2 Resiliencia y E2E | Aprobado con nodo simulado sobre Compose + PostgreSQL (08/10): 248/248 eventos, 0 duplicados, drenaje ≤ 19 s; falta repetir con la cámara real | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
 | 8 | P1.3 Carga y observabilidad | Pendiente | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
 | 9 | P2 Evoluciones | En espera | MQTT/PostGIS/OCR solo con P0 y P1 cerrados |
 
@@ -57,6 +57,15 @@ Pendiente para declarar P0.4 cerrado en operación:
 3. TLS y límite por IP en el proxy si la consola sale de loopback/VPN. Evaluar OIDC/MFA.
 
 No declarar la aplicación apta para exposición pública solo por tener VPN y login.
+
+## Base del piloto (08/10/2026)
+
+- PostgreSQL 17 en Compose con respaldo `pg_dump`, prueba de restauración y pruebas específicas; corrige reintentos concurrentes de ingestión que antes daban 500. [Guía](./operations/postgres.md).
+- Dataset sintético de puntajes con verdad de terreno y evaluador (recall@k, Jaccard, enlaces falsos), en una consola aislada. Primer resultado: recall@1 0,286, recall@3 0,429, enlaces falsos 0,26. Hallazgo: el top-k no diversifica y en hora pico no recupera trayectorias. [Dataset](./operations/scoring-dataset.md). Es una base para P1.1, no su evaluación independiente.
+
+## P1.2 (08/10/2026)
+
+Corte de red de 5 minutos con reinicio del nodo, acuses perdidos y caídas de 15 s del backend y de PostgreSQL. Resultado: 248 eventos generados y guardados exactamente una vez, 115/115 observaciones y 4 reenvíos reconocidos como `duplicate`. Se corrigió el bloqueo de la cola edge ante un evento rechazado. [Evidencia](./evidence/p12-resiliencia-20261008.md) · [Procedimiento](./operations/resilience.md). Pendiente: repetir con la Tapo real en una sesión prolongada.
 
 ## Orden de ejecución siguiente
 

@@ -1,6 +1,6 @@
 # Backend central de VIGIA
 
-Monolito modular (ADR-001) con FastAPI + SQLAlchemy. Persistencia inicial en SQLite.
+Monolito modular (ADR-001) con FastAPI + SQLAlchemy. PostgreSQL 17 en el despliegue con Compose ([guía](../../docs/operations/postgres.md)); SQLite para desarrollo rápido y pruebas en memoria.
 Modelo alineado con [docs/architecture/data-model.md](../../docs/architecture/data-model.md).
 
 ## Alcance actual

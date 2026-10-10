@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { backendResponse } from "../src/lib/backend-api";
-import { DEMO_QUERY, runDemoQuery } from "../src/lib/demo-monitoring";
+import { DEMO_DEVICES, DEMO_QUERY, isDemoRoute, runDemoQuery } from "../src/lib/demo-monitoring";
 import { observationDate, observationTime, validateQuery } from "../src/lib/monitoring";
 import { resolveRoadGeometry, validateRoadPoints } from "../src/lib/road-routing";
 
@@ -108,4 +108,13 @@ test("unconfigured routing uses the local service and never the public demo", as
     if (previous === undefined) delete process.env.ROAD_ROUTER_URL;
     else process.env.ROAD_ROUTER_URL = previous;
   }
+});
+
+test("anonymous demo routing is limited to the demo cameras", () => {
+  const [a, b] = DEMO_DEVICES;
+  assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }]), true);
+  assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }]), false);
+  assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }, { lat: 4.6, lng: -74.08 }]), false);
+  assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }, null]), false);
+  assert.equal(isDemoRoute("CAM-01;CAM-02"), false);
 });

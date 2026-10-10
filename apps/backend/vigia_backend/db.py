@@ -25,8 +25,11 @@ def _ensure_sqlite_parent(database_url: str) -> None:
 
 def create_engine_from_settings(settings: Settings):
     _ensure_sqlite_parent(settings.database_url)
-    connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-    engine = create_engine(settings.database_url, connect_args=connect_args)
+    if settings.database_url.startswith("sqlite"):
+        engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+    else:
+        # Postgres: drop connections the server closed (restart, idle timeout) before use.
+        engine = create_engine(settings.database_url, pool_pre_ping=True, pool_size=5, max_overflow=10)
 
     if settings.database_url.startswith("sqlite"):
 

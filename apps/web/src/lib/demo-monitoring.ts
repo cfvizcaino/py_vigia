@@ -42,3 +42,9 @@ export function runDemoQuery(value: QueryInput): QueryResult {
   }
   return { query: { ...query, id: `demo-${Date.now()}`, created_at: new Date().toISOString() }, nearby_devices: nearby, candidate_detection_count: count, routes };
 }
+
+/** The anonymous demo may only ask the road router for routes between its own fixed cameras. */
+export function isDemoRoute(points: unknown): boolean {
+  return Array.isArray(points) && points.length >= 2 && points.every((point: { lat?: unknown; lng?: unknown } | null) =>
+    DEMO_DEVICES.some((device) => point?.lat === device.lat && point?.lng === device.lng));
+}
