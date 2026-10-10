@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from dotenv import load_dotenv
 
@@ -24,6 +25,8 @@ class Settings:
     tapo_username: str | None
     tapo_password: str | None
     tapo_stream: str
+    video_source_url: str | None
+    camera_model: str
     node_version: str
     model_version: str
     model_digest: str | None
@@ -35,7 +38,8 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
-        load_dotenv()
+        # One file per node lets several cameras (e.g. phones) run side by side.
+        load_dotenv(os.getenv("VIGIA_ENV_FILE") or None)
         confidence = float(os.getenv("YOLO_CONFIDENCE", "0.35"))
         if not 0 < confidence <= 1:
             raise ValueError("YOLO_CONFIDENCE debe estar entre 0 y 1")
@@ -62,6 +66,11 @@ class Settings:
 
         model = os.getenv("YOLO_MODEL", "yolo26n.pt")
 
+        video_source_url = os.getenv("VIDEO_SOURCE_URL", "").strip() or None
+        if video_source_url and not is_local_camera(video_source_url) \
+                and urlsplit(video_source_url).scheme not in {"rtsp", "rtsps", "http", "https"}:
+            raise ValueError("VIDEO_SOURCE_URL debe ser rtsp://, rtsps://, http://, https:// o /dev/videoN")
+
         return cls(
             camera_id=os.getenv("VIGIA_CAMERA_ID", "CAM-01"),
             model=model,
@@ -75,6 +84,8 @@ class Settings:
             tapo_username=os.getenv("TAPO_USERNAME"),
             tapo_password=os.getenv("TAPO_PASSWORD"),
             tapo_stream=stream,
+            video_source_url=video_source_url,
+            camera_model=os.getenv("CAMERA_MODEL", "Tapo C110"),
             node_version=os.getenv("VIGIA_NODE_VERSION", __version__),
             model_version=os.getenv("VIGIA_MODEL_VERSION", model),
             model_digest=os.getenv("VIGIA_MODEL_DIGEST", "").strip() or None,
@@ -84,6 +95,10 @@ class Settings:
             event_queue_max=event_queue_max,
             publish_timeout_seconds=publish_timeout_seconds,
         )
+
+    def source_url(self) -> str:
+        """Generic stream (phone, other IP camera) or the configured Tapo."""
+        return self.video_source_url or self.rtsp_url()
 
     def rtsp_url(self) -> str:
         missing = [
@@ -101,3 +116,8 @@ class Settings:
         username = quote(self.tapo_username or "", safe="")
         password = quote(self.tapo_password or "", safe="")
         return f"rtsp://{username}:{password}@{self.tapo_host}:554/{self.tapo_stream}"
+
+
+def is_local_camera(source: str) -> bool:
+    """A V4L2 device, e.g. an Android phone in USB webcam mode (/dev/video2)."""
+    return re.fullmatch(r"/dev/video\d+", source) is not None
