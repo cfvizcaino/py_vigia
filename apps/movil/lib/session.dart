@@ -29,6 +29,7 @@ class SessionState {
     this.baseUrl = defaultApiUrl,
     this.error,
     this.devices = const [],
+    this.scenarios = const [],
     this.history = const [],
     this.activeResult,
   });
@@ -40,6 +41,7 @@ class SessionState {
   final String baseUrl;
   final String? error;
   final List<Device> devices;
+  final List<Scenario> scenarios;
   final List<QueryResult> history;
   final QueryResult? activeResult;
 
@@ -53,6 +55,7 @@ class SessionState {
     String? error,
     bool clearError = false,
     List<Device>? devices,
+    List<Scenario>? scenarios,
     List<QueryResult>? history,
     QueryResult? activeResult,
     bool clearActiveResult = false,
@@ -64,6 +67,7 @@ class SessionState {
     baseUrl: baseUrl ?? this.baseUrl,
     error: clearError ? null : error ?? this.error,
     devices: devices ?? this.devices,
+    scenarios: scenarios ?? this.scenarios,
     history: history ?? this.history,
     activeResult: clearActiveResult ? null : activeResult ?? this.activeResult,
   );
@@ -101,6 +105,7 @@ class SessionController extends Notifier<SessionState> {
         restoring: false,
         user: user,
         devices: devices,
+        scenarios: await _optionalScenarios(),
         clearError: true,
       );
     } on ApiException catch (error) {
@@ -122,6 +127,7 @@ class SessionController extends Notifier<SessionState> {
         isDemo: false,
         user: user,
         devices: devices,
+        scenarios: await _optionalScenarios(),
         history: const [],
       );
     } on ApiException catch (error) {
@@ -141,9 +147,19 @@ class SessionController extends Notifier<SessionState> {
         role: 'operator',
       ),
       devices: demoDevices,
+      scenarios: const [],
       history: const [],
       clearError: true,
     );
+  }
+
+  /// The dataset picker is a convenience: its failure must never block login.
+  Future<List<Scenario>> _optionalScenarios() async {
+    try {
+      return await _api.getScenarios();
+    } on ApiException {
+      return const [];
+    }
   }
 
   Future<void> logout() async {
@@ -208,6 +224,7 @@ class SessionController extends Notifier<SessionState> {
       clearUser: true,
       isDemo: false,
       devices: const [],
+      scenarios: const [],
       history: const [],
       clearActiveResult: true,
       error: 'La sesión venció. Inicia sesión nuevamente.',

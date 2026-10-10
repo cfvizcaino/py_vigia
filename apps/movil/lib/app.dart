@@ -145,6 +145,7 @@ class _OperatorShellState extends ConsumerState<OperatorShell> {
                 CamerasScreen(devices: state.devices),
                 QueryScreen(
                   devices: state.devices,
+                  scenarios: state.scenarios,
                   busy: state.busy,
                   isDemo: state.isDemo,
                   error: state.error,

@@ -56,18 +56,27 @@ class StatusTag extends StatelessWidget {
   }
 }
 
-String vehicleLabel(String type) =>
-    type == 'motorcycle' ? 'Motocicleta' : 'Automóvil';
+String vehicleLabel(String? type) => switch (type) {
+  'motorcycle' => 'Motocicleta',
+  'car' => 'Automóvil',
+  _ => 'Cualquier vehículo',
+};
+
+/// Same vocabulary as the web console (apps/web/src/lib/monitoring.ts).
+const colorLabels = {
+  'white': 'Blanco',
+  'black': 'Negro',
+  'gray': 'Gris',
+  'silver': 'Plateado',
+  'red': 'Rojo',
+  'blue': 'Azul',
+  'green': 'Verde',
+  'yellow': 'Amarillo',
+};
 
 String colorLabel(String? color) => switch (color) {
-  'white' => 'Blanco',
-  'black' => 'Negro',
-  'gray' => 'Gris / plata',
-  'red' => 'Rojo',
-  'blue' => 'Azul',
-  'green' => 'Verde',
   null || '' => 'Sin especificar',
-  _ => color,
+  _ => colorLabels[color] ?? color,
 };
 
 DateTime bogotaTime(DateTime value) =>

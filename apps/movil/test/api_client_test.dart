@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -236,4 +237,101 @@ void main() {
     expect(result.routes.first.cameraIds, ['CAM-01', 'CAM-02']);
     expect(result.routes.first.roadPoints, isEmpty);
   });
+
+  test('un servidor que no responde termina con un error claro', () async {
+    store.token = 'private-token';
+    final client = VigiaApiClient(
+      baseUrl: 'https://vigia.test',
+      tokenStore: store,
+      timeout: const Duration(milliseconds: 50),
+      httpClient: MockClient((_) => Completer<http.Response>().future),
+    );
+    expect(
+      client.getDevices(),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('no respondió a tiempo'),
+        ),
+      ),
+    );
+  });
+
+  test('errores del backend se explican en español', () async {
+    store.token = 'private-token';
+    for (final (status, expected) in [
+      (422, 'Revisa los filtros'),
+      (404, 'No se encontró'),
+      (503, 'encontró un error'),
+    ]) {
+      final client = VigiaApiClient(
+        baseUrl: 'https://vigia.test',
+        tokenStore: store,
+        httpClient: MockClient(
+          (_) async => http.Response('{"detail":"Query not found"}', status),
+        ),
+      );
+      await expectLater(
+        client.getDevices(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains(expected), isNot(contains('not found'))),
+          ),
+        ),
+      );
+    }
+  });
+
+  test('fechas sin zona horaria se leen como UTC, no como hora local', () {
+    final legacy = parseApiDate('2026-08-25T14:30:00');
+    final aware = parseApiDate('2026-08-25T09:30:00-05:00');
+    expect(legacy.isUtc, isTrue);
+    expect(legacy, DateTime.utc(2026, 8, 25, 14, 30));
+    expect(aware, legacy);
+  });
+
+  test(
+    'casos del dataset: horas de Colombia a UTC y lista vacía sin endpoint',
+    () async {
+      store.token = 'private-token';
+      final withCases = VigiaApiClient(
+        baseUrl: 'https://vigia.test',
+        tokenStore: store,
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/api/v1/scenarios');
+          return http.Response(
+            jsonEncode([
+              {
+                'id': 'S01',
+                'title': 'Recorrido limpio',
+                'challenge': 'control',
+                'camera_id': 'SC-07',
+                'radius_m': 2500.0,
+                'date': '2026-09-15',
+                'time_from': '07:00',
+                'time_to': '07:20',
+                'vehicle_type': 'car',
+                'color': 'white',
+              },
+            ]),
+            200,
+          );
+        }),
+      );
+      final cases = await withCases.getScenarios();
+      expect(cases.single.radiusM, 2500);
+      expect(cases.single.from, DateTime.utc(2026, 9, 15, 12));
+      expect(cases.single.to, DateTime.utc(2026, 9, 15, 12, 20));
+
+      final olderBackend = VigiaApiClient(
+        baseUrl: 'https://vigia.test',
+        tokenStore: store,
+        httpClient: MockClient((_) async => http.Response('{}', 404)),
+      );
+      expect(await olderBackend.getScenarios(), isEmpty);
+    },
+  );
 }

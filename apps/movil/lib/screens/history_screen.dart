@@ -49,7 +49,7 @@ class HistoryScreen extends StatelessWidget {
                 color: Color(0xFF83DDBA),
               ),
               title: Text(
-                '${vehicleLabel(result.query.input.vehicleType ?? 'car')} · ${colorLabel(result.query.input.color)}',
+                '${vehicleLabel(result.query.input.vehicleType)} · ${result.query.input.color == null ? 'Cualquier color' : colorLabel(result.query.input.color)}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(

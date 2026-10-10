@@ -106,10 +106,12 @@ class QueryScreen extends StatefulWidget {
     required this.busy,
     required this.isDemo,
     required this.onSearch,
+    this.scenarios = const [],
     this.error,
   });
 
   final List<Device> devices;
+  final List<Scenario> scenarios;
   final bool busy;
   final bool isDemo;
   final String? error;
@@ -124,6 +126,7 @@ class _QueryScreenState extends State<QueryScreen> {
   final _latController = TextEditingController(text: '11.0131');
   final _lngController = TextEditingController(text: '-74.8172');
   String _selectedCamera = '';
+  String? _scenarioId;
   String? _vehicle = 'car';
   String? _color = 'white';
   int _radiusM = 2000;
@@ -164,6 +167,30 @@ class _QueryScreenState extends State<QueryScreen> {
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           if (widget.isDemo) const _DemoNotice(),
+          if (widget.scenarios.isNotEmpty) ...[
+            DropdownButtonFormField<String>(
+              initialValue: _scenarioId,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Caso del dataset de pruebas',
+                helperText: 'Llena cámara, fecha, horario, radio y filtros.',
+                prefixIcon: Icon(Icons.science_outlined),
+              ),
+              items: widget.scenarios
+                  .map(
+                    (scenario) => DropdownMenuItem(
+                      value: scenario.id,
+                      child: Text(
+                        '${scenario.id} · ${scenario.title}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: _applyScenario,
+            ),
+            const SizedBox(height: 22),
+          ],
           Text(
             'Punto de búsqueda',
             style: Theme.of(context).textTheme.titleMedium,
@@ -171,6 +198,7 @@ class _QueryScreenState extends State<QueryScreen> {
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: _selectedCamera,
+            isExpanded: true,
             decoration: const InputDecoration(
               labelText: 'Cámara de referencia',
               prefixIcon: Icon(Icons.videocam_outlined),
@@ -229,10 +257,14 @@ class _QueryScreenState extends State<QueryScreen> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
+          DropdownButtonFormField<String?>(
             initialValue: _vehicle,
             decoration: const InputDecoration(labelText: 'Tipo de vehículo'),
             items: const [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Cualquier vehículo'),
+              ),
               DropdownMenuItem(value: 'car', child: Text('Automóvil')),
               DropdownMenuItem(value: 'motorcycle', child: Text('Motocicleta')),
             ],
@@ -242,17 +274,17 @@ class _QueryScreenState extends State<QueryScreen> {
           DropdownButtonFormField<String?>(
             initialValue: _color,
             decoration: const InputDecoration(labelText: 'Color'),
-            items: const [
-              DropdownMenuItem<String?>(
+            items: [
+              const DropdownMenuItem<String?>(
                 value: null,
                 child: Text('Cualquier color'),
               ),
-              DropdownMenuItem(value: 'white', child: Text('Blanco')),
-              DropdownMenuItem(value: 'black', child: Text('Negro')),
-              DropdownMenuItem(value: 'gray', child: Text('Gris / plata')),
-              DropdownMenuItem(value: 'red', child: Text('Rojo')),
-              DropdownMenuItem(value: 'blue', child: Text('Azul')),
-              DropdownMenuItem(value: 'green', child: Text('Verde')),
+              ...colorLabels.entries.map(
+                (entry) => DropdownMenuItem<String?>(
+                  value: entry.key,
+                  child: Text(entry.value),
+                ),
+              ),
             ],
             onChanged: (value) => setState(() => _color = value),
           ),
@@ -322,6 +354,28 @@ class _QueryScreenState extends State<QueryScreen> {
         ],
       ),
     );
+  }
+
+  void _applyScenario(String? id) {
+    final scenario = widget.scenarios.where((item) => item.id == id);
+    if (scenario.isEmpty) return;
+    final selected = scenario.first;
+    final camera = widget.devices.where(
+      (device) => device.externalId == selected.cameraId,
+    );
+    setState(() {
+      _scenarioId = selected.id;
+      if (camera.isNotEmpty) {
+        _selectedCamera = camera.first.id;
+        _latController.text = camera.first.lat.toString();
+        _lngController.text = camera.first.lng.toString();
+      }
+      _from = selected.from;
+      _to = selected.to;
+      _vehicle = selected.vehicleType;
+      _color = selected.color;
+      _radiusM = selected.radiusM.clamp(100, 5000);
+    });
   }
 
   Widget _coordinateField(

@@ -1,3 +1,20 @@
+/// API timestamps are UTC. Older SQLite deployments omit the offset, and
+/// `DateTime.parse` would then read them as the phone's local time.
+DateTime parseApiDate(String value) {
+  final parsed = DateTime.parse(value);
+  if (parsed.isUtc) return parsed;
+  return DateTime.utc(
+    parsed.year,
+    parsed.month,
+    parsed.day,
+    parsed.hour,
+    parsed.minute,
+    parsed.second,
+    parsed.millisecond,
+    parsed.microsecond,
+  );
+}
+
 class AppUser {
   const AppUser({
     required this.id,
@@ -115,8 +132,8 @@ class QueryInput {
     lat: (json['lat'] as num).toDouble(),
     lng: (json['lng'] as num).toDouble(),
     radiusM: (json['radius_m'] as num).toInt(),
-    timeFrom: DateTime.parse(json['time_from'] as String),
-    timeTo: DateTime.parse(json['time_to'] as String),
+    timeFrom: parseApiDate(json['time_from'] as String),
+    timeTo: parseApiDate(json['time_to'] as String),
     vehicleType: json['vehicle_type'] as String?,
     color: json['color'] as String?,
   );
@@ -151,7 +168,7 @@ class RouteDetection {
     color: json['color'] as String?,
     direction: json['direction'] as String,
     confidence: (json['confidence'] as num).toDouble(),
-    observedAt: DateTime.parse(json['observed_at'] as String),
+    observedAt: parseApiDate(json['observed_at'] as String),
   );
 }
 
@@ -235,7 +252,7 @@ class QueryRecord {
   factory QueryRecord.fromJson(Map<String, dynamic> json) => QueryRecord(
     id: json['id'] as String,
     input: QueryInput.fromJson(json),
-    createdAt: DateTime.parse(json['created_at'] as String),
+    createdAt: parseApiDate(json['created_at'] as String),
   );
 }
 
@@ -262,4 +279,52 @@ class QueryResult {
         .map((item) => CandidateRoute.fromJson(item as Map<String, dynamic>))
         .toList(growable: false),
   );
+}
+
+/// A case of the synthetic scoring dataset (`GET /api/v1/scenarios`).
+/// Date and times are Colombian local time, ready for the query form.
+class Scenario {
+  const Scenario({
+    required this.id,
+    required this.title,
+    required this.cameraId,
+    required this.radiusM,
+    required this.date,
+    required this.timeFrom,
+    required this.timeTo,
+    this.vehicleType,
+    this.color,
+  });
+
+  final String id;
+  final String title;
+  final String cameraId;
+  final int radiusM;
+  final String date;
+  final String timeFrom;
+  final String timeTo;
+  final String? vehicleType;
+  final String? color;
+
+  DateTime get from => _bogotaToUtc(date, timeFrom);
+  DateTime get to => _bogotaToUtc(date, timeTo);
+
+  factory Scenario.fromJson(Map<String, dynamic> json) => Scenario(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    cameraId: json['camera_id'] as String,
+    radiusM: (json['radius_m'] as num).round(),
+    date: json['date'] as String,
+    timeFrom: json['time_from'] as String,
+    timeTo: json['time_to'] as String,
+    vehicleType: json['vehicle_type'] as String?,
+    color: json['color'] as String?,
+  );
+}
+
+DateTime _bogotaToUtc(String date, String time) {
+  final day = DateTime.parse(date);
+  final [hour, minute] = time.split(':').map(int.parse).toList();
+  // Colombia has no daylight saving: always UTC−5.
+  return DateTime.utc(day.year, day.month, day.day, hour + 5, minute);
 }

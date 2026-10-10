@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -45,6 +46,7 @@ class VigiaApiClient {
     required this.tokenStore,
     http.Client? httpClient,
     this.onUnauthorized,
+    this.timeout = const Duration(seconds: 15),
   }) : baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
        _httpClient = httpClient ?? http.Client();
 
@@ -52,6 +54,9 @@ class VigiaApiClient {
   final TokenStore tokenStore;
   final http.Client _httpClient;
   final void Function()? onUnauthorized;
+
+  /// Without a limit a wrong address or a filtering network would spin forever.
+  final Duration timeout;
 
   Future<AppUser> login(String email, String password) async {
     final json = await _request(
@@ -93,6 +98,20 @@ class VigiaApiClient {
     return QueryResult.fromJson(json);
   }
 
+  /// Cases of the scoring dataset; empty on the pilot database or on older
+  /// backends that predate the endpoint.
+  Future<List<Scenario>> getScenarios() async {
+    try {
+      final json = await _request('GET', '/api/v1/scenarios');
+      return (json['items'] as List? ?? const [])
+          .map((item) => Scenario.fromJson(item as Map<String, dynamic>))
+          .toList(growable: false);
+    } on ApiException catch (error) {
+      if (error.statusCode == 404) return const [];
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> exportQuery(String queryId) =>
       _request('POST', '/api/v1/queries/$queryId/export');
 
@@ -119,8 +138,8 @@ class VigiaApiClient {
     if (body != null) request.body = jsonEncode(body);
     try {
       final response = await http.Response.fromStream(
-        await _httpClient.send(request),
-      );
+        await _httpClient.send(request).timeout(timeout),
+      ).timeout(timeout);
       if (response.statusCode == 401 && authenticated) {
         await tokenStore.clear();
         onUnauthorized?.call();
@@ -137,6 +156,11 @@ class VigiaApiClient {
       return Map<String, dynamic>.from(decoded as Map);
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        null,
+        'El servidor no respondió a tiempo. Revisa la URL y la conexión.',
+      );
     } on http.ClientException {
       throw const ApiException(
         null,
@@ -154,16 +178,14 @@ class VigiaApiClient {
           ? 'Correo o contraseña incorrectos.'
           : 'La sesión venció. Inicia sesión nuevamente.';
     }
-    if (response.statusCode == 429) {
-      return 'Demasiados intentos. Espera 15 minutos antes de volver a intentar.';
-    }
-    try {
-      final body = jsonDecode(response.body) as Map<String, dynamic>;
-      final detail = body['detail'];
-      if (detail is String && detail.isNotEmpty) return detail;
-    } catch (_) {
-      return 'No fue posible interpretar la respuesta del servidor.';
-    }
-    return 'Error del servidor (${response.statusCode}).';
+    // The backend's `detail` texts are English and meant for developers.
+    return switch (response.statusCode) {
+      429 =>
+        'Demasiados intentos. Espera 15 minutos antes de volver a intentar.',
+      404 => 'No se encontró el recurso solicitado.',
+      400 || 422 => 'El servidor rechazó los datos. Revisa los filtros e inténtalo de nuevo.',
+      >= 500 => 'El servidor central encontró un error. Intenta nuevamente.',
+      _ => 'Error del servidor (${response.statusCode}).',
+    };
   }
 }
