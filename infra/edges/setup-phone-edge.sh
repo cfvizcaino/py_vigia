@@ -2,8 +2,9 @@
 # Da de alta un teléfono como cámara edge: registra el dispositivo en el backend, emite
 # SU credencial y escribe la configuración del nodo en apps/vision/nodes/<id>.env (0600).
 # El token nunca se imprime ni queda en el contenedor.
-# Uso: setup-phone-edge.sh CEL-01 "Teléfono 1" LATITUD LONGITUD "OPPO CPH2599" [PUERTO_CAMARA] [SERVICIO]
-#   PUERTO_CAMARA: puerto local por el que llegará la cámara (adb forward), por defecto 8081.
+# Uso: setup-phone-edge.sh CEL-01 "Teléfono 1" LATITUD LONGITUD "OPPO CPH2599" [FUENTE] [SERVICIO]
+#   FUENTE: /dev/videoN si el teléfono está en modo cámara web USB (Android 14+), o un
+#           puerto local para IP Webcam vía adb forward. Por defecto 8081 (IP Webcam).
 #   SERVICIO: backend de Compose donde registrar (backend = piloto, por defecto).
 set -euo pipefail
 camera="${1:?Falta el identificador, p. ej. CEL-01}"
@@ -11,7 +12,10 @@ name="${2:?Falta el nombre visible}"
 lat="${3:?Falta la latitud}"
 lng="${4:?Falta la longitud}"
 model="${5:-Teléfono Android}"
-cam_port="${6:-8081}"
+source="${6:-8081}"
+if [[ "$source" =~ ^/dev/video[0-9]+$ ]]; then video_url="$source"
+elif [[ "$source" =~ ^[0-9]+$ ]]; then video_url="http://127.0.0.1:$source/video"
+else echo "FUENTE debe ser /dev/videoN o un puerto" >&2; exit 1; fi
 service="${7:-backend}"
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 read -ra compose <<< "${VIGIA_COMPOSE:-docker compose}"
@@ -37,7 +41,7 @@ cat > "$env_file" <<CONF
 # Nodo edge $camera ($model). Contiene una credencial: no compartir ni subir a Git.
 VIGIA_CAMERA_ID=$camera
 CAMERA_MODEL=$model
-VIDEO_SOURCE_URL=http://127.0.0.1:$cam_port/video
+VIDEO_SOURCE_URL=$video_url
 VIGIA_CENTRAL_API_URL=http://127.0.0.1:${api_port:-8000}
 VIGIA_CENTRAL_API_TOKEN=$token
 YOLO_MODEL=yolo26n.pt

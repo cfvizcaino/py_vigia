@@ -37,6 +37,15 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Settings.from_environment().source_url()
 
+    @patch.dict(os.environ, {"VIDEO_SOURCE_URL": "/dev/video2"}, clear=True)
+    def test_phone_in_usb_webcam_mode_is_a_local_camera(self):
+        self.assertEqual(Settings.from_environment().source_url(), "/dev/video2")
+
+    @patch.dict(os.environ, {"VIDEO_SOURCE_URL": "/dev/sda"}, clear=True)
+    def test_only_video_devices_are_accepted_as_local_paths(self):
+        with self.assertRaises(ValueError):
+            Settings.from_environment()
+
     @patch.dict(os.environ, {"VIDEO_SOURCE_URL": "file:///etc/passwd"}, clear=True)
     def test_video_source_rejects_unexpected_schemes(self):
         with self.assertRaises(ValueError):

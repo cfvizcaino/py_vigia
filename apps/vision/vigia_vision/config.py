@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import quote, urlsplit
@@ -66,8 +67,9 @@ class Settings:
         model = os.getenv("YOLO_MODEL", "yolo26n.pt")
 
         video_source_url = os.getenv("VIDEO_SOURCE_URL", "").strip() or None
-        if video_source_url and urlsplit(video_source_url).scheme not in {"rtsp", "rtsps", "http", "https"}:
-            raise ValueError("VIDEO_SOURCE_URL debe empezar por rtsp://, rtsps://, http:// o https://")
+        if video_source_url and not is_local_camera(video_source_url) \
+                and urlsplit(video_source_url).scheme not in {"rtsp", "rtsps", "http", "https"}:
+            raise ValueError("VIDEO_SOURCE_URL debe ser rtsp://, rtsps://, http://, https:// o /dev/videoN")
 
         return cls(
             camera_id=os.getenv("VIGIA_CAMERA_ID", "CAM-01"),
@@ -114,3 +116,8 @@ class Settings:
         username = quote(self.tapo_username or "", safe="")
         password = quote(self.tapo_password or "", safe="")
         return f"rtsp://{username}:{password}@{self.tapo_host}:554/{self.tapo_stream}"
+
+
+def is_local_camera(source: str) -> bool:
+    """A V4L2 device, e.g. an Android phone in USB webcam mode (/dev/video2)."""
+    return re.fullmatch(r"/dev/video\d+", source) is not None

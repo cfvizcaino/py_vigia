@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Conecta por USB la cámara de un teléfono Android (app IP Webcam, puerto 8080 en el
-# teléfono) con su nodo de visión, que detecta en este PC y publica con su credencial.
+# Arranca el nodo de visión de un teléfono: detecta en este PC y publica con su credencial.
+# Modo cámara web USB (/dev/videoN): solo arranca el nodo. Modo IP Webcam: además
+# redirige por USB el puerto 8080 del teléfono (adb forward, solo loopback).
 # Uso: run-phone-node.sh CEL-01 [PUERTO_API_NODO] [SERIAL_ADB]
 # Sin teléfono: deja ADB_SKIP=1 y sirve un video con fake-phone-camera.py en el mismo puerto.
 set -euo pipefail
@@ -12,7 +13,7 @@ slug="$(tr '[:upper:]' '[:lower:]' <<< "$camera")"
 env_file="$root_dir/apps/vision/nodes/$slug.env"
 [[ -f "$env_file" ]] || { echo "Falta $env_file: ejecuta antes setup-phone-edge.sh" >&2; exit 1; }
 cam_port="$(sed -n 's|^VIDEO_SOURCE_URL=http://127.0.0.1:\([0-9]*\)/.*|\1|p' "$env_file")"
-if [[ "${ADB_SKIP:-0}" != 1 ]]; then
+if [[ -n "$cam_port" && "${ADB_SKIP:-0}" != 1 ]]; then
   adb="${ADB:-$HOME/Android/Sdk/platform-tools/adb}"
   # The phone's camera port is reachable only through the USB cable, on loopback.
   "$adb" ${serial:+-s "$serial"} forward "tcp:$cam_port" tcp:8080

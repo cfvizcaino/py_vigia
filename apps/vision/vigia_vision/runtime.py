@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Iterator
 from typing import Any
 
-from .config import Settings
+from .config import Settings, is_local_camera
 from .events import TrackState, build_snapshot, update_tracks, utc_now, write_snapshot_payload
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
 from .publisher import SnapshotPublisher
@@ -191,7 +191,9 @@ class VisionRuntime:
 
         while not self._stop_event.is_set():
             self._set_status("connecting")
-            capture = cv2.VideoCapture(self.settings.source_url(), cv2.CAP_FFMPEG)
+            source = self.settings.source_url()
+            # USB webcams (including phones in webcam mode) use V4L2; network streams use FFmpeg.
+            capture = cv2.VideoCapture(source, cv2.CAP_V4L2 if is_local_camera(source) else cv2.CAP_FFMPEG)
             if not capture.isOpened():
                 capture.release()
                 self._set_status("reconnecting", "CAMERA_UNAVAILABLE")
