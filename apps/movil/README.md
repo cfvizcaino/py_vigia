@@ -1,26 +1,40 @@
-# movil
 # VIGÍA móvil
 
-Consola móvil del operador para consultar cámaras y trayectorias estimadas del backend FastAPI. **Explorar demo** usa datos locales de ejemplo, siempre se identifica como demostración y nunca se activa como fallback de una conexión fallida.
+Consola móvil del operador en Flutter: inicio de sesión, cámaras en mapa, consultas de trayectorias, resultados con geometría vial y explicación del puntaje, historial de la sesión, exportación auditada y ajustes. **Explorar demo** usa datos locales de ejemplo, siempre se identifica como demostración y nunca se activa como respaldo de una conexión fallida.
 
-## Configurar el backend
+## Requisitos
 
-La URL base se configura desde el icono de enlace en login o en **Ajustes**. Por defecto es `http://10.0.2.2:8000`, dirección del host vista desde el emulador Android. La URL se guarda en preferencias locales; el token se conserva únicamente con `flutter_secure_storage`.
+- Flutter **3.44 o superior** (validado con 3.47.7). En el equipo del proyecto está en `~/development/flutter`:
 
-HTTP solo se acepta en `localhost`, `127.0.0.1`, `::1`, `10.0.2.2` y `10.0.3.2`. Para equipos físicos u otros hosts configura HTTPS. Android deniega tráfico claro por defecto y permite excepciones solo para esos hosts. En iOS, ATS permite HTTP únicamente para `localhost`.
+  ```bash
+  export PATH="$HOME/development/flutter/bin:$PATH"
+  ```
+
+- Para Android: Android Studio o Android SDK con un emulador, o un teléfono con depuración USB.
+- El backend en marcha. Con Docker Compose queda en `127.0.0.1:8000` (piloto) y `127.0.0.1:8200` (dataset de pruebas); ver `docs/operations/postgres.md`.
+
+## Conectar con el backend
+
+La dirección se configura con el ícono de enlace en la pantalla de inicio o en **Ajustes**, y se guarda en el dispositivo. El token de sesión se guarda solo en `flutter_secure_storage`.
+
+| Dónde corre la app | Dirección |
+|---|---|
+| Emulador Android | `http://10.0.2.2:8000` (valor por defecto; `10.0.2.2` es el computador visto desde el emulador) |
+| Teléfono Android por USB | Ejecutar `adb reverse tcp:8000 tcp:8000` y usar `http://127.0.0.1:8000` |
+| Simulador iOS | `http://localhost:8000` |
+| Teléfono en otra red | Una URL **HTTPS** publicada por el centro |
+
+Para la consola de pruebas cambia el puerto a `8200` (en USB: `adb reverse tcp:8000 tcp:8200`).
+
+HTTP solo se acepta en `localhost`, `127.0.0.1`, `::1`, `10.0.2.2` y `10.0.3.2`. Android bloquea el tráfico sin cifrar fuera de esos hosts (`network_security_config.xml`) e iOS solo lo permite para `localhost`. `adb reverse` encamina el puerto por el cable USB, así que el backend sigue escuchando solo en loopback: no hace falta abrirlo a la red Wi-Fi.
 
 ## Crear un usuario
 
-Desde la raíz del repositorio, prepara/migra la base y crea el usuario desde `apps/backend`:
-
-```powershell
-cd apps/backend
-python -m vigia_backend.migrate upgrade
-python -m vigia_backend.users create --email operador@ejemplo.org --name "Operador de turno" --role operator
-uvicorn vigia_backend.api:app --host 0.0.0.0 --port 8000
+```bash
+bash infra/docker-local.sh compose exec backend python -m vigia_backend.users create --email operador@ejemplo.org --name "Operador de turno" --role operator
 ```
 
-La CLI solicita la contraseña de forma interactiva. No la pases como argumento.
+La contraseña se pide por terminal; no la pases como argumento.
 
 ## Ejecutar
 
@@ -28,10 +42,13 @@ Desde `apps/movil`:
 
 ```bash
 flutter pub get
-flutter run
+flutter devices          # elegir destino
+flutter run -d <id>
 ```
 
-Para elegir destino explícitamente, consulta `flutter devices` y luego ejecuta `flutter run -d <id>`. En el emulador Android usa `http://10.0.2.2:8000`; en iOS Simulator, `http://localhost:8000`. En un dispositivo físico configura una URL HTTPS accesible desde la red.
+## Dataset de pruebas
+
+Si el backend apunta a la base `vigia_scoring`, la pantalla **Consultar** muestra **Caso del dataset de pruebas**. Elegir un caso (S01–S10) llena cámara, fecha, horario, radio y filtros; luego **Consultar trayectorias**. En la base del piloto el selector no aparece.
 
 ## Verificar
 
@@ -40,4 +57,16 @@ flutter analyze
 flutter test
 ```
 
-La aplicación usa `/api/v1/auth/login`, `/api/v1/auth/me`, `/api/v1/auth/logout`, `/api/v1/devices`, `/api/v1/queries` y `POST /api/v1/queries/{id}/export`. Un 401 elimina el token y devuelve al login; un 403 muestra un mensaje de permisos y un 429 indica esperar 15 minutos. Los tiempos se envían como ISO-8601 UTC y se muestran en hora de Colombia. La exportación solo se comparte después de solicitar el JSON auditado al backend.
+Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de error, fechas sin zona horaria, casos del dataset), el modo demo y el llenado del formulario a partir de un caso.
+
+## Comportamiento
+
+- Endpoints usados: `/api/v1/auth/login`, `/auth/me`, `/auth/logout`, `/devices`, `/queries`, `/scenarios` y `POST /queries/{id}/export`.
+- Cada petición tiene un límite de 15 s. Un 401 borra el token y vuelve al inicio de sesión; 403, 404, 422, 429 y 5xx muestran mensajes en español.
+- Los horarios se eligen y se muestran en hora de Colombia (UTC−5, sin horario de verano) y viajan al backend en UTC, sin importar la zona horaria del teléfono.
+- La exportación se comparte solo después de pedir al backend el JSON auditado.
+
+## Pendiente antes de publicar
+
+- Definir el identificador definitivo de la app. Hoy es `com.example.movil` en Android e iOS, y las tiendas no aceptan `com.example`. Al cambiarlo, actualizar también `userAgentPackageName` en `lib/widgets/map_panel.dart`, que identifica la app ante los servidores de mapas de OpenStreetMap.
+- Si se espera uso intensivo, usar un proveedor de teselas propio o contratado: la política de OpenStreetMap no permite tráfico pesado sobre sus servidores públicos.

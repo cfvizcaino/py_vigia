@@ -206,7 +206,13 @@ class _ApiUrlDialogState extends State<_ApiUrlDialog> {
     content: TextField(
       controller: _controller,
       keyboardType: TextInputType.url,
-      decoration: const InputDecoration(labelText: 'https://servidor.vigia'),
+      autocorrect: false,
+      decoration: const InputDecoration(
+        labelText: 'Dirección del servidor',
+        hintText: 'https://servidor.vigia',
+        helperText: 'Emulador Android: http://10.0.2.2:8000',
+        helperMaxLines: 2,
+      ),
     ),
     actions: [
       TextButton(

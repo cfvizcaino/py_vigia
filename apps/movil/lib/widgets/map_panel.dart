@@ -105,7 +105,9 @@ class MapPanel extends StatelessWidget {
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.example.movil',
             ),
-            if (polylines.isNotEmpty) PolylineLayer(polylines: polylines),
+            // Painted last means on top: keep the best-ranked route visible.
+            if (polylines.isNotEmpty)
+              PolylineLayer(polylines: polylines.reversed.toList()),
             if (markers.isNotEmpty) MarkerLayer(markers: markers),
             const RichAttributionWidget(
               attributions: [
