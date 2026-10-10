@@ -31,6 +31,10 @@ Las detecciones se actualizan en `apps/vision/outputs/detections.json`.
 
 Si `VIGIA_CENTRAL_API_URL` está definido, cada snapshot se guarda primero en `EVENT_OUTBOX` y luego se publica en orden al backend. Los reintentos conservan el mismo `eventId`; el archivo solo se elimina después de un acuse HTTP 2xx.
 
+### Otras cámaras y teléfonos
+
+`VIDEO_SOURCE_URL` acepta cualquier flujo `rtsp://`, `rtsps://`, `http://` o `https://` (por ejemplo, la cámara de un teléfono con IP Webcam) y reemplaza a la Tapo; `CAMERA_MODEL` es el nombre que se muestra en el estado. Para correr varios nodos a la vez, cada uno con su propio archivo de configuración: `VIGIA_ENV_FILE=nodes/cel-01.env uvicorn vigia_vision.api:app --port 8002`. Guía completa: [teléfonos como edges](../../docs/operations/phone-edges.md).
+
 Qué hace la cola ante cada respuesta:
 
 | Respuesta del centro | Acción |

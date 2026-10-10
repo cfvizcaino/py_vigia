@@ -74,7 +74,7 @@ class VisionRuntime:
                 "service": "vigia-vision",
                 "status": self._status,
                 "cameraId": self.settings.camera_id,
-                "cameraModel": "Tapo C110",
+                "cameraModel": self.settings.camera_model,
                 "model": self.settings.model,
                 "nodeVersion": self.settings.node_version,
                 "frameNumber": self._frame_number,
@@ -191,7 +191,7 @@ class VisionRuntime:
 
         while not self._stop_event.is_set():
             self._set_status("connecting")
-            capture = cv2.VideoCapture(self.settings.rtsp_url(), cv2.CAP_FFMPEG)
+            capture = cv2.VideoCapture(self.settings.source_url(), cv2.CAP_FFMPEG)
             if not capture.isOpened():
                 capture.release()
                 self._set_status("reconnecting", "CAMERA_UNAVAILABLE")

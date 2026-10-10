@@ -26,6 +26,31 @@ class SettingsTests(unittest.TestCase):
         url = Settings.from_environment().rtsp_url()
         self.assertEqual(url, "rtsp://usuario%20correo:clave%40segura@192.168.1.50:554/stream2")
 
+    @patch.dict(os.environ, {"VIDEO_SOURCE_URL": "http://127.0.0.1:8080/video", "TAPO_HOST": "192.168.1.50"}, clear=True)
+    def test_generic_video_source_takes_precedence_over_tapo(self):
+        settings = Settings.from_environment()
+        self.assertEqual(settings.source_url(), "http://127.0.0.1:8080/video")
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch("vigia_vision.config.load_dotenv")  # Ignore the developer's real .env.
+    def test_without_generic_source_the_tapo_is_required(self, _load_dotenv):
+        with self.assertRaises(ValueError):
+            Settings.from_environment().source_url()
+
+    @patch.dict(os.environ, {"VIDEO_SOURCE_URL": "file:///etc/passwd"}, clear=True)
+    def test_video_source_rejects_unexpected_schemes(self):
+        with self.assertRaises(ValueError):
+            Settings.from_environment()
+
+    def test_each_node_can_load_its_own_env_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / "cel-01.env"
+            env_file.write_text("VIGIA_CAMERA_ID=CEL-01\nCAMERA_MODEL=OPPO CPH2599\nVIDEO_SOURCE_URL=http://127.0.0.1:8081/video\n")
+            with patch.dict(os.environ, {"VIGIA_ENV_FILE": str(env_file)}, clear=True):
+                settings = Settings.from_environment()
+        self.assertEqual((settings.camera_id, settings.camera_model), ("CEL-01", "OPPO CPH2599"))
+        self.assertEqual(settings.source_url(), "http://127.0.0.1:8081/video")
+
     def test_direction_uses_largest_displacement(self):
         track = TrackState(1, "car", 0.9, "start", "end", (10, 10), (90, 20), [0, 0, 10, 10])
         self.assertEqual(track.direction, "izquierda-a-derecha")
