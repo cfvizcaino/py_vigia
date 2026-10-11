@@ -29,6 +29,8 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia
+      # Browsers only: the mobile app's web build calls the API directly (native apps ignore CORS).
+      CORS_ORIGINS: ${VIGIA_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8095,http://127.0.0.1:8095}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -58,6 +60,8 @@ services:
     image: vigia/backend:local
     environment:
       DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia_scoring
+      # Browsers only: the mobile app's web build calls the API directly (native apps ignore CORS).
+      CORS_ORIGINS: ${VIGIA_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8095,http://127.0.0.1:8095}
     ports:
       - "127.0.0.1:8200:8000"
     restart: unless-stopped
@@ -78,6 +82,19 @@ services:
     restart: unless-stopped
     depends_on:
       - backend-scoring
+
+  # Web build of the Flutter mobile console, for reviewing it in a browser
+  # (build first: cd apps/movil && flutter build web). See apps/movil/README.md.
+  movil-web:
+    profiles: ["movil"]
+    image: nginx:1.29-alpine
+    volumes:
+      - ./apps/movil/build/web:/usr/share/nginx/html:ro,z
+    ports:
+      - "127.0.0.1:8095:80"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   # P1.2 resilience harness target (infra/resilience/run.py); its own database.
   backend-resilience:
