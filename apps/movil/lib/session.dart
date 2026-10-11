@@ -165,6 +165,49 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
+  bool get isAdmin => !state.isDemo && state.user?.role == 'admin';
+
+  /// Registers an edge camera and issues its first credential in one step.
+  /// If issuing fails, the camera stays registered and a token can be issued
+  /// later from its detail sheet.
+  Future<({Device device, IssuedCredential? issued, String? error})> addEdge({
+    required String cameraId,
+    required String name,
+    required double lat,
+    required double lng,
+    String? cameraModel,
+    int days = 90,
+  }) async {
+    final device = await _api.createEdge(
+      cameraId: cameraId,
+      name: name,
+      lat: lat,
+      lng: lng,
+      cameraModel: cameraModel,
+    );
+    state = state.copyWith(devices: [...state.devices, device]);
+    try {
+      return (
+        device: device,
+        issued: await _api.issueCredential(cameraId, days: days),
+        error: null,
+      );
+    } on ApiException catch (error) {
+      return (device: device, issued: null, error: error.message);
+    }
+  }
+
+  Future<IssuedCredential> issueCredential(String cameraId, {int days = 90}) =>
+      _api.issueCredential(cameraId, days: days);
+
+  Future<List<EdgeCredential>> credentialsFor(String cameraId) async =>
+      (await _api.listCredentials())
+          .where((credential) => credential.cameraId == cameraId)
+          .toList(growable: false);
+
+  Future<void> revokeCredential(String credentialId) =>
+      _api.revokeCredential(credentialId);
+
   Future<void> logout() async {
     if (!state.isDemo) {
       try {

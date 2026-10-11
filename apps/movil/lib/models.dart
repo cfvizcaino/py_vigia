@@ -328,3 +328,44 @@ DateTime _bogotaToUtc(String date, String time) {
   // Colombia has no daylight saving: always UTC−5.
   return DateTime.utc(day.year, day.month, day.day, hour + 5, minute);
 }
+
+/// A device credential as listed by the admin API (never contains the secret).
+class EdgeCredential {
+  const EdgeCredential({
+    required this.id,
+    required this.cameraId,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.revoked,
+  });
+
+  final String id;
+  final String cameraId;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final bool revoked;
+
+  bool get active => !revoked && expiresAt.isAfter(DateTime.now().toUtc());
+
+  factory EdgeCredential.fromJson(Map<String, dynamic> json) => EdgeCredential(
+    id: json['id'] as String,
+    cameraId: json['camera_id'] as String,
+    createdAt: parseApiDate(json['created_at'] as String),
+    expiresAt: parseApiDate(json['expires_at'] as String),
+    revoked: json['revoked'] as bool,
+  );
+}
+
+/// The only moment the token exists outside the edge node: right after issuing.
+class IssuedCredential {
+  const IssuedCredential({required this.credential, required this.secret});
+
+  final EdgeCredential credential;
+  final String secret;
+
+  factory IssuedCredential.fromJson(Map<String, dynamic> json) =>
+      IssuedCredential(
+        credential: EdgeCredential.fromJson(json),
+        secret: json['secret'] as String,
+      );
+}

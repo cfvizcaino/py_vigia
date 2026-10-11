@@ -30,7 +30,25 @@ Comprobar desde el PC:
 ~/Android/Sdk/platform-tools/adb devices        # debe listar el teléfono como "device"
 ```
 
-## Dar de alta el teléfono (una vez por teléfono)
+## Agregar un edge desde la app móvil (recomendado)
+
+Con una cuenta **admin** en la app VIGÍA:
+
+1. **Cámaras → Agregar edge**. El identificador se sugiere solo (el siguiente `CEL-NN` libre).
+2. Escribir el nombre y el equipo, y fijar la ubicación con **Usar mi ubicación actual** (GPS, parado donde quedará la cámara) o tocando el mapa.
+3. **Registrar edge y emitir token**. La app muestra el token **una sola vez**; cópialo.
+4. En el PC que procesará ese teléfono:
+
+   ```bash
+   bash infra/edges/install-node-token.sh CEL-02 8082
+   ```
+
+   Pega el token cuando lo pida (no se ve al escribir). El script lo **verifica contra el servidor** antes de guardarlo: si es de otra cámara, está vencido o revocado, lo rechaza y no escribe nada. El segundo argumento es el puerto local de IP Webcam (o `/dev/videoN`); el tercero, la URL del servidor (por defecto `http://127.0.0.1:8000`).
+
+Tocando una cámara en la app, el admin ve sus credenciales, emite una nueva (rotación) o revoca la actual. Los operadores no ven estas opciones y el backend se las niega igualmente.
+
+## Dar de alta desde el PC (alternativa)
+
 
 Con el backend del piloto en marcha:
 

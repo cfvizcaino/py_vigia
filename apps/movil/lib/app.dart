@@ -142,7 +142,10 @@ class _OperatorShellState extends ConsumerState<OperatorShell> {
             child: IndexedStack(
               index: _selectedIndex,
               children: [
-                CamerasScreen(devices: state.devices),
+                CamerasScreen(
+                  devices: state.devices,
+                  isAdmin: controller.isAdmin,
+                ),
                 QueryScreen(
                   devices: state.devices,
                   scenarios: state.scenarios,

@@ -4,11 +4,15 @@ import 'package:latlong2/latlong.dart';
 import '../models.dart';
 import '../widgets/map_panel.dart';
 import '../widgets/shared_widgets.dart';
+import 'edges_screen.dart';
 
 class CamerasScreen extends StatefulWidget {
-  const CamerasScreen({super.key, required this.devices});
+  const CamerasScreen({super.key, required this.devices, this.isAdmin = false});
 
   final List<Device> devices;
+
+  /// Admins add edges and manage their credentials; the backend enforces it too.
+  final bool isAdmin;
 
   @override
   State<CamerasScreen> createState() => _CamerasScreenState();
@@ -40,6 +44,19 @@ class _CamerasScreenState extends State<CamerasScreen> {
           ),
         ],
       ),
+      if (widget.isAdmin) ...[
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const AddEdgeScreen()),
+            ),
+            icon: const Icon(Icons.add_a_photo_outlined),
+            label: const Text('Agregar edge'),
+          ),
+        ),
+      ],
       const SizedBox(height: 14),
       if (_showMap)
         MapPanel(devices: widget.devices, height: 330)
@@ -50,10 +67,14 @@ class _CamerasScreenState extends State<CamerasScreen> {
           detail: 'El servidor no tiene cámaras registradas.',
         )
       else
-        ...widget.devices.map((device) => _CameraTile(device: device)),
+        ...widget.devices.map(
+          (device) => _CameraTile(device: device, isAdmin: widget.isAdmin),
+        ),
       if (_showMap && widget.devices.isNotEmpty) ...[
         const SizedBox(height: 14),
-        ...widget.devices.map((device) => _CameraTile(device: device)),
+        ...widget.devices.map(
+          (device) => _CameraTile(device: device, isAdmin: widget.isAdmin),
+        ),
       ],
       const SizedBox(height: 14),
       const Text(
@@ -65,9 +86,10 @@ class _CamerasScreenState extends State<CamerasScreen> {
 }
 
 class _CameraTile extends StatelessWidget {
-  const _CameraTile({required this.device});
+  const _CameraTile({required this.device, this.isAdmin = false});
 
   final Device device;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -77,6 +99,14 @@ class _CameraTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: ListTile(
         minTileHeight: 68,
+        onTap: isAdmin
+            ? () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (_) => EdgeDetailSheet(device: device),
+              )
+            : null,
         leading: Container(
           width: 42,
           height: 42,

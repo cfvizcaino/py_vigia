@@ -39,6 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>VIGÍA usa tu ubicación solo para registrar dónde queda un nuevo edge.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>VIGÍA se conecta al backend local configurado para pruebas y operación.</string>
 	<key>UIApplicationSceneManifest</key>
