@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../camera_mode/camera_mode_screen.dart';
 import '../session.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -138,6 +139,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: controller.exploreDemo,
                             icon: const Icon(Icons.explore_outlined),
                             label: const Text('Explorar demo'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // A camera phone only streams to its edge node: no server login needed.
+                        SizedBox(
+                          height: 48,
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const CameraModeScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.videocam_outlined),
+                            label: const Text('Usar este teléfono como cámara'),
                           ),
                         ),
                         const SizedBox(height: 22),

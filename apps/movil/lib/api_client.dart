@@ -137,6 +137,30 @@ class VigiaApiClient {
     return Device.fromJson(json);
   }
 
+  /// Admin only. Moving a camera invalidates its road links until re-synced.
+  Future<Device> relocateEdge(String deviceId, double lat, double lng) async =>
+      Device.fromJson(
+        await _request(
+          'PATCH',
+          '/api/v1/devices/$deviceId',
+          body: {'lat': lat, 'lng': lng},
+        ),
+      );
+
+  Future<List<DeviceDetection>> recentDetections(
+    String deviceId, {
+    int limit = 20,
+  }) async {
+    final json = await _request(
+      'GET',
+      '/api/v1/detections',
+      queryParameters: {'device_id': deviceId, 'limit': '$limit'},
+    );
+    return (json['items'] as List? ?? const [])
+        .map((item) => DeviceDetection.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
   Future<IssuedCredential> issueCredential(
     String cameraId, {
     int days = 90,

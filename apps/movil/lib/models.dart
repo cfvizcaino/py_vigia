@@ -369,3 +369,32 @@ class IssuedCredential {
         secret: json['secret'] as String,
       );
 }
+
+/// One detection as listed by `GET /api/v1/detections` for a camera.
+class DeviceDetection {
+  const DeviceDetection({
+    required this.id,
+    required this.vehicleType,
+    required this.direction,
+    required this.confidence,
+    required this.observedAt,
+    this.color,
+  });
+
+  final String id;
+  final String vehicleType;
+  final String? color;
+  final String direction;
+  final double confidence;
+  final DateTime observedAt;
+
+  factory DeviceDetection.fromJson(Map<String, dynamic> json) =>
+      DeviceDetection(
+        id: json['id'] as String,
+        vehicleType: json['vehicle_type'] as String,
+        color: json['color'] as String?,
+        direction: json['direction'] as String,
+        confidence: (json['confidence'] as num).toDouble(),
+        observedAt: parseApiDate(json['observed_at'] as String),
+      );
+}

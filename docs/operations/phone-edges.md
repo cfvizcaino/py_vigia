@@ -2,7 +2,14 @@
 
 Un teléfono Android hace de **cámara** de un nodo edge. Entrega su video por el cable USB al nodo de visión de este PC, que detecta vehículos con YOLO y publica al backend con la **credencial propia de ese teléfono**. Es el mismo flujo de la Tapo, con otra fuente de video: el contrato 1.1, la cola persistente, los reintentos y la idempotencia no cambian.
 
-Hay dos formas de conectar la cámara:
+**Desde la versión 1.0 de la app, el propio VIGÍA convierte el teléfono en cámara IP** (Modo cámara), sin apps de terceros. Sirve su video como MJPEG en el puerto 8080 (`/video`, `/shot.jpg`, `/status`), igual que IP Webcam, así que el nodo no cambia. Tiene dos modos:
+
+- **Cable USB** (recomendado): escucha solo dentro del teléfono; el PC lo alcanza con `adb forward`. Nadie en la red puede verlo.
+- **Red local**: escucha en la Wi-Fi y exige una clave aleatoria (`?key=` o usuario `vigia` + clave, que es lo que usan FFmpeg y OpenCV).
+
+La imagen sale derecha según el sensor, con una rotación extra opcional para teléfonos montados de lado. La pantalla no se apaga mientras transmite. Si el sistema pausa la app, la transmisión se detiene y se reanuda al volver; la transmisión en segundo plano queda para una versión posterior.
+
+Otras formas de conectar la cámara:
 
 - **Cámara web USB nativa** (Android 14 o superior, recomendada). En la notificación USB del teléfono se elige **Cámara web** y el PC lo ve como una webcam más (`/dev/videoN`). No hay que instalar nada ni redirigir puertos.
 - **IP Webcam** (cualquier Android): la app sirve el video en el puerto 8080 del teléfono y `adb forward` lo trae por el cable a `127.0.0.1:8081`.
@@ -29,6 +36,20 @@ Comprobar desde el PC:
 ```bash
 ~/Android/Sdk/platform-tools/adb devices        # debe listar el teléfono como "device"
 ```
+
+## Fuentes de video admitidas
+
+El nodo y `install-node-token.sh` validan cada tipo; las credenciales de una cámara nunca van al servidor central, solo al archivo 0600 del nodo.
+
+| Fuente | Argumento del script | Notas |
+|---|---|---|
+| Teléfono con VIGÍA por cable | `8082` (puerto local) | `run-phone-node.sh` hace el `adb forward` al 8080 del teléfono |
+| Teléfono con VIGÍA en red local | `'http://IP:8080/video' --auth` | Usuario `vigia` y la clave que muestra el teléfono |
+| Cámara RTSP (Tapo, Hikvision…) | `'rtsp://IP:554/stream1' --auth` | Usuario y contraseña de la cámara, pedidos sin mostrarlos |
+| Flujo HTTP/MJPEG | `'http://IP:PUERTO/ruta'` (`--auth` si pide clave) | |
+| Webcam USB del PC | `/dev/videoN` | |
+
+Las URL con usuario o clave escritos dentro se rechazan, para que no queden en el historial de la terminal.
 
 ## Agregar un edge desde la app móvil (recomendado)
 

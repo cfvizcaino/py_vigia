@@ -20,7 +20,12 @@ final sessionProvider = NotifierProvider<SessionController, SessionState>(
 
 // 10.0.2.2 is the host as seen from the Android emulator; in a browser the
 // backend is reached directly on the same computer.
-const defaultApiUrl = kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000';
+// Release builds set the central server with
+// --dart-define=VIGIA_DEFAULT_API=https://… so new phones work without setup.
+const _configuredApiUrl = String.fromEnvironment('VIGIA_DEFAULT_API');
+const defaultApiUrl = _configuredApiUrl != ''
+    ? _configuredApiUrl
+    : (kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000');
 const _apiUrlKey = 'vigia_api_base_url';
 
 class SessionState {
@@ -196,6 +201,20 @@ class SessionController extends Notifier<SessionState> {
       return (device: device, issued: null, error: error.message);
     }
   }
+
+  Future<Device> relocateEdge(Device device, double lat, double lng) async {
+    final updated = await _api.relocateEdge(device.id, lat, lng);
+    state = state.copyWith(
+      devices: [
+        for (final item in state.devices)
+          item.id == updated.id ? updated : item,
+      ],
+    );
+    return updated;
+  }
+
+  Future<List<DeviceDetection>> recentDetections(Device device) =>
+      _api.recentDetections(device.id);
 
   Future<IssuedCredential> issueCredential(String cameraId, {int days = 90}) =>
       _api.issueCredential(cameraId, days: days);

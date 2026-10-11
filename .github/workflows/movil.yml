@@ -1,0 +1,74 @@
+# App móvil: análisis, pruebas y compilación para Android e iOS.
+# El APK de distribución se firma en el equipo del proyecto (la llave no está en GitHub);
+# aquí se verifica que todo compile y se dejan artefactos de prueba descargables.
+name: movil
+
+on:
+  pull_request:
+    paths: ["apps/movil/**", ".github/workflows/movil.yml"]
+  push:
+    branches: [main]
+    paths: ["apps/movil/**", ".github/workflows/movil.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: movil-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: "3.47.7"
+  VIGIA_DEFAULT_API: https://vigia-5dfe.mexicocentral.cloudapp.azure.com
+
+jobs:
+  pruebas-y-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/movil
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: APK de prueba (firma de depuración)
+        run: flutter build apk --release --dart-define=VIGIA_DEFAULT_API=$VIGIA_DEFAULT_API
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vigia-android-prueba
+          path: apps/movil/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/movil
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Compilar para iPhone sin firma
+        run: flutter build ios --release --no-codesign --dart-define=VIGIA_DEFAULT_API=$VIGIA_DEFAULT_API
+      - name: Empaquetar Runner.app
+        run: cd build/ios/iphoneos && zip -qry Runner-sin-firma.zip Runner.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vigia-ios-sin-firma
+          path: apps/movil/build/ios/iphoneos/Runner-sin-firma.zip
+          retention-days: 14

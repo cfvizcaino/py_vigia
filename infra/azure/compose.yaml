@@ -12,6 +12,7 @@ services:
       VIGIA_DOMAIN: ${VIGIA_DOMAIN:?Define VIGIA_DOMAIN en .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./descargas:/srv/descargas:ro
       - caddy-data:/data
       - caddy-config:/config
     restart: unless-stopped
