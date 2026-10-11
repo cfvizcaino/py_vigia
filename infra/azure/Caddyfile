@@ -14,6 +14,13 @@
 	handle /health {
 		reverse_proxy backend:8000
 	}
+	# Página de descarga de la app móvil (APK firmado y su huella).
+	redir /descargar /descargas/
+	handle /descargas/* {
+		root * /srv
+		header /descargas/*.apk Content-Type application/vnd.android.package-archive
+		file_server
+	}
 	# Consola web (sus rutas /api/* propias quedan en Next.js).
 	handle {
 		reverse_proxy web:3000

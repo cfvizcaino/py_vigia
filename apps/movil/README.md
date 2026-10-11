@@ -2,6 +2,15 @@
 
 Consola móvil del operador en Flutter: inicio de sesión, cámaras en mapa, consultas de trayectorias, resultados con geometría vial y explicación del puntaje, historial de la sesión, exportación auditada y ajustes. **Explorar demo** usa datos locales de ejemplo, siempre se identifica como demostración y nunca se activa como respaldo de una conexión fallida.
 
+## Descargar
+
+- **Android:** <https://vigia-5dfe.mexicocentral.cloudapp.azure.com/descargar>. APK firmado con la llave del proyecto y ya configurado con el servidor del piloto.
+- **iPhone:** la compilación se verifica en GitHub Actions (macOS), pero instalarla en teléfonos requiere una cuenta de Apple Developer (TestFlight o ad hoc). Ver *Pendiente*.
+
+## Modo cámara
+
+**Usar este teléfono como cámara**, en el inicio de sesión o en Ajustes, convierte el teléfono en la cámara IP de un edge: MJPEG en el puerto 8080, por cable USB (solo `adb forward`) o en red local con clave. Detalles en `docs/operations/phone-edges.md`.
+
 ## Requisitos
 
 - Flutter **3.44 o superior** (validado con 3.47.7). En el equipo del proyecto está en `~/development/flutter`:
@@ -70,7 +79,23 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 - Los horarios se eligen y se muestran en hora de Colombia (UTC−5, sin horario de verano) y viajan al backend en UTC, sin importar la zona horaria del teléfono.
 - La exportación se comparte solo después de pedir al backend el JSON auditado.
 
-## Pendiente antes de publicar
+## Versión de distribución
 
-- Definir el identificador definitivo de la app. Hoy es `com.example.movil` en Android e iOS, y las tiendas no aceptan `com.example`. Al cambiarlo, actualizar también `userAgentPackageName` en `lib/widgets/map_panel.dart`, que identifica la app ante los servidores de mapas de OpenStreetMap.
-- Si se espera uso intensivo, usar un proveedor de teselas propio o contratado: la política de OpenStreetMap no permite tráfico pesado sobre sus servidores públicos.
+- Identificador: `co.vigia.movil` en Android e iOS. No cambiarlo: los teléfonos tratarían la actualización como otra app.
+- Firma de Android: llave propia en `~/.config/vigia/android/vigia-release.jks`, referenciada por `android/key.properties` (ignorado por Git). **Respáldala**: sin ella no se pueden publicar actualizaciones que se instalen encima de la versión actual. Sin `key.properties`, por ejemplo en CI, se firma con la llave de depuración.
+- Servidor por defecto: se define al compilar.
+
+```bash
+flutter build apk --release --dart-define=VIGIA_DEFAULT_API=https://vigia-5dfe.mexicocentral.cloudapp.azure.com
+bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.0.0
+```
+
+- Ícono: `assets/icon/` y `dart run flutter_launcher_icons`.
+- CI: `.github/workflows/movil.yml` analiza, prueba y compila Android e iOS (sin firma) en cada cambio.
+
+## Pendiente
+
+- iPhone: cuenta de Apple Developer (99 USD/año) para firmar y distribuir por TestFlight. Sin ella, solo se puede instalar desde Xcode en un Mac, y caduca a los 7 días con una cuenta gratuita.
+- Transmisión en segundo plano (servicio en primer plano en Android) para que el Modo cámara siga con la pantalla bloqueada.
+- Detección en el propio teléfono, para edges sin PC.
+- Proveedor de teselas propio si el uso crece (política de OpenStreetMap).

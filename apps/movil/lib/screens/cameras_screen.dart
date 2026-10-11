@@ -99,14 +99,12 @@ class _CameraTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: ListTile(
         minTileHeight: 68,
-        onTap: isAdmin
-            ? () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: true,
-                builder: (_) => EdgeDetailSheet(device: device),
-              )
-            : null,
+        onTap: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (_) => EdgeDetailSheet(device: device, isAdmin: isAdmin),
+        ),
         leading: Container(
           width: 42,
           height: 42,

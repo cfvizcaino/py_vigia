@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../camera_mode/camera_mode_screen.dart';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
@@ -100,6 +102,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text('Sesión protegida'),
         subtitle: Text(
           'El token no se guarda en preferencias ni en archivos de registro.',
+        ),
+      ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.videocam_outlined),
+        title: const Text('Modo cámara'),
+        subtitle: const Text('Convertir este teléfono en la cámara de un edge'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const CameraModeScreen()),
         ),
       ),
       const ListTile(

@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../api_client.dart';
+import '../edge_source.dart';
 import '../models.dart';
 import '../session.dart';
-import '../widgets/map_panel.dart';
+import '../widgets/location_picker.dart';
 import '../widgets/shared_widgets.dart';
 
 final _cameraIdPattern = RegExp(r'^[A-Z0-9][A-Z0-9-]{1,63}$');
@@ -50,9 +50,10 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
   final _nameController = TextEditingController();
   final _modelController = TextEditingController();
   LatLng? _point;
-  double? _accuracyM;
   int _days = 90;
-  bool _locating = false;
+  EdgeSource _source = EdgeSource.phoneUsb;
+  late final TextEditingController _sourceController;
+  bool _needsAuth = EdgeSource.phoneUsb.authByDefault;
   bool _saving = false;
   String? _error;
 
@@ -62,6 +63,9 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
     _idController = TextEditingController(
       text: suggestEdgeId(ref.read(sessionProvider).devices),
     );
+    _sourceController = TextEditingController(
+      text: suggestPhonePort(_idController.text),
+    );
   }
 
   @override
@@ -69,15 +73,13 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
     _idController.dispose();
     _nameController.dispose();
     _modelController.dispose();
+    _sourceController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final devices = ref.watch(sessionProvider).devices;
-    final LatLng center = devices.isNotEmpty
-        ? LatLng(devices.first.lat, devices.first.lng)
-        : const LatLng(11.0131, -74.8172);
     return Scaffold(
       appBar: AppBar(title: const Text('Agregar edge')),
       body: Form(
@@ -129,43 +131,71 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
               style: TextStyle(color: Color(0xFFB7C2BA)),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _locating ? null : _useMyLocation,
-                icon: _locating
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.my_location),
-                label: const Text('Usar mi ubicación actual'),
-              ),
+            LocationPicker(
+              devices: devices,
+              onChanged: (point, _) => setState(() => _point = point),
+            ),
+            const SizedBox(height: 22),
+            Text(
+              'Fuente de video',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Cómo leerá la cámara el nodo en el PC. Solo se usa para armar el comando de instalación; no se envía al servidor.',
+              style: TextStyle(color: Color(0xFFB7C2BA)),
             ),
             const SizedBox(height: 10),
-            MapPanel(
-              // The map only reads its center once: rebuild it when GPS moves the point.
-              key: ValueKey(_accuracyM == null ? 'manual' : _point),
-              devices: devices,
-              selectedPoint: _point ?? center,
-              height: 240,
-              onPointSelected: (point) => setState(() {
-                _point = point;
-                _accuracyM = null;
+            DropdownButtonFormField<EdgeSource>(
+              initialValue: _source,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.settings_input_antenna),
+              ),
+              items: EdgeSource.values
+                  .map(
+                    (source) => DropdownMenuItem(
+                      value: source,
+                      child: Text(
+                        source.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() {
+                _source = value ?? EdgeSource.phoneUsb;
+                _needsAuth = _source.authByDefault;
+                _sourceController.text = _source == EdgeSource.phoneUsb
+                    ? suggestPhonePort(_idController.text)
+                    : '';
               }),
             ),
-            const SizedBox(height: 6),
-            Text(
-              _point == null
-                  ? 'Toca el mapa o usa tu ubicación.'
-                  : '${_point!.latitude.toStringAsFixed(6)}, ${_point!.longitude.toStringAsFixed(6)}'
-                        '${_accuracyM == null ? ' · elegida en el mapa' : ' · GPS ±${_accuracyM!.round()} m'}',
-              style: TextStyle(
-                color: _point == null
-                    ? const Color(0xFFFFD18A)
-                    : const Color(0xFFB7C2BA),
+            const SizedBox(height: 10),
+            TextFormField(
+              key: ValueKey(_source),
+              controller: _sourceController,
+              autocorrect: false,
+              keyboardType: _source == EdgeSource.phoneUsb
+                  ? TextInputType.number
+                  : TextInputType.url,
+              decoration: InputDecoration(
+                labelText: _source.fieldLabel,
+                hintText: _source.hint,
               ),
+              validator: (value) => validateSource(_source, value ?? ''),
             ),
+            if (_source == EdgeSource.rtsp || _source == EdgeSource.http)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _needsAuth,
+                onChanged: (value) =>
+                    setState(() => _needsAuth = value ?? false),
+                title: const Text('La cámara pide usuario y contraseña'),
+                subtitle: const Text(
+                  'El script del PC los pedirá sin mostrarlos.',
+                ),
+              ),
             const SizedBox(height: 22),
             DropdownButtonFormField<int>(
               initialValue: _days,
@@ -207,47 +237,6 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
     );
   }
 
-  Future<void> _useMyLocation() async {
-    setState(() {
-      _locating = true;
-      _error = null;
-    });
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw const _LocationProblem('Activa la ubicación del teléfono.');
-      }
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw const _LocationProblem(
-          'Sin permiso de ubicación. Puedes elegir el punto en el mapa.',
-        );
-      }
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
-      setState(() {
-        _point = LatLng(position.latitude, position.longitude);
-        _accuracyM = position.accuracy;
-      });
-    } on _LocationProblem catch (problem) {
-      setState(() => _error = problem.message);
-    } catch (_) {
-      setState(
-        () => _error =
-            'No se obtuvo la ubicación a tiempo. Elige el punto en el mapa.',
-      );
-    } finally {
-      if (mounted) setState(() => _locating = false);
-    }
-  }
-
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_point == null) {
@@ -282,9 +271,17 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
         );
         return;
       }
+      final command = installCommand(
+        cameraId: result.device.externalId,
+        source: _source,
+        value: _sourceController.text,
+        serverUrl: ref.read(sessionProvider).baseUrl,
+        needsAuth: _needsAuth,
+      );
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => IssuedTokenScreen(issued: result.issued!),
+          builder: (_) =>
+              IssuedTokenScreen(issued: result.issued!, command: command),
         ),
       );
     } on ApiException catch (error) {
@@ -295,16 +292,14 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
   }
 }
 
-class _LocationProblem implements Exception {
-  const _LocationProblem(this.message);
-  final String message;
-}
-
 /// Shows the token once. Nothing keeps it after this screen closes.
 class IssuedTokenScreen extends StatefulWidget {
-  const IssuedTokenScreen({super.key, required this.issued});
+  const IssuedTokenScreen({super.key, required this.issued, this.command});
 
   final IssuedCredential issued;
+
+  /// Install command with the chosen video source; generic when rotating.
+  final String? command;
 
   @override
   State<IssuedTokenScreen> createState() => _IssuedTokenScreenState();
@@ -316,7 +311,9 @@ class _IssuedTokenScreenState extends State<IssuedTokenScreen> {
   @override
   Widget build(BuildContext context) {
     final cameraId = widget.issued.credential.cameraId;
-    final command = 'bash infra/edges/install-node-token.sh $cameraId';
+    final command =
+        widget.command ??
+        'bash infra/edges/install-node-token.sh $cameraId FUENTE URL_SERVIDOR';
     return Scaffold(
       appBar: AppBar(
         title: Text('Token de $cameraId'),
@@ -406,31 +403,44 @@ class _IssuedTokenScreenState extends State<IssuedTokenScreen> {
   }
 }
 
-/// Admin sheet for one edge: its credentials, rotation and revocation.
+/// Detail of one camera: its recent detections for everyone; location and
+/// credentials (rotation, revocation) for admins. The backend enforces roles.
 class EdgeDetailSheet extends ConsumerStatefulWidget {
-  const EdgeDetailSheet({super.key, required this.device});
+  const EdgeDetailSheet({
+    super.key,
+    required this.device,
+    this.isAdmin = false,
+  });
 
   final Device device;
+  final bool isAdmin;
 
   @override
   ConsumerState<EdgeDetailSheet> createState() => _EdgeDetailSheetState();
 }
 
 class _EdgeDetailSheetState extends ConsumerState<EdgeDetailSheet> {
-  late Future<List<EdgeCredential>> _credentials = _load();
+  late final Future<List<DeviceDetection>> _detections = ref
+      .read(sessionProvider.notifier)
+      .recentDetections(widget.device);
+  late Future<List<EdgeCredential>> _credentials = _loadCredentials();
   bool _busy = false;
 
-  Future<List<EdgeCredential>> _load() => ref
-      .read(sessionProvider.notifier)
-      .credentialsFor(widget.device.externalId);
+  Future<List<EdgeCredential>> _loadCredentials() => widget.isAdmin
+      ? ref
+            .read(sessionProvider.notifier)
+            .credentialsFor(widget.device.externalId)
+      : Future.value(const []);
 
   @override
   Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    child: DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) => ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
           Row(
             children: [
@@ -447,85 +457,169 @@ class _EdgeDetailSheetState extends ConsumerState<EdgeDetailSheet> {
             '${widget.device.name}${widget.device.cameraModel == null ? '' : ' · ${widget.device.cameraModel}'}',
             style: const TextStyle(color: Color(0xFFB7C2BA)),
           ),
-          const Divider(height: 24),
-          Text('Credenciales', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          FutureBuilder<List<EdgeCredential>>(
-            future: _credentials,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              if (snapshot.hasError) {
-                return Text(
-                  snapshot.error is ApiException
-                      ? (snapshot.error as ApiException).message
-                      : 'No fue posible cargar las credenciales.',
-                  style: const TextStyle(color: Color(0xFFFFB4AB)),
-                );
-              }
-              final items = snapshot.data!;
-              if (items.isEmpty) {
-                return const Text(
-                  'Sin credenciales: el nodo no puede publicar.',
-                );
-              }
-              return Column(
-                children: items
-                    .map(
-                      (credential) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          credential.active ? Icons.key : Icons.key_off,
-                          color: credential.active
-                              ? const Color(0xFF69D4A8)
-                              : const Color(0xFF9AA79F),
-                        ),
-                        title: Text(
-                          credential.revoked
-                              ? 'Revocada'
-                              : credential.active
-                              ? 'Activa'
-                              : 'Vencida',
-                        ),
-                        subtitle: Text(
-                          'Emitida ${formatBogota(credential.createdAt)} · vence ${formatBogota(credential.expiresAt)}',
-                        ),
-                        trailing: credential.active
-                            ? TextButton(
-                                onPressed: _busy
-                                    ? null
-                                    : () => _revoke(credential),
-                                child: const Text('Revocar'),
-                              )
-                            : null,
-                      ),
-                    )
-                    .toList(),
-              );
-            },
+          Text(
+            '${widget.device.lat.toStringAsFixed(5)}, ${widget.device.lng.toStringAsFixed(5)}',
+            style: const TextStyle(color: Color(0xFF9AA79F), fontSize: 12),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 48,
-            child: FilledButton.tonalIcon(
-              onPressed: _busy ? null : _issue,
-              icon: const Icon(Icons.vpn_key_outlined),
-              label: const Text('Emitir nueva credencial'),
+          if (widget.isAdmin) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _busy ? null : _relocate,
+                icon: const Icon(Icons.edit_location_alt_outlined),
+                label: const Text('Cambiar ubicación'),
+              ),
             ),
+          ],
+          const Divider(height: 24),
+          Text(
+            'Detecciones recientes',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Para rotar: emite una nueva, instálala en el nodo y después revoca la anterior.',
-            style: TextStyle(color: Color(0xFF9AA79F), fontSize: 12),
+          FutureBuilder<List<DeviceDetection>>(
+            future: _detections,
+            builder: (context, snapshot) => _detectionsList(snapshot),
           ),
+          if (widget.isAdmin) ...[
+            const Divider(height: 24),
+            Text(
+              'Credenciales',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            FutureBuilder<List<EdgeCredential>>(
+              future: _credentials,
+              builder: (context, snapshot) => _credentialsList(snapshot),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: FilledButton.tonalIcon(
+                onPressed: _busy ? null : _issue,
+                icon: const Icon(Icons.vpn_key_outlined),
+                label: const Text('Emitir nueva credencial'),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Para rotar: emite una nueva, instálala en el nodo con --rotate y después revoca la anterior.',
+              style: TextStyle(color: Color(0xFF9AA79F), fontSize: 12),
+            ),
+          ],
         ],
       ),
     ),
   );
+
+  Widget _detectionsList(AsyncSnapshot<List<DeviceDetection>> snapshot) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (snapshot.hasError) {
+      return Text(
+        snapshot.error is ApiException
+            ? (snapshot.error as ApiException).message
+            : 'No fue posible cargar las detecciones.',
+        style: const TextStyle(color: Color(0xFFFFB4AB)),
+      );
+    }
+    final items = snapshot.data!;
+    if (items.isEmpty) {
+      return const Text(
+        'Todavía no hay detecciones de esta cámara.',
+        style: TextStyle(color: Color(0xFFB7C2BA)),
+      );
+    }
+    return Column(
+      children: items
+          .take(15)
+          .map(
+            (detection) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                detection.vehicleType == 'motorcycle'
+                    ? Icons.two_wheeler
+                    : Icons.directions_car_outlined,
+                color: const Color(0xFF83DDBA),
+              ),
+              title: Text(
+                '${vehicleLabel(detection.vehicleType)} · ${colorLabel(detection.color)}',
+              ),
+              subtitle: Text(
+                '${formatBogota(detection.observedAt)} · confianza ${(detection.confidence * 100).round()}%',
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _credentialsList(AsyncSnapshot<List<EdgeCredential>> snapshot) {
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (snapshot.hasError) {
+      return Text(
+        snapshot.error is ApiException
+            ? (snapshot.error as ApiException).message
+            : 'No fue posible cargar las credenciales.',
+        style: const TextStyle(color: Color(0xFFFFB4AB)),
+      );
+    }
+    final items = snapshot.data!;
+    if (items.isEmpty) {
+      return const Text('Sin credenciales: el nodo no puede publicar.');
+    }
+    return Column(
+      children: items
+          .map(
+            (credential) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                credential.active ? Icons.key : Icons.key_off,
+                color: credential.active
+                    ? const Color(0xFF69D4A8)
+                    : const Color(0xFF9AA79F),
+              ),
+              title: Text(
+                credential.revoked
+                    ? 'Revocada'
+                    : credential.active
+                    ? 'Activa'
+                    : 'Vencida',
+              ),
+              subtitle: Text(
+                'Emitida ${formatBogota(credential.createdAt)} · vence ${formatBogota(credential.expiresAt)}',
+              ),
+              trailing: credential.active
+                  ? TextButton(
+                      onPressed: _busy ? null : () => _revoke(credential),
+                      child: const Text('Revocar'),
+                    )
+                  : null,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<void> _relocate() async {
+    final moved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RelocateEdgeScreen(device: widget.device),
+      ),
+    );
+    if (moved == true && mounted) Navigator.of(context).pop();
+  }
 
   Future<void> _issue() async {
     setState(() => _busy = true);
@@ -536,10 +630,14 @@ class _EdgeDetailSheetState extends ConsumerState<EdgeDetailSheet> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => IssuedTokenScreen(issued: issued),
+          builder: (_) => IssuedTokenScreen(
+            issued: issued,
+            command:
+                'bash infra/edges/install-node-token.sh ${widget.device.externalId} --rotate',
+          ),
         ),
       );
-      setState(() => _credentials = _load());
+      setState(() => _credentials = _loadCredentials());
     } on ApiException catch (error) {
       _show(error.message);
     } finally {
@@ -571,7 +669,7 @@ class _EdgeDetailSheetState extends ConsumerState<EdgeDetailSheet> {
     setState(() => _busy = true);
     try {
       await ref.read(sessionProvider.notifier).revokeCredential(credential.id);
-      setState(() => _credentials = _load());
+      setState(() => _credentials = _loadCredentials());
     } on ApiException catch (error) {
       _show(error.message);
     } finally {
@@ -583,5 +681,89 @@ class _EdgeDetailSheetState extends ConsumerState<EdgeDetailSheet> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+/// Admin: move an existing camera with GPS or the map.
+class RelocateEdgeScreen extends ConsumerStatefulWidget {
+  const RelocateEdgeScreen({super.key, required this.device});
+
+  final Device device;
+
+  @override
+  ConsumerState<RelocateEdgeScreen> createState() => _RelocateEdgeScreenState();
+}
+
+class _RelocateEdgeScreenState extends ConsumerState<RelocateEdgeScreen> {
+  late LatLng _point = LatLng(widget.device.lat, widget.device.lng);
+  bool _saving = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text('Ubicación de ${widget.device.externalId}')),
+    body: ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      children: [
+        const Text(
+          'Párate donde está la cámara y usa el GPS, o toca el punto exacto en el mapa.',
+          style: TextStyle(color: Color(0xFFB7C2BA)),
+        ),
+        const SizedBox(height: 12),
+        LocationPicker(
+          devices: ref.watch(sessionProvider).devices,
+          initial: _point,
+          onChanged: (point, _) => setState(() => _point = point),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 10),
+          Text(_error!, style: const TextStyle(color: Color(0xFFFFB4AB))),
+        ],
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: const Text('Guardar ubicación'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Con más de una cámara, después hay que resincronizar las rutas viales (OSRM).',
+          style: TextStyle(color: Color(0xFF9AA79F), fontSize: 12),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(sessionProvider.notifier)
+          .relocateEdge(widget.device, _point.latitude, _point.longitude);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ubicación de ${widget.device.externalId} actualizada.',
+          ),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } on ApiException catch (error) {
+      setState(() => _error = error.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }

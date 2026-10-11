@@ -6,6 +6,7 @@
 #   sync        copia compose, Caddyfile, grafo OSRM y scripts de respaldo
 #   up          crea .env si falta (contraseña generada en el servidor), arranca y migra
 #   restore F   restaura un respaldo pg_dump (-Fc) en el servidor (base vacía)
+#   apk F VER   publica el APK firmado y la página https://HOST/descargar
 #   status      estado de los servicios
 # Variables: VIGIA_SSH_KEY (por defecto ~/.ssh/vigia_azure), VIGIA_COMPOSE (Docker local).
 set -euo pipefail
@@ -57,6 +58,19 @@ case "$command" in
     dump="${3:?Falta el archivo .dump}"
     remote "cd $app && docker compose up -d db >/dev/null && docker compose exec -T db pg_restore -U vigia -d vigia --clean --if-exists --no-owner" < "$dump"
     remote "cd $app && docker compose run --rm backend python -m vigia_backend.migrate check && docker compose restart backend >/dev/null && echo 'Base restaurada'"
+    ;;
+  apk)
+    file="${3:?Falta el APK}"; version="${4:?Falta la versión, p. ej. 1.0.0}"
+    name="vigia-$version.apk"
+    sha="$(sha256sum "$file" | cut -d' ' -f1)"; size="$(du -h "$file" | cut -f1)"
+    page="$(sed -e "s/{{VERSION}}/$version/g" -e "s/{{SHA256}}/$sha/g" -e "s/{{SIZE}}/$size/g" -e "s/{{FILE}}/$name/g" "$root_dir/infra/azure/descargas/index.html")"
+    remote "mkdir -p $app/descargas"
+    scp "${ssh_opts[@]}" "$file" "vigia@$host:$app/descargas/$name"
+    scp "${ssh_opts[@]}" "$root_dir/apps/movil/assets/icon/icon.png" "vigia@$host:$app/descargas/icono.png"
+    printf '%s\n' "$page" | remote "cat > $app/descargas/index.html"
+    # Keep every version; vigia.apk always points to the latest.
+    remote "cd $app/descargas && ln -sfn $name vigia.apk && echo '$sha  $name' > $name.sha256 && chmod a+r *"
+    echo "Publicado: https://$host/descargar  ($name, SHA-256 $sha)"
     ;;
   status)
     remote "cd $app && docker compose ps --format '{{.Service}}\t{{.Status}}' && free -h | sed -n 2,3p"

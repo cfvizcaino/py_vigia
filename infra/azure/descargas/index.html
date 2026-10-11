@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Descargar VIGÍA</title>
+<style>
+  :root { --bg:#101512; --panel:#171d1a; --line:#303a34; --ink:#f0f4ef; --muted:#b7c2ba; --mint:#69d4a8; --warn:#ffd18a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 16px 48px; }
+  .brand { display:flex; align-items:center; gap:14px; margin-bottom: 28px; }
+  .brand img { width:56px; height:56px; border-radius:14px; }
+  h1 { font-size: 28px; margin: 0; letter-spacing: -0.5px; }
+  h2 { font-size: 18px; margin: 32px 0 8px; }
+  p, li { color: var(--muted); }
+  .download { display:flex; align-items:center; justify-content:center; gap:10px; min-height:56px; border-radius:28px; background:var(--mint); color:#0d2a20; font-weight:700; text-decoration:none; font-size:17px; margin: 20px 0 10px; }
+  .download:focus-visible { outline: 3px solid var(--warn); outline-offset: 3px; }
+  .meta { font-size: 13px; color: var(--muted); overflow-wrap:anywhere; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px 16px; }
+  .note { border-left: 4px solid var(--warn); background:#302517; color:#ffe1b0; padding:12px 14px; border-radius:6px; }
+  code { background:#1c2420; padding: 1px 6px; border-radius:4px; color: var(--ink); }
+  ol { padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><img src="icono.png" alt=""><div><h1>VIGÍA</h1><p style="margin:2px 0 0">Consola del operador y cámara edge</p></div></div>
+
+  <p>Aplicación del piloto VIGÍA. Permite consultar cámaras y trayectorias estimadas, registrar edges y convertir el teléfono en la cámara IP de un nodo.</p>
+
+  <a class="download" href="vigia.apk" download>⬇ Descargar para Android · v{{VERSION}}</a>
+  <p class="meta">{{FILE}} · {{SIZE}} · SHA-256 <code>{{SHA256}}</code></p>
+
+  <h2>Instalar en Android</h2>
+  <ol>
+    <li>Toca <b>Descargar</b> y abre el archivo cuando termine.</li>
+    <li>Si el teléfono lo pide, permite <b>instalar apps de esta fuente</b> para el navegador.</li>
+    <li>Abre <b>VIGÍA</b>: ya viene configurada con el servidor del piloto. Inicia sesión con la cuenta que te entregó el administrador.</li>
+  </ol>
+  <p class="note">Instálala solo desde esta página. Las actualizaciones deben tener la misma firma; un archivo de otra fuente no se instalará encima.</p>
+
+  <h2>Usar el teléfono como cámara</h2>
+  <div class="card">
+    <ol>
+      <li>En la pantalla de inicio toca <b>Usar este teléfono como cámara</b> (no hace falta iniciar sesión).</li>
+      <li>Elige <b>Cable USB</b> (recomendado) o <b>Red local</b> y toca <b>Iniciar transmisión</b>.</li>
+      <li>El administrador registra el edge en <b>Cámaras → Agregar edge</b> y conecta el teléfono al PC del nodo, que detecta los vehículos y publica al servidor.</li>
+    </ol>
+    <p style="margin-bottom:0">El video no sale de tu sitio: al servidor solo llegan metadatos (tipo de vehículo, hora y confianza).</p>
+  </div>
+
+  <h2>iPhone</h2>
+  <p>La versión para iPhone está compilada pero aún no tiene distribución: Apple exige una cuenta de desarrollador para instalarla fuera de Xcode. Mientras tanto, usa la consola web en este mismo sitio.</p>
+
+  <p class="meta" style="margin-top:40px">Trayectorias estimadas; no constituyen una identificación confirmada.</p>
+</main>
+</body>
+</html>

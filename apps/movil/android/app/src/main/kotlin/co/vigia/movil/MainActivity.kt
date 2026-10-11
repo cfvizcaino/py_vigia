@@ -1,4 +1,4 @@
-package com.example.movil
+package co.vigia.movil
 
 import io.flutter.embedding.android.FlutterActivity
 

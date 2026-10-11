@@ -103,7 +103,7 @@ class MapPanel extends StatelessWidget {
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.movil',
+              userAgentPackageName: 'co.vigia.movil',
             ),
             // Painted last means on top: keep the best-ranked route visible.
             if (polylines.isNotEmpty)

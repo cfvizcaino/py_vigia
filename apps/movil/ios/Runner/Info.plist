@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Movil</string>
+	<string>VIGÍA</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -39,6 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>VIGÍA usa la cámara solo en Modo cámara, para transmitir al nodo de visión de tu sitio.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>VIGÍA usa tu ubicación solo para registrar dónde queda un nuevo edge.</string>
 	<key>NSLocalNetworkUsageDescription</key>
