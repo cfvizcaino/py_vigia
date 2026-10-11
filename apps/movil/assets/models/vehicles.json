@@ -1,9 +1,9 @@
 {
   "schema": "vigia-mobile-model/1",
   "source": "yolo26n.pt",
-  "quantize": "w8a32",
+  "quantize": "32",
   "file": "vehicles.tflite",
-  "sha256": "62afd2c2824976885d45abc8d3faf0f2d8ad2efcddd219de74db8b31c9fecd85",
+  "sha256": "d461773aa5b4eaca1ed589a628db362f9f6f048a9f70e89e81bb062b7375a78d",
   "input": {
     "shape": [
       1,

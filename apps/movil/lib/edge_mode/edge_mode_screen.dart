@@ -45,6 +45,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
   int _sensorOrientation = 0;
   int _extraRotation = 0;
   int _targetFps = 5;
+  int _cameraFrames = 0;
   DateTime _lastFrame = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _statusTimer;
   String? _error;
@@ -133,6 +134,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
         ),
       )..start();
       _sensorOrientation = back.sensorOrientation;
+      _cameraFrames = 0;
       await controller.startImageStream(_onFrame);
       await WakelockPlus.enable();
       _statusTimer = Timer.periodic(
@@ -163,6 +165,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
   }
 
   void _onFrame(CameraImage image) {
+    _cameraFrames++;
     final engine = _engine;
     final now = DateTime.now();
     if (engine == null ||
@@ -188,9 +191,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
       ],
       rotationDegrees: _sensorOrientation + _extraRotation,
     );
-    engine.process(frame).catchError((Object error) {
-      if (mounted) setState(() => _error = 'Fallo de inferencia: $error');
-    });
+    unawaited(engine.process(frame)); // Failures are counted in engine.stats.
   }
 
   Future<void> _stop() async {
@@ -308,7 +309,8 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
             child: const Icon(Icons.memory, size: 42, color: Color(0xFF9AA79F)),
           ),
         const SizedBox(height: 12),
-        if (stats != null) _EdgeStatusCard(stats: stats),
+        if (stats != null)
+          _EdgeStatusCard(stats: stats, cameraFrames: _cameraFrames),
         if (_error != null) ...[
           const SizedBox(height: 10),
           Text(_error!, style: const TextStyle(color: Color(0xFFFFB4AB))),
@@ -449,9 +451,10 @@ class _BoxesPainter extends CustomPainter {
 }
 
 class _EdgeStatusCard extends StatelessWidget {
-  const _EdgeStatusCard({required this.stats});
+  const _EdgeStatusCard({required this.stats, required this.cameraFrames});
 
   final EdgeStats stats;
+  final int cameraFrames;
 
   @override
   Widget build(BuildContext context) {
@@ -494,6 +497,18 @@ class _EdgeStatusCard extends StatelessWidget {
             '${outbox.rejected == 0 ? '' : ' · ${outbox.rejected} rechazados'}',
             style: muted,
           ),
+          Text(
+            'Cámara: $cameraFrames cuadros · modelo: ${stats.framesProcessed} analizados'
+            '${stats.failures == 0 ? '' : ' · ${stats.failures} fallidos'}',
+            style: muted,
+          ),
+          if (stats.lastError != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Detección: ${stats.lastError}',
+              style: const TextStyle(color: Color(0xFFFFB4AB), fontSize: 12),
+            ),
+          ],
           if (!healthy) ...[
             const SizedBox(height: 4),
             Text(

@@ -53,23 +53,71 @@ class ModelManifest {
 }
 
 class DetectionResult {
-  const DetectionResult(this.detections, this.letterbox, this.elapsed);
+  const DetectionResult(
+    this.detections,
+    this.letterbox,
+    this.elapsed, {
+    this.preprocess = Duration.zero,
+    this.inference = Duration.zero,
+  });
 
   final List<Detection> detections;
   final Letterbox letterbox;
   final Duration elapsed;
+  final Duration preprocess;
+  final Duration inference;
 }
 
-/// On-device YOLO: preprocessing in a worker isolate, inference in the
-/// interpreter's own isolate, so the camera preview never stutters.
+class _ModelJob {
+  const _ModelJob(this.address, this.request, this.outputLength);
+
+  final int address;
+  final PreprocessRequest request;
+  final int outputLength;
+}
+
+class _ModelOutput {
+  const _ModelOutput(
+    this.output,
+    this.letterbox,
+    this.preprocess,
+    this.inference,
+  );
+
+  final Float32List output;
+  final Letterbox letterbox;
+  final Duration preprocess;
+  final Duration inference;
+}
+
+/// Preprocess and inference in one worker isolate. Unlike tflite_flutter's
+/// IsolateInterpreter, a failure here reaches the caller instead of leaving
+/// the pipeline waiting forever.
+_ModelOutput _runModel(_ModelJob job) {
+  final watch = Stopwatch()..start();
+  final input = prepareInput(job.request);
+  final preprocess = watch.elapsed;
+  // Allocated once in load(); the worker only borrows the native interpreter.
+  final interpreter = Interpreter.fromAddress(job.address, allocated: true);
+  // A ByteBuffer is the only output type tflite_flutter copies into in place.
+  final output = Float32List(job.outputLength);
+  interpreter.run(input.pixels.buffer, output.buffer);
+  return _ModelOutput(
+    output,
+    input.letterbox,
+    preprocess,
+    watch.elapsed - preprocess,
+  );
+}
+
+/// On-device YOLO, off the UI isolate so the camera preview never stutters.
 class OnDeviceDetector {
-  OnDeviceDetector._(this.manifest, this._interpreter, this._isolate);
+  OnDeviceDetector._(this.manifest, this._interpreter);
 
   static const vehiclesAsset = 'assets/models/vehicles';
 
   final ModelManifest manifest;
   final Interpreter _interpreter;
-  final IsolateInterpreter _isolate;
 
   static Future<OnDeviceDetector> load({
     String asset = vehiclesAsset,
@@ -83,10 +131,7 @@ class OnDeviceDetector {
       '$asset.tflite',
       options: InterpreterOptions()..threads = threads,
     );
-    final isolate = await IsolateInterpreter.create(
-      address: interpreter.address,
-    );
-    return OnDeviceDetector._(manifest, interpreter, isolate);
+    return OnDeviceDetector._(manifest, interpreter);
   }
 
   Future<DetectionResult> detect(
@@ -94,33 +139,33 @@ class OnDeviceDetector {
     double minScore = 0.35,
   }) async {
     final watch = Stopwatch()..start();
-    final input = await compute(
-      prepareInput,
-      PreprocessRequest(
-        frame,
-        manifest.inputSize,
-        channelsFirst: manifest.channelsFirst,
+    final result = await compute(
+      _runModel,
+      _ModelJob(
+        _interpreter.address,
+        PreprocessRequest(
+          frame,
+          manifest.inputSize,
+          channelsFirst: manifest.channelsFirst,
+        ),
+        manifest.outputShape.fold<int>(1, (total, value) => total * value),
       ),
     );
-    final count = manifest.outputShape.fold<int>(
-      1,
-      (total, value) => total * value,
-    );
-    // A ByteBuffer is the only output type tflite_flutter copies into in place.
-    final output = Float32List(count);
-    await _isolate.run(input.pixels.buffer, output.buffer);
     final detections = decodeYolo(
-      output: output,
+      output: result.output,
       shape: manifest.outputShape,
-      letterbox: input.letterbox,
+      letterbox: result.letterbox,
       labels: manifest.labels,
       minScore: minScore,
     );
-    return DetectionResult(detections, input.letterbox, watch.elapsed);
+    return DetectionResult(
+      detections,
+      result.letterbox,
+      watch.elapsed,
+      preprocess: result.preprocess,
+      inference: result.inference,
+    );
   }
 
-  Future<void> close() async {
-    await _isolate.close();
-    _interpreter.close();
-  }
+  void close() => _interpreter.close();
 }

@@ -427,6 +427,36 @@ void main() {
     expect(engine.stats.inferenceMs, 30);
   });
 
+  test('un fallo o una detección colgada no bloquean el motor', () async {
+    final directory = await Directory.systemTemp.createTemp('vigia-engine');
+    addTearDown(() => directory.delete(recursive: true));
+    var calls = 0;
+    final engine = EdgeEngine(
+      cameraId: 'CEL-02',
+      modelName: 'm',
+      modelDigest: null,
+      snapshotInterval: const Duration(hours: 1),
+      detectTimeout: const Duration(milliseconds: 50),
+      detect: (_) async {
+        calls++;
+        if (calls == 1) throw StateError('modelo roto');
+        if (calls == 2) await Future<void>.delayed(const Duration(seconds: 5));
+        return (detections: <Detection>[], elapsed: Duration.zero);
+      },
+      outbox: Outbox(directory: directory, serverUrl: 'x', token: 't'),
+    )..start();
+    await engine.process(_bgraFrame(2, 2));
+    expect(engine.stats.lastError, contains('modelo roto'));
+    await engine.process(_bgraFrame(2, 2));
+    expect(engine.stats.failures, 2);
+    expect(engine.stats.lastError, contains('tardó'));
+    expect(engine.busy, isFalse);
+    await engine.process(_bgraFrame(2, 2));
+    expect(engine.stats.framesProcessed, 1);
+    expect(engine.stats.lastError, isNull);
+    await engine.stop();
+  });
+
   test(
     'el manifiesto del modelo empaquetado describe la entrada y la salida',
     () {

@@ -33,8 +33,11 @@ def main() -> None:
     parser.add_argument("--imgsz", type=int, default=320, help="Lado de la entrada; 320 equilibra velocidad y alcance en teléfonos")
     parser.add_argument("--labels", type=parse_labels, required=True, help="Clases que la app reporta, p. ej. 2:car,3:motorcycle")
     parser.add_argument("--output", type=Path, required=True, help="Ruta sin extensión: crea .tflite y .json")
-    parser.add_argument("--quantize", default="w8a32", choices=["w8a32", "32"],
-                        help="w8a32 (por defecto): pesos INT8 dinámicos, ~4 veces más pequeño; 32: float32 completo")
+    # float32 by default: with w8a32 (INT8 weights) LiteRT 1.4 on Android/ARM fails at
+    # Invoke ("Input tensor N lacks data") in hybrid convolutions under XNNPack.
+    parser.add_argument("--quantize", default="32", choices=["32", "w8a32"],
+                        help="32 (por defecto): float32, compatible con XNNPack en cualquier CPU; "
+                             "w8a32: pesos INT8, 3 veces más pequeño pero falla en Android con LiteRT 1.4")
     args = parser.parse_args()
 
     from ultralytics import YOLO

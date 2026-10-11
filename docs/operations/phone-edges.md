@@ -31,20 +31,31 @@ Cámara ─► preprocesado (isolate) ─► YOLO26n TFLite ─► tracker IoU �
 - Sin red, los eventos se acumulan (hasta 10 000) y salen en orden cuando vuelve la conexión.
 - 5 análisis por segundo bastan para tráfico urbano. Bajar a 2 reduce batería y temperatura.
 
-**Modelo integrado.** `assets/models/vehicles.tflite` (3,1 MB, pesos INT8 y activaciones float32) y su manifiesto `vehicles.json` (entrada, formato de salida, clases y SHA-256) se generan con:
+**Modelo integrado.** `assets/models/vehicles.tflite` (10 MB, float32) y su manifiesto `vehicles.json` (entrada, formato de salida, clases y SHA-256) se generan con:
 
 ```bash
 ~/development/vigia-export/bin/python apps/vision/training/export_mobile.py yolo26n.pt \
     --imgsz 320 --labels 2:car,3:motorcycle --output apps/movil/assets/models/vehicles
 ```
 
+Se exporta en float32 a propósito. Con `--quantize w8a32` (pesos INT8, 3 MB), LiteRT 1.4 en Android/ARM falla en cada cuadro con `Input tensor N lacks data` en las convoluciones híbridas bajo XNNPack, aunque en x86 funcione. El error se ve con `adb logcat -b all --pid=$(adb shell pidof co.vigia.movil)`, porque ColorOS oculta el log normal de las apps.
+
 El entorno `~/development/vigia-export` es aparte del nodo de visión: Python 3.12, PyTorch CPU 2.13, TensorFlow CPU 2.19 y litert-torch 0.9.4. La app lee el manifiesto, así que acepta tanto la salida *end-to-end* de YOLO26 (`[1, 300, 6]`, sin NMS) como la clásica de YOLOv8/11 (`[1, 4+clases, anclas]`, con NMS en el teléfono), en NCHW o NHWC.
 
 Verificación (11/10/2026), con fotogramas reales de `apps/vision/captures/video-placas-01.mp4`:
 
-- inferencia de unos 30 ms por cuadro en la CPU del PC;
+- inferencia de 21–33 ms por cuadro en la CPU del PC;
 - el preprocesado en Dart y el de referencia (OpenCV) detectan los mismos 5 vehículos, con recuadros a ±1 px;
 - el backend valida el sobre generado por la app con `DetectionEnvelopeV11`.
+
+En el teléfono (OPPO CPH2599, Android 16, CEL-02 contra Azure):
+
+- 6,2 análisis/s, unos 170 ms por cuadro con preprocesado, en la CPU con 4 hilos;
+- estado térmico 1 (leve), piel a 45 °C;
+- eventos cada 2 s con 0,12 s de latencia hasta el servidor;
+- una moto detectada que quedó en `detections` y `edge_observations`.
+
+Una vista cenital nocturna de un parqueadero no da detecciones. Allí YOLO26n de COCO tampoco detecta en el PC: ningún vehículo a 320 px y 1 a 640 px con PyTorch. Para resultados útiles, la cámara debe ver la vía de lado o en diagonal, como en el video de referencia. Afinar el modelo con datos propios queda para la etapa de entrenamiento.
 
 **Placas (siguiente etapa).** El contrato ya trae `licensePlate` (hoy `null`) y el exportador sirve para cualquier modelo YOLO. El plan:
 

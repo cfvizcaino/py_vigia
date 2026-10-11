@@ -19,6 +19,8 @@ class EdgeStats {
     required this.activeTracks,
     required this.snapshots,
     required this.outbox,
+    this.failures = 0,
+    this.lastError,
   });
 
   final int framesProcessed;
@@ -27,6 +29,10 @@ class EdgeStats {
   final int activeTracks;
   final int snapshots;
   final OutboxStatus outbox;
+
+  /// Frames whose detection failed or timed out, and the latest reason.
+  final int failures;
+  final String? lastError;
 }
 
 /// The PC node's loop, on the phone: frame → detect → track, and a snapshot to
@@ -41,6 +47,7 @@ class EdgeEngine {
     required this.outbox,
     IouTracker? tracker,
     this.snapshotInterval = const Duration(seconds: 2),
+    this.detectTimeout = const Duration(seconds: 10),
     DateTime Function()? clock,
   }) : tracker = tracker ?? IouTracker(),
        _clock = clock ?? DateTime.now;
@@ -52,6 +59,7 @@ class EdgeEngine {
   final Outbox outbox;
   final IouTracker tracker;
   final Duration snapshotInterval;
+  final Duration detectTimeout;
   final DateTime Function() _clock;
 
   final String sessionId = uuidV4();
@@ -61,6 +69,8 @@ class EdgeEngine {
   double _fps = 0;
   DateTime? _lastProcessed;
   bool _busy = false;
+  int _failures = 0;
+  String? _lastError;
   Timer? _timer;
   List<Detection> latestDetections = const [];
 
@@ -74,6 +84,8 @@ class EdgeEngine {
     activeTracks: tracker.active(_clock()).length,
     snapshots: _sequence,
     outbox: outbox.status,
+    failures: _failures,
+    lastError: _lastError,
   );
 
   void start() {
@@ -97,7 +109,8 @@ class EdgeEngine {
     if (_busy || !running) return;
     _busy = true;
     try {
-      final result = await detect(frame);
+      // A stuck frame must not freeze the node: give up and take the next one.
+      final result = await detect(frame).timeout(detectTimeout);
       final now = _clock();
       tracker.update(result.detections, now);
       latestDetections = result.detections;
@@ -111,6 +124,13 @@ class EdgeEngine {
         }
       }
       _lastProcessed = now;
+      _lastError = null;
+    } on TimeoutException {
+      _failures++;
+      _lastError = 'La detección tardó más de ${detectTimeout.inSeconds} s.';
+    } catch (error) {
+      _failures++;
+      _lastError = '$error';
     } finally {
       _busy = false;
     }
