@@ -1,0 +1,21 @@
+# HTTPS automático (Let's Encrypt) para el nombre DNS de Azure.
+{$VIGIA_DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# API pública: app móvil, edges (ingestión con token de dispositivo) y salud.
+	handle /api/v1/* {
+		reverse_proxy backend:8000
+	}
+	handle /health {
+		reverse_proxy backend:8000
+	}
+	# Consola web (sus rutas /api/* propias quedan en Next.js).
+	handle {
+		reverse_proxy web:3000
+	}
+}
