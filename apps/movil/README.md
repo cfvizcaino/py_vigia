@@ -7,6 +7,22 @@ Consola móvil del operador en Flutter: inicio de sesión, cámaras en mapa, con
 - **Android:** <https://vigia-5dfe.mexicocentral.cloudapp.azure.com/descargar>. APK firmado con la llave del proyecto y ya configurado con el servidor del piloto.
 - **iPhone:** la compilación se verifica en GitHub Actions (macOS), pero instalarla en teléfonos requiere una cuenta de Apple Developer (TestFlight o ad hoc). Ver *Pendiente*.
 
+## Edge autónomo
+
+**Edge autónomo**, en el inicio de sesión o en Ajustes, convierte el teléfono en un edge completo. Detecta vehículos con YOLO26n en TensorFlow Lite (`assets/models/vehicles.*`) y publica el sobre 1.1 al servidor central con su propio token, sin PC. El código está en `lib/edge_mode/`:
+
+- `preprocess`: rotación y letterbox en un isolate;
+- `detector`: intérprete TFLite en su propio isolate;
+- `detections`: decodificación YOLO26 y YOLOv8;
+- `tracker`;
+- `envelope`;
+- `outbox`: cola en disco con reintentos;
+- `edge_config`: token en almacenamiento seguro;
+- `edge_engine`;
+- `edge_mode_screen`.
+
+Alta y operación en `docs/operations/phone-edges.md`.
+
 ## Modo cámara
 
 **Usar este teléfono como cámara**, en el inicio de sesión o en Ajustes, convierte el teléfono en la cámara IP de un edge: MJPEG en el puerto 8080, por cable USB (solo `adb forward`) o en red local con clave. Detalles en `docs/operations/phone-edges.md`.
@@ -86,16 +102,19 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 - Servidor por defecto: se define al compilar.
 
 ```bash
-flutter build apk --release --dart-define=VIGIA_DEFAULT_API=https://vigia-5dfe.mexicocentral.cloudapp.azure.com
-bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.0.0
+flutter build apk --release --target-platform android-arm,android-arm64 \
+    --dart-define=VIGIA_DEFAULT_API=https://vigia-5dfe.mexicocentral.cloudapp.azure.com
+bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.1.0
 ```
 
+- Solo ARM (arm64 y armv7, todos los teléfonos reales): quitar x86_64, que sirve solo a emuladores, baja el APK de 83 a 62 MB.
 - Ícono: `assets/icon/` y `dart run flutter_launcher_icons`.
 - CI: `.github/workflows/movil.yml` analiza, prueba y compila Android e iOS (sin firma) en cada cambio.
 
 ## Pendiente
 
 - iPhone: cuenta de Apple Developer (99 USD/año) para firmar y distribuir por TestFlight. Sin ella, solo se puede instalar desde Xcode en un Mac, y caduca a los 7 días con una cuenta gratuita.
-- Transmisión en segundo plano (servicio en primer plano en Android) para que el Modo cámara siga con la pantalla bloqueada.
-- Detección en el propio teléfono, para edges sin PC.
+- Servicio en primer plano en Android para que el Modo cámara y el Edge autónomo sigan con la pantalla bloqueada.
+- Etapa de placas en el edge autónomo: detector de placas + OCR sobre el recorte de cada vehículo (ver `docs/operations/phone-edges.md`).
+- Aceleración por GPU/NNAPI del intérprete (hoy CPU con 4 hilos).
 - Proveedor de teselas propio si el uso crece (política de OpenStreetMap).

@@ -1,0 +1,135 @@
+import 'dart:async';
+
+import '../camera_mode/frame_encoder.dart';
+import 'detections.dart';
+import 'envelope.dart';
+import 'outbox.dart';
+import 'tracker.dart';
+
+typedef DetectFrame =
+    Future<({List<Detection> detections, Duration elapsed})> Function(
+      FrameData frame,
+    );
+
+class EdgeStats {
+  const EdgeStats({
+    required this.framesProcessed,
+    required this.fps,
+    required this.inferenceMs,
+    required this.activeTracks,
+    required this.snapshots,
+    required this.outbox,
+  });
+
+  final int framesProcessed;
+  final double fps;
+  final int inferenceMs;
+  final int activeTracks;
+  final int snapshots;
+  final OutboxStatus outbox;
+}
+
+/// The PC node's loop, on the phone: frame → detect → track, and a snapshot to
+/// the outbox every two seconds (empty ones too, as a heartbeat), exactly like
+/// apps/vision/vigia_vision/runtime.py.
+class EdgeEngine {
+  EdgeEngine({
+    required this.cameraId,
+    required this.modelName,
+    required this.modelDigest,
+    required this.detect,
+    required this.outbox,
+    IouTracker? tracker,
+    this.snapshotInterval = const Duration(seconds: 2),
+    DateTime Function()? clock,
+  }) : tracker = tracker ?? IouTracker(),
+       _clock = clock ?? DateTime.now;
+
+  final String cameraId;
+  final String modelName;
+  final String? modelDigest;
+  final DetectFrame detect;
+  final Outbox outbox;
+  final IouTracker tracker;
+  final Duration snapshotInterval;
+  final DateTime Function() _clock;
+
+  final String sessionId = uuidV4();
+  int _sequence = 0;
+  int _frames = 0;
+  int _inferenceMs = 0;
+  double _fps = 0;
+  DateTime? _lastProcessed;
+  bool _busy = false;
+  Timer? _timer;
+  List<Detection> latestDetections = const [];
+
+  bool get running => _timer != null;
+  bool get busy => _busy;
+
+  EdgeStats get stats => EdgeStats(
+    framesProcessed: _frames,
+    fps: _fps,
+    inferenceMs: _inferenceMs,
+    activeTracks: tracker.active(_clock()).length,
+    snapshots: _sequence,
+    outbox: outbox.status,
+  );
+
+  void start() {
+    if (running) return;
+    outbox.start();
+    _timer = Timer.periodic(snapshotInterval, (_) => snapshot());
+  }
+
+  Future<void> stop() async {
+    _timer?.cancel();
+    _timer = null;
+    if (_frames > 0) {
+      await snapshot(); // Final state, as the PC node does on shutdown.
+    }
+    outbox.stop();
+  }
+
+  /// Processes a frame unless the previous one is still running (frames are
+  /// dropped, never queued, so the reported state is always fresh).
+  Future<void> process(FrameData frame) async {
+    if (_busy || !running) return;
+    _busy = true;
+    try {
+      final result = await detect(frame);
+      final now = _clock();
+      tracker.update(result.detections, now);
+      latestDetections = result.detections;
+      _frames++;
+      _inferenceMs = result.elapsed.inMilliseconds;
+      final previous = _lastProcessed;
+      if (previous != null) {
+        final seconds = now.difference(previous).inMicroseconds / 1e6;
+        if (seconds > 0) {
+          _fps = _fps == 0 ? 1 / seconds : _fps * 0.8 + 0.2 / seconds;
+        }
+      }
+      _lastProcessed = now;
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<void> snapshot() async {
+    final now = _clock();
+    _sequence++;
+    await outbox.enqueue(
+      buildEnvelope(
+        cameraId: cameraId,
+        sessionId: sessionId,
+        sequenceNumber: _sequence,
+        frameNumber: _frames,
+        modelName: modelName,
+        modelDigest: modelDigest,
+        tracks: tracker.active(now),
+        generatedAt: now,
+      ),
+    );
+  }
+}

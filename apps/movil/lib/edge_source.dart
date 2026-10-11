@@ -1,10 +1,11 @@
 /// Where an edge node reads its video from. The app only uses this to build the
 /// install command for the node's PC: camera addresses and passwords never go
-/// to the central server.
-enum EdgeSource { phoneUsb, phoneLan, rtsp, http, usbCamera }
+/// to the central server. `thisPhone` needs no PC: the phone detects by itself.
+enum EdgeSource { thisPhone, phoneUsb, phoneLan, rtsp, http, usbCamera }
 
 extension EdgeSourceLabel on EdgeSource {
   String get label => switch (this) {
+    EdgeSource.thisPhone => 'Este teléfono · detección integrada (sin PC)',
     EdgeSource.phoneUsb => 'Teléfono con VIGÍA · cable USB',
     EdgeSource.phoneLan => 'Teléfono con VIGÍA · red local',
     EdgeSource.rtsp => 'Cámara RTSP (Tapo, Hikvision…)',
@@ -13,6 +14,7 @@ extension EdgeSourceLabel on EdgeSource {
   };
 
   String get fieldLabel => switch (this) {
+    EdgeSource.thisPhone => '',
     EdgeSource.phoneUsb => 'Puerto local en el PC',
     EdgeSource.phoneLan => 'IP del teléfono en la red local',
     EdgeSource.rtsp => 'URL RTSP sin usuario ni contraseña',
@@ -21,6 +23,7 @@ extension EdgeSourceLabel on EdgeSource {
   };
 
   String get hint => switch (this) {
+    EdgeSource.thisPhone => '',
     EdgeSource.phoneUsb => '8082',
     EdgeSource.phoneLan => '192.168.1.40',
     EdgeSource.rtsp => 'rtsp://192.168.1.50:554/stream1',
@@ -32,6 +35,9 @@ extension EdgeSourceLabel on EdgeSource {
   /// always ask for credentials.
   bool get authByDefault =>
       this == EdgeSource.phoneLan || this == EdgeSource.rtsp;
+
+  /// Sources read by a vision node on a PC, which needs an install command.
+  bool get needsNodePc => this != EdgeSource.thisPhone;
 }
 
 /// Suggested local port for a phone over USB: CEL-02 → 8082.
@@ -44,6 +50,8 @@ String suggestPhonePort(String cameraId) {
 String? validateSource(EdgeSource source, String value) {
   final text = value.trim();
   switch (source) {
+    case EdgeSource.thisPhone:
+      return null;
     case EdgeSource.phoneUsb:
       final port = int.tryParse(text);
       return port == null || port < 1024 || port > 65535

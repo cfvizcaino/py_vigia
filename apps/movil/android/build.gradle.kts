@@ -18,6 +18,15 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(":app")
 }
+// tflite_flutter pins Java 11 but leaves Kotlin on the JDK default (21), which
+// Gradle rejects as inconsistent; align its Kotlin target with its Java one.
+subprojects {
+    if (name == "tflite_flutter") {
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+            compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
+    }
+}
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)

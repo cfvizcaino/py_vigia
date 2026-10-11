@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../camera_mode/camera_mode_screen.dart';
+import '../edge_mode/edge_mode_screen.dart';
 import '../session.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -153,6 +154,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             icon: const Icon(Icons.videocam_outlined),
                             label: const Text('Usar este teléfono como cámara'),
+                          ),
+                        ),
+                        // An autonomous edge detects on the phone and publishes with its own token.
+                        SizedBox(
+                          height: 48,
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const EdgeModeScreen(),
+                              ),
+                            ),
+                            icon: const Icon(Icons.memory),
+                            label: const Text(
+                              'Edge autónomo (detección en el teléfono)',
+                            ),
                           ),
                         ),
                         const SizedBox(height: 22),
