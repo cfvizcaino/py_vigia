@@ -12,10 +12,15 @@ exec 9>"$app/.autodeploy.lock"
 flock -n 9 || exit 0  # Another run is still deploying.
 
 log() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" | tee -a "$app/deploy.log"; }
-image_of() { docker compose config --images "$1"; }
+# `config --images SERVICE` also lists its dependencies on some Compose versions, so
+# read the service's own image from the resolved config.
+image_of() {
+  docker compose config --format json \
+    | python3 -c 'import json, sys; print(json.load(sys.stdin)["services"][sys.argv[1]]["image"])' "$1"
+}
 running_id() { docker inspect -f '{{.Image}}' "$(docker compose ps -q "$1")" 2>/dev/null || true; }
 local_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
-revision() { docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" 2>/dev/null | cut -c1-7; }
+revision() { { docker image inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$1" 2>/dev/null || true; } | cut -c1-7; }
 
 # Healthy within 120 s, judged by each image's own HEALTHCHECK.
 wait_healthy() {
