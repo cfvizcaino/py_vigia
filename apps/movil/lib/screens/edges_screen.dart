@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../api_client.dart';
+import '../edge_mode/edge_config.dart';
+import '../edge_mode/edge_mode_screen.dart';
 import '../edge_source.dart';
 import '../models.dart';
 import '../session.dart';
@@ -142,7 +144,7 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Cómo leerá la cámara el nodo en el PC. Solo se usa para armar el comando de instalación; no se envía al servidor.',
+              'Este teléfono puede detectar por sí mismo, o un nodo en un PC lee la cámara. Para un PC solo se usa para armar el comando de instalación; no se envía al servidor.',
               style: TextStyle(color: Color(0xFFB7C2BA)),
             ),
             const SizedBox(height: 10),
@@ -171,20 +173,29 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
                     : '';
               }),
             ),
-            const SizedBox(height: 10),
-            TextFormField(
-              key: ValueKey(_source),
-              controller: _sourceController,
-              autocorrect: false,
-              keyboardType: _source == EdgeSource.phoneUsb
-                  ? TextInputType.number
-                  : TextInputType.url,
-              decoration: InputDecoration(
-                labelText: _source.fieldLabel,
-                hintText: _source.hint,
+            if (_source.needsNodePc) ...[
+              const SizedBox(height: 10),
+              TextFormField(
+                key: ValueKey(_source),
+                controller: _sourceController,
+                autocorrect: false,
+                keyboardType: _source == EdgeSource.phoneUsb
+                    ? TextInputType.number
+                    : TextInputType.url,
+                decoration: InputDecoration(
+                  labelText: _source.fieldLabel,
+                  hintText: _source.hint,
+                ),
+                validator: (value) => validateSource(_source, value ?? ''),
               ),
-              validator: (value) => validateSource(_source, value ?? ''),
-            ),
+            ] else
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'Usa el modelo integrado: el teléfono detecta los vehículos y publica con su propio token. Ideal para cualquier Android con cámara trasera.',
+                  style: TextStyle(color: Color(0xFF9AA79F), fontSize: 12),
+                ),
+              ),
             if (_source == EdgeSource.rtsp || _source == EdgeSource.http)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -271,6 +282,15 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
         );
         return;
       }
+      if (!_source.needsNodePc) {
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                IssuedTokenScreen(issued: result.issued!, autonomous: true),
+          ),
+        );
+        return;
+      }
       final command = installCommand(
         cameraId: result.device.externalId,
         source: _source,
@@ -293,20 +313,58 @@ class _AddEdgeScreenState extends ConsumerState<AddEdgeScreen> {
 }
 
 /// Shows the token once. Nothing keeps it after this screen closes.
-class IssuedTokenScreen extends StatefulWidget {
-  const IssuedTokenScreen({super.key, required this.issued, this.command});
+class IssuedTokenScreen extends ConsumerStatefulWidget {
+  const IssuedTokenScreen({
+    super.key,
+    required this.issued,
+    this.command,
+    this.autonomous = false,
+  });
 
   final IssuedCredential issued;
 
   /// Install command with the chosen video source; generic when rotating.
   final String? command;
 
+  /// The edge detects on a phone: no PC command, the token goes into the app.
+  final bool autonomous;
+
   @override
-  State<IssuedTokenScreen> createState() => _IssuedTokenScreenState();
+  ConsumerState<IssuedTokenScreen> createState() => _IssuedTokenScreenState();
 }
 
-class _IssuedTokenScreenState extends State<IssuedTokenScreen> {
+class _IssuedTokenScreenState extends ConsumerState<IssuedTokenScreen> {
   bool _copied = false;
+  bool _saving = false;
+  String? _saveError;
+
+  /// Keeps the token in this phone's secure storage and opens the edge, so it
+  /// is never copied anywhere.
+  Future<void> _useHere() async {
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    final config = EdgeConfig(
+      cameraId: widget.issued.credential.cameraId,
+      serverUrl: ref.read(sessionProvider).baseUrl,
+      token: widget.issued.secret,
+    );
+    final problem = await verifyEdgeToken(config);
+    if (!mounted) return;
+    if (problem != null) {
+      setState(() {
+        _saving = false;
+        _saveError = problem;
+      });
+      return;
+    }
+    await ref.read(edgeConfigStoreProvider).save(config);
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => const EdgeModeScreen()),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +393,7 @@ class _IssuedTokenScreenState extends State<IssuedTokenScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Copia este token ahora: no se volverá a mostrar. No lo envíes por chat ni correo; pégalo directamente en el PC del nodo.',
+                    'Copia este token ahora: no se volverá a mostrar. No lo envíes por chat ni correo; pégalo directamente en el PC del nodo o en el teléfono del edge.',
                     style: TextStyle(color: Color(0xFFFFE1B0)),
                   ),
                 ),
@@ -369,21 +427,56 @@ class _IssuedTokenScreenState extends State<IssuedTokenScreen> {
               label: Text(_copied ? 'Copiado' : 'Copiar token'),
             ),
           ),
-          const SizedBox(height: 22),
-          Text(
-            'En el PC del nodo',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Desde la carpeta del proyecto, ejecuta este comando y pega el token cuando lo pida (no se muestra al escribir):',
-            style: TextStyle(color: Color(0xFFB7C2BA)),
-          ),
-          const SizedBox(height: 8),
-          SelectableText(
-            command,
-            style: const TextStyle(fontFamily: 'monospace'),
-          ),
+          if (widget.autonomous || widget.command == null) ...[
+            const SizedBox(height: 22),
+            Text(
+              'Edge autónomo (detección en el teléfono)',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Si este es el teléfono que quedará como cámara, guárdalo aquí: el token se queda cifrado en el teléfono y no hay que copiarlo. Si es otro teléfono, ábrelo en VIGÍA → "Edge autónomo" y pega el token.',
+              style: TextStyle(color: Color(0xFFB7C2BA)),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _useHere,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.memory),
+                label: const Text('Usar en este teléfono'),
+              ),
+            ),
+            if (_saveError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _saveError!,
+                style: const TextStyle(color: Color(0xFFFFB4AB)),
+              ),
+            ],
+          ],
+          if (!widget.autonomous) ...[
+            const SizedBox(height: 22),
+            Text(
+              'En el PC del nodo',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Desde la carpeta del proyecto, ejecuta este comando y pega el token cuando lo pida (no se muestra al escribir):',
+              style: TextStyle(color: Color(0xFFB7C2BA)),
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              command,
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ],
           const SizedBox(height: 6),
           Text(
             'Vence: ${formatBogota(widget.issued.credential.expiresAt)} (hora de Colombia).',

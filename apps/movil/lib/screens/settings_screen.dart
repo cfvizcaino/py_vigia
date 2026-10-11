@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../camera_mode/camera_mode_screen.dart';
+import '../edge_mode/edge_mode_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
@@ -113,6 +114,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const CameraModeScreen()),
         ),
+      ),
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.memory),
+        title: const Text('Edge autónomo'),
+        subtitle: const Text('Detectar vehículos en este teléfono, sin PC'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const EdgeModeScreen())),
       ),
       const ListTile(
         contentPadding: EdgeInsets.zero,
