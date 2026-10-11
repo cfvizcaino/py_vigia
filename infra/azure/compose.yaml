@@ -1,5 +1,6 @@
 # Servidor central del piloto (Azure). Solo Caddy publica puertos (80/443, HTTPS automático).
-# Las imágenes se compilan en el PC y se suben con deploy.sh; el servidor no compila.
+# backend y web vienen de GHCR, publicadas por CI desde main; autodeploy.sh las actualiza.
+# El servidor no compila.
 name: vigia
 
 services:
@@ -39,7 +40,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: vigia/backend:local
+    image: ghcr.io/cfvizcaino/vigia-backend:${VIGIA_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia
       INGEST_AUTH_MODE: device
@@ -53,7 +54,7 @@ services:
         condition: service_healthy
 
   web:
-    image: vigia/web:local
+    image: ghcr.io/cfvizcaino/vigia-web:${VIGIA_IMAGE_TAG:-main}
     environment:
       BACKEND_API_URL: http://backend:8000
       ROAD_ROUTER_URL: http://osrm:5000

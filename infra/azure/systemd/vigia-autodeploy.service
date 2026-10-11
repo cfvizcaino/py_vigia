@@ -1,0 +1,11 @@
+[Unit]
+Description=VIGIA: despliega las imágenes nuevas publicadas por CI
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=vigia
+Group=docker
+ExecStart=/opt/vigia/autodeploy.sh
+TimeoutStartSec=15min
