@@ -107,6 +107,7 @@ Compose levanta PostgreSQL ([guía y respaldos](./docs/operations/postgres.md)),
 - [Credenciales individuales de nodos](./docs/operations/device-credentials.md)
 - [Acceso de personas, roles y auditoría](./docs/operations/user-access.md)
 - [PostgreSQL, respaldos y restauración](./docs/operations/postgres.md)
+- [Servidor central en Azure](./docs/operations/azure.md) · [teléfonos como edges](./docs/operations/phone-edges.md)
 - [Dataset sintético de puntajes y rutas](./docs/operations/scoring-dataset.md)
 - [Prueba de resiliencia P1.2](./docs/operations/resilience.md) · [evidencia 08/10/2026](./docs/evidence/p12-resiliencia-20261008.md)
 - [Arquitectura](./docs/architecture/overview.md)

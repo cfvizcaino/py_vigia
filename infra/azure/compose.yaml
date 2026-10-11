@@ -1,0 +1,76 @@
+# Servidor central del piloto (Azure). Solo Caddy publica puertos (80/443, HTTPS automático).
+# Las imágenes se compilan en el PC y se suben con deploy.sh; el servidor no compila.
+name: vigia
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      VIGIA_DOMAIN: ${VIGIA_DOMAIN:?Define VIGIA_DOMAIN en .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    depends_on: [web, backend]
+
+  db:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_DB: vigia
+      POSTGRES_USER: vigia
+      POSTGRES_PASSWORD: ${VIGIA_DB_PASSWORD:?Define VIGIA_DB_PASSWORD en .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    # Small server (1 GB RAM): keep Postgres frugal.
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vigia -d vigia"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    image: vigia/backend:local
+    environment:
+      DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia
+      INGEST_AUTH_MODE: device
+      CORS_ORIGINS: https://${VIGIA_DOMAIN}
+      USER_SESSION_HOURS: "8"
+    volumes:
+      - backend-data:/app/data
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: vigia/web:local
+    environment:
+      BACKEND_API_URL: http://backend:8000
+      ROAD_ROUTER_URL: http://osrm:5000
+      # Behind Caddy the app sees plain HTTP: force Secure cookies explicitly.
+      SESSION_COOKIE_SECURE: "true"
+    restart: unless-stopped
+    depends_on: [backend]
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    command: ["osrm-routed", "--algorithm", "mld", "/data/region.osrm"]
+    volumes:
+      - ./osrm:/data:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: ["ALL"]
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+  backend-data:
