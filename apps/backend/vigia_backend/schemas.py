@@ -22,15 +22,15 @@ Direction = Literal[
 
 
 class DeviceCreate(BaseModel):
-    """Payload para registrar una cámara."""
+    """Payload para registrar una cámara (mismas reglas que la CLI `devices`)."""
 
-    external_id: str = Field(min_length=1, max_length=64)
+    external_id: str = Field(pattern=r"^[A-Z0-9][A-Z0-9-]{1,63}$")
     name: str = Field(min_length=1, max_length=200)
     kind: DeviceKind
     status: DeviceStatus
-    lat: float
-    lng: float
-    camera_model: str | None = None
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    camera_model: str | None = Field(default=None, max_length=120)
 
 
 class DeviceUpdate(BaseModel):

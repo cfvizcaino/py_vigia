@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movil/api_client.dart';
 import 'package:movil/models.dart';
+import 'package:movil/screens/edges_screen.dart';
 import 'package:movil/session.dart';
 
 class MemoryTokenStore implements TokenStore {
@@ -334,4 +335,160 @@ void main() {
       expect(await olderBackend.getScenarios(), isEmpty);
     },
   );
+
+  test(
+    'agregar edge registra la cámara y recibe su token una sola vez',
+    () async {
+      store.token = 'private-token';
+      final calls = <String>[];
+      final client = VigiaApiClient(
+        baseUrl: 'https://vigia.test',
+        tokenStore: store,
+        httpClient: MockClient((request) async {
+          calls.add('${request.method} ${request.url.path}');
+          if (request.url.path == '/api/v1/devices') {
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            expect(body, containsPair('status', 'offline'));
+            expect(body, containsPair('kind', 'physical'));
+            return http.Response(
+              jsonEncode({
+                'id': 'd2',
+                'external_id': body['external_id'],
+                'name': body['name'],
+                'kind': 'physical',
+                'status': 'offline',
+                'lat': body['lat'],
+                'lng': body['lng'],
+                'camera_model': body['camera_model'],
+              }),
+              201,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          expect(jsonDecode(request.body), {'days': 30});
+          return http.Response(
+            jsonEncode({
+              'id': 'c1',
+              'camera_id': 'CEL-02',
+              'created_at': '2026-10-11T00:00:00Z',
+              'expires_at': '2026-11-10T00:00:00Z',
+              'revoked': false,
+              'secret': 'vigia_secreto',
+            }),
+            201,
+          );
+        }),
+      );
+      final device = await client.createEdge(
+        cameraId: 'CEL-02',
+        name: 'Teléfono 2',
+        lat: 11.01,
+        lng: -74.81,
+        cameraModel: 'OPPO',
+      );
+      final issued = await client.issueCredential('CEL-02', days: 30);
+      expect(device.status, 'offline');
+      expect(issued.secret, 'vigia_secreto');
+      expect(issued.credential.active, isTrue);
+      expect(calls, [
+        'POST /api/v1/devices',
+        'POST /api/v1/admin/devices/CEL-02/credentials',
+      ]);
+    },
+  );
+
+  test('identificador duplicado responde 409 con mensaje claro', () async {
+    store.token = 'private-token';
+    final client = VigiaApiClient(
+      baseUrl: 'https://vigia.test',
+      tokenStore: store,
+      httpClient: MockClient((_) async => http.Response('{}', 409)),
+    );
+    await expectLater(
+      client.createEdge(cameraId: 'CEL-01', name: 'x', lat: 0, lng: 0),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          contains('Ya existe'),
+        ),
+      ),
+    );
+  });
+
+  test('sugiere el siguiente CEL libre y valida el identificador', () {
+    const devices = [
+      Device(
+        id: '1',
+        externalId: 'CEL-01',
+        name: 'a',
+        kind: 'physical',
+        status: 'online',
+        lat: 0,
+        lng: 0,
+      ),
+      Device(
+        id: '3',
+        externalId: 'CEL-03',
+        name: 'b',
+        kind: 'physical',
+        status: 'online',
+        lat: 0,
+        lng: 0,
+      ),
+      Device(
+        id: 't',
+        externalId: 'CAM-01',
+        name: 'c',
+        kind: 'physical',
+        status: 'online',
+        lat: 0,
+        lng: 0,
+      ),
+    ];
+    expect(suggestEdgeId(devices), 'CEL-02');
+    expect(suggestEdgeId(const []), 'CEL-01');
+    expect(validateEdgeId('CEL-02', devices), isNull);
+    expect(validateEdgeId('CEL-01', devices), contains('Ya existe'));
+    expect(validateEdgeId('cel-02', devices), isNotNull);
+    expect(validateEdgeId('CEL 02', devices), isNotNull);
+  });
+
+  test('credenciales listadas: activa, revocada y vencida', () async {
+    store.token = 'private-token';
+    final client = VigiaApiClient(
+      baseUrl: 'https://vigia.test',
+      tokenStore: store,
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode([
+            {
+              'id': 'a',
+              'camera_id': 'CEL-01',
+              'created_at': '2026-10-01T00:00:00Z',
+              'expires_at': '2099-01-01T00:00:00Z',
+              'revoked': false,
+            },
+            {
+              'id': 'b',
+              'camera_id': 'CEL-01',
+              'created_at': '2026-10-01T00:00:00Z',
+              'expires_at': '2099-01-01T00:00:00Z',
+              'revoked': true,
+            },
+            {
+              'id': 'c',
+              'camera_id': 'CEL-01',
+              'created_at': '2020-01-01T00:00:00Z',
+              'expires_at': '2020-02-01T00:00:00Z',
+              'revoked': false,
+            },
+          ]),
+          200,
+        ),
+      ),
+    );
+    final items = await client.listCredentials();
+    expect(items.map((item) => item.active), [true, false, false]);
+  });
 }

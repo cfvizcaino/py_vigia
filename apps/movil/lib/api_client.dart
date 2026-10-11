@@ -112,6 +112,52 @@ class VigiaApiClient {
     }
   }
 
+  /// Admin only. A new edge starts offline until its first accepted event.
+  Future<Device> createEdge({
+    required String cameraId,
+    required String name,
+    required double lat,
+    required double lng,
+    String? cameraModel,
+  }) async {
+    final json = await _request(
+      'POST',
+      '/api/v1/devices',
+      body: {
+        'external_id': cameraId,
+        'name': name,
+        'kind': 'physical',
+        'status': 'offline',
+        'lat': lat,
+        'lng': lng,
+        if (cameraModel != null && cameraModel.isNotEmpty)
+          'camera_model': cameraModel,
+      },
+    );
+    return Device.fromJson(json);
+  }
+
+  Future<IssuedCredential> issueCredential(
+    String cameraId, {
+    int days = 90,
+  }) async => IssuedCredential.fromJson(
+    await _request(
+      'POST',
+      '/api/v1/admin/devices/${Uri.encodeComponent(cameraId)}/credentials',
+      body: {'days': days},
+    ),
+  );
+
+  Future<List<EdgeCredential>> listCredentials() async {
+    final json = await _request('GET', '/api/v1/admin/credentials');
+    return (json['items'] as List? ?? const [])
+        .map((item) => EdgeCredential.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  Future<void> revokeCredential(String credentialId) =>
+      _request('DELETE', '/api/v1/admin/credentials/$credentialId');
+
   Future<Map<String, dynamic>> exportQuery(String queryId) =>
       _request('POST', '/api/v1/queries/$queryId/export');
 
@@ -183,6 +229,7 @@ class VigiaApiClient {
       429 =>
         'Demasiados intentos. Espera 15 minutos antes de volver a intentar.',
       404 => 'No se encontró el recurso solicitado.',
+      409 => 'Ya existe un registro con ese identificador.',
       400 || 422 => 'El servidor rechazó los datos. Revisa los filtros e inténtalo de nuevo.',
       >= 500 => 'El servidor central encontró un error. Intenta nuevamente.',
       _ => 'Error del servidor (${response.statusCode}).',

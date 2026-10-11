@@ -46,6 +46,10 @@ flutter devices          # elegir destino
 flutter run -d <id>
 ```
 
+## Agregar edges (administradores)
+
+En **Cámaras**, una cuenta admin ve **Agregar edge**: registra la cámara (identificador, nombre, equipo y ubicación por GPS o mapa) y emite su token, que se muestra una sola vez. Tocar una cámara abre sus credenciales para rotarlas o revocarlas. La instalación del token en el PC del nodo está en `docs/operations/phone-edges.md`.
+
 ## Dataset de pruebas
 
 Si el backend apunta a la base `vigia_scoring`, la pantalla **Consultar** muestra **Caso del dataset de pruebas**. Elegir un caso (S01–S10) llena cámara, fecha, horario, radio y filtros; luego **Consultar trayectorias**. En la base del piloto el selector no aparece.
@@ -61,7 +65,7 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 
 ## Comportamiento
 
-- Endpoints usados: `/api/v1/auth/login`, `/auth/me`, `/auth/logout`, `/devices`, `/queries`, `/scenarios` y `POST /queries/{id}/export`.
+- Endpoints usados: `/api/v1/auth/login`, `/auth/me`, `/auth/logout`, `/devices` (lectura; creación solo admin), `/queries`, `/scenarios`, `POST /queries/{id}/export` y, para admin, `/admin/credentials` y `/admin/devices/{id}/credentials`.
 - Cada petición tiene un límite de 15 s. Un 401 borra el token y vuelve al inicio de sesión; 403, 404, 422, 429 y 5xx muestran mensajes en español.
 - Los horarios se eligen y se muestran en hora de Colombia (UTC−5, sin horario de verano) y viajan al backend en UTC, sin importar la zona horaria del teléfono.
 - La exportación se comparte solo después de pedir al backend el JSON auditado.

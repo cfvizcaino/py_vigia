@@ -230,3 +230,10 @@ def test_audit_filters_by_category_shows_actor_and_paginates(db):
     everything = admin.get("/api/v1/admin/audit").json()
     older = admin.get("/api/v1/admin/audit", params={"before": everything[1]["occurred_at"]}).json()
     assert len(older) == len(everything) - 2
+
+
+@pytest.mark.parametrize("change", [{"external_id": "cel-02"}, {"external_id": "CEL 02"}, {"lat": 91}, {"lng": -181}])
+def test_admin_device_creation_validates_identifier_and_coordinates(db, change):
+    admin = client(bearer(db, "admin"))
+    body = {"external_id": "CEL-02", "name": "Teléfono 2", "kind": "physical", "status": "offline", "lat": 11.0, "lng": -74.8, **change}
+    assert admin.post("/api/v1/devices", json=body).status_code == 422

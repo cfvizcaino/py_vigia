@@ -134,4 +134,33 @@ void main() {
     expect(sent!.vehicleType, 'car');
     expect(sent!.color, 'silver');
   });
+
+  testWidgets('solo el administrador ve "Agregar edge"', (tester) async {
+    const devices = [
+      Device(
+        id: 'd1',
+        externalId: 'CEL-01',
+        name: 'Teléfono 1',
+        kind: 'physical',
+        status: 'online',
+        lat: 11.0131,
+        lng: -74.8172,
+      ),
+    ];
+    for (final (isAdmin, expected) in [
+      (false, findsNothing),
+      (true, findsOneWidget),
+    ]) {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: CamerasScreen(devices: devices, isAdmin: isAdmin),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Agregar edge'), expected);
+    }
+  });
 }
