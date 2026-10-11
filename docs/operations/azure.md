@@ -27,19 +27,22 @@ El servidor no compila: las imágenes se construyen en el PC y se suben. YOLO no
 
 ## Desplegar o actualizar
 
-Desde la raíz del repositorio, con el Docker local del proyecto:
+**El código se despliega solo.** Cada merge a `main` pasa por CI, que publica las imágenes en GHCR. En unos 2 minutos el servidor las toma, migra y reinicia, y vuelve atrás si algo falla. Detalles en [ci-cd.md](ci-cd.md).
 
 ```bash
-export VIGIA_COMPOSE="bash infra/docker-local.sh compose"
 H=vigia-5dfe.mexicocentral.cloudapp.azure.com
-bash infra/docker-local.sh compose build backend web     # compilar en el PC
-bash infra/azure/deploy.sh $H push                        # subir imágenes
-bash infra/azure/deploy.sh $H sync                        # compose, Caddyfile, OSRM, respaldos
-bash infra/azure/deploy.sh $H up                          # migrar y reiniciar
+bash infra/azure/deploy.sh $H deploys                     # últimos despliegues
 bash infra/azure/deploy.sh $H status
 ```
 
-La primera vez, `bootstrap` instala Docker y swap. `up` crea el `.env` del servidor con una contraseña de base generada allá mismo, que no sale de la máquina.
+La infraestructura (compose, Caddyfile, grafo OSRM, scripts) se cambia a mano, a propósito:
+
+```bash
+bash infra/azure/deploy.sh $H sync                        # compose, Caddyfile, OSRM, respaldos, autodeploy
+bash infra/azure/deploy.sh $H up                          # migrar y reiniciar
+```
+
+La primera vez, `bootstrap` instala Docker y swap, y `autodeploy` instala el timer. `up` crea el `.env` del servidor con una contraseña de base generada allá mismo, que no sale de la máquina.
 
 ## Edges
 
@@ -73,5 +76,4 @@ az network nsg rule update -g vigia-rg --nsg-name vigia-centralNSG -n ssh-solo-a
 
 - Aprobación de los tutores sobre el alojamiento de datos fuera de Colombia (Ley 1581).
 - Límite de peticiones por IP en Caddy; hoy existe el bloqueo por cuenta del login.
-- Optimizar la imagen web (1,15 GB por dependencias de desarrollo): usar la salida *standalone* de Next.js.
 - Si crece el uso, cambiar el tamaño de la VM (por ejemplo, B2als v2 con 4 GB) sin perder el disco.

@@ -40,8 +40,8 @@ declare -A previous
 for service in "${services[@]}"; do previous[$service]="$(running_id "$service")"; done
 
 # A registry outage only reaches the journal (every 2 min), not deploy.log.
-if ! docker compose pull -q "${services[@]}"; then
-  echo "No se pudieron bajar las imágenes de GHCR; sigue la versión actual" >&2
+if ! pull_output="$(docker compose pull -q "${services[@]}" 2>&1)"; then
+  printf 'No se pudieron bajar las imágenes de GHCR; sigue la versión actual\n%s\n' "$pull_output" >&2
   exit 1
 fi
 
@@ -50,6 +50,18 @@ for service in "${services[@]}"; do
   if [[ "$(local_id "$(image_of "$service")")" != "${previous[$service]}" ]]; then changed+=("$service"); fi
 done
 if (( ${#changed[@]} == 0 )) && [[ "${1:-}" != "--force" ]]; then
+  exit 0
+fi
+
+# A version that already failed stays out until CI publishes another one; otherwise
+# every timer run would restart the services into it again.
+candidate=""
+for service in "${services[@]}"; do candidate+="$(local_id "$(image_of "$service")") "; done
+failed_file="$app/.autodeploy.failed"
+if [[ "${1:-}" != "--force" && -f "$failed_file" && "$(cat "$failed_file")" == "$candidate" ]]; then
+  for service in "${services[@]}"; do
+    if [[ -n "${previous[$service]}" ]]; then docker tag "${previous[$service]}" "$(image_of "$service")"; fi
+  done
   exit 0
 fi
 
@@ -62,6 +74,7 @@ done
 
 rollback() {
   log "ERROR $1: vuelvo a la versión anterior"
+  printf '%s' "$candidate" > "$failed_file"
   for service in "${services[@]}"; do
     if docker image inspect "vigia/$service:previous" >/dev/null 2>&1; then
       docker tag "vigia/$service:previous" "$(image_of "$service")"
@@ -78,5 +91,6 @@ docker compose run --rm --no-deps backend python -m vigia_backend.migrate upgrad
   || rollback "falló la migración"
 docker compose up -d --no-deps "${services[@]}" >/dev/null 2>&1 || rollback "no arrancaron los servicios"
 wait_healthy || rollback "los servicios no quedaron sanos"
+rm -f "$failed_file"
 docker image prune -f >/dev/null  # Drop the untagged old layers; :previous stays.
 log "OK commit ${target:-?} en producción"
