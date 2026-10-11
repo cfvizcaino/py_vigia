@@ -1,0 +1,7 @@
+# Dependencias para las pruebas del nodo en CI: sin ultralytics ni torch (varios GB),
+# que las pruebas no cargan. El nodo real usa requirements.txt.
+opencv-python-headless>=4.10,<5
+python-dotenv>=1.0,<2
+pyyaml>=6,<7
+pillow>=10,<13
+pytest>=8.0,<9

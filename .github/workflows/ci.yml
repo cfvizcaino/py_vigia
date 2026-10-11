@@ -1,0 +1,128 @@
+# Backend, visión y web: pruebas en cada PR y en main. En main, si todo pasa, publica
+# las imágenes en GHCR; el servidor de Azure las toma solo (infra/azure/autodeploy.sh).
+# Nada de este flujo se ejecuta en el servidor ni tiene credenciales de él.
+name: ci
+
+on:
+  pull_request:
+    paths-ignore: ["apps/movil/**", "docs/**", "**/*.md"]
+  push:
+    branches: [main]
+    paths-ignore: ["apps/movil/**", "docs/**", "**/*.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_DB: vigia_test
+          POSTGRES_USER: vigia
+          POSTGRES_PASSWORD: vigia-ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U vigia -d vigia_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/backend/requirements.txt
+      - run: pip install -r requirements.txt
+      # Includes test_postgres.py (migrations, time zones, concurrent retries) on real Postgres.
+      - run: python -m pytest -q
+        env:
+          VIGIA_TEST_POSTGRES_URL: postgresql+psycopg://vigia:vigia-ci@127.0.0.1:5432/vigia_test
+
+  vision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/vision
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/vision/requirements-test.txt
+      - run: pip install -r requirements-test.txt
+      - run: python -m pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+  # Images are built on every run (a broken Dockerfile fails the PR). Only main moves
+  # the `main` tag that the server follows; a manual run (write access required) pushes
+  # just its sha-… tag, to try a branch on the server. Fork PRs never publish.
+  images:
+    needs: [backend, vision, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        app: [backend, web]
+    env:
+      MAIN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        if: env.PUBLISH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/vigia-${{ matrix.app }}
+          tags: |
+            type=raw,value=main,enable=${{ env.MAIN }}
+            type=sha,format=short,prefix=sha-
+      - uses: docker/build-push-action@v7
+        with:
+          context: apps/${{ matrix.app }}
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}

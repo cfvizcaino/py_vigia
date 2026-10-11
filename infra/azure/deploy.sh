@@ -2,8 +2,11 @@
 # Despliega el servidor central del piloto en una VM Ubuntu (Azure) por SSH.
 # Uso: deploy.sh HOST COMANDO
 #   bootstrap   instala Docker y swap (una vez)
-#   push        sube las imágenes compiladas en este PC (backend, web)
-#   sync        copia compose, Caddyfile, grafo OSRM y scripts de respaldo
+#   push        emergencia: sube imágenes compiladas en este PC (pausa antes el autodeploy)
+#   sync        copia compose, Caddyfile, grafo OSRM, autodeploy y scripts de respaldo
+#   autodeploy  instala el timer que despliega lo que CI publica en GHCR desde main
+#   pause|resume  detiene o reanuda el autodeploy (p. ej. durante un push manual)
+#   deploys     últimos despliegues automáticos
 #   up          crea .env si falta (contraseña generada en el servidor), arranca y migra
 #   restore F   restaura un respaldo pg_dump (-Fc) en el servidor (base vacía)
 #   apk F VER   publica el APK firmado y la página https://HOST/descargar
@@ -34,13 +37,39 @@ case "$command" in
       docker --version; docker compose version; free -h | sed -n 2,3p'
     ;;
   push)
-    # Images are built here (the server has 1 GB of RAM) and streamed compressed over SSH.
-    "${local_docker[@]}" save vigia/backend:local vigia/web:local | gzip -1 | remote 'gunzip | docker load'
+    # Normal path: CI publishes to GHCR and autodeploy.sh pulls. This is the emergency
+    # path; a running autodeploy would replace these images with GHCR's on its next pull.
+    if remote "systemctl is-active --quiet vigia-autodeploy.timer"; then
+      echo "El autodeploy está activo: ejecuta antes 'deploy.sh $host pause'." >&2; exit 1
+    fi
+    for name in backend web; do
+      "${local_docker[@]}" tag "vigia/$name:local" "ghcr.io/cfvizcaino/vigia-$name:main"
+    done
+    "${local_docker[@]}" save ghcr.io/cfvizcaino/vigia-backend:main ghcr.io/cfvizcaino/vigia-web:main \
+      | gzip -1 | remote 'gunzip | docker load'
     ;;
   sync)
     scp "${ssh_opts[@]}" "$root_dir/infra/azure/compose.yaml" "$root_dir/infra/azure/Caddyfile" "vigia@$host:$app/"
     scp "${ssh_opts[@]}" "$root_dir"/infra/osrm/data/region.osrm* "vigia@$host:$app/osrm/"
-    scp "${ssh_opts[@]}" "$root_dir/infra/postgres/backup.sh" "$root_dir/infra/postgres/restore-check.sh" "vigia@$host:$app/"
+    scp "${ssh_opts[@]}" "$root_dir/infra/postgres/backup.sh" "$root_dir/infra/postgres/restore-check.sh" \
+      "$root_dir/infra/azure/autodeploy.sh" "vigia@$host:$app/"
+    ;;
+  autodeploy)
+    scp "${ssh_opts[@]}" "$root_dir/infra/azure/autodeploy.sh" "$root_dir"/infra/azure/systemd/vigia-autodeploy.* "vigia@$host:$app/"
+    remote "set -e; chmod 755 $app/autodeploy.sh
+      sudo install -m 644 $app/vigia-autodeploy.service $app/vigia-autodeploy.timer /etc/systemd/system/
+      rm $app/vigia-autodeploy.service $app/vigia-autodeploy.timer
+      sudo systemctl daemon-reload && sudo systemctl enable --now vigia-autodeploy.timer
+      systemctl list-timers vigia-autodeploy.timer --no-pager | sed -n 1,2p"
+    ;;
+  pause)
+    remote "sudo systemctl stop vigia-autodeploy.timer && echo 'Autodeploy en pausa'"
+    ;;
+  resume)
+    remote "sudo systemctl start vigia-autodeploy.timer && echo 'Autodeploy reanudado'"
+    ;;
+  deploys)
+    remote "tail -n 20 $app/deploy.log 2>/dev/null || echo 'Sin despliegues todavía'; journalctl -u vigia-autodeploy --since '-1h' --no-pager -q | tail -n 5"
     ;;
   up)
     remote "set -e; cd $app

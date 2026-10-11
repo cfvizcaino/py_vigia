@@ -1,0 +1,10 @@
+[Unit]
+Description=VIGIA: busca imágenes nuevas en GHCR cada 2 minutos
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+RandomizedDelaySec=15s
+
+[Install]
+WantedBy=timers.target
