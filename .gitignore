@@ -54,3 +54,6 @@ htmlcov/
 
 # Respaldos locales de la base
 /backups/
+
+# Configuración de nodos edge por cámara (contiene credenciales)
+/apps/vision/nodes/

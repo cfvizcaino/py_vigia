@@ -14,13 +14,13 @@ COCO_VEHICLE_CLASSES = [2, 3]  # car, motorcycle
 
 def parse_source(value: str | None, settings: Settings) -> str | int:
     if value is None:
-        return settings.rtsp_url()
+        return settings.source_url()
     return int(value) if value.isdigit() else value
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Detección y tracking vehicular para VIGIA")
-    parser.add_argument("--source", help="Ruta de video, URL RTSP o índice de webcam. Si se omite, usa la Tapo configurada.")
+    parser.add_argument("--source", help="Ruta de video, URL RTSP/HTTP o índice de webcam. Si se omite, usa VIDEO_SOURCE_URL o la Tapo configurada.")
     parser.add_argument("--model", help="Modelo YOLO; reemplaza YOLO_MODEL.")
     parser.add_argument("--output", type=Path, help="Ruta del snapshot JSON.")
     parser.add_argument("--confidence", type=float, help="Confianza mínima entre 0 y 1.")
