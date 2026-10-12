@@ -53,7 +53,11 @@ El modelo entrenado solo con datos públicos confundía los autos plateados de l
 
 `build_color_dataset.py` respeta los splits de las fuentes que los traen, así que la versión 2 suma 238 recortes del sitio a `train` y deja intactos `val` y `test` de los datos públicos.
 
-El dataset VCoR de Kaggle (10 500 imágenes, 15 colores, con plateado) puede sumarse como otra fuente; su descarga exige una cuenta de Kaggle.
+### VCoR
+
+[VCoR](https://www.kaggle.com/datasets/landrykezebou/vcor-vehicle-color-recognition-dataset) (Kaggle, licencia "Data files © Original Authors"): 10 373 fotos en 15 colores, ya separadas en train, val y test. Se descarga a mano con una cuenta de Kaggle, se usa solo para investigación y queda fuera de Git en `apps/vision/datasets/colors/vcor/`. Aporta unos 520 plateados y 610 grises, justo lo que le faltaba al modelo. Se conservan sus splits. `silver` y `grey` pasan a `gray`, y se excluyen beige, dorado, café claro (tan), naranja, rosado y morado.
+
+La versión 3 (`vigia-colors-v3`) reúne las tres fuentes: 8 874 imágenes de entrenamiento, 1 491 de validación y 1 588 de prueba.
 
 ## Entrenamiento
 
@@ -63,17 +67,18 @@ Las aumentaciones por defecto de Ultralytics cambian el tono y aplican RandAugme
 
 ## Resultados
 
-Exactitud por recorte (top-1). La versión se fija de antemano para no elegir mirando la prueba: v1 usa la mejor época según validación y v2 los pesos finales de una corrida completa de 20 épocas.
+Exactitud por recorte (top-1). Los pesos se fijan de antemano para no elegir mirando la prueba: v1 usa la mejor época según validación, y v2 y v3 los pesos finales de una corrida completa de 20 épocas. **El modelo desplegado es v3.**
 
-| Modelo | Prueba pública (495) | Prueba de sitio (95) | Gris en el sitio |
-|---|---:|---:|---:|
-| v1: solo datos públicos | 86,3 % | 63,2 % | 25 % |
-| v2: públicos + sitio | 86,5 % | 82,1 % | 88 % |
-| v2 en TFLite con el preprocesado de la app | 86,9 % | 84,2 % | — |
+| Modelo | Pública (495) | VCoR (998) | Sitio (95) | Gris en el sitio |
+|---|---:|---:|---:|---:|
+| v1: solo datos públicos | 86,3 % | — | 63,2 % | 25 % |
+| v2: públicos + sitio | 86,5 % | 79,5 % | 82,1 % | 88 % |
+| **v3: públicos + sitio + VCoR** | **87,7 %** | **94,5 %** | **91,6 %** | **94 %** |
+| v3 en TFLite con el preprocesado de la app | 87,3 % | 94,4 % | 90,5 % | — |
 
-En la prueba de sitio, v2 acierta 100 % en rojo y amarillo, 74 % en blanco (5 blancos salen gris) y 50 % en negro (los negros salen gris o azul). En la prueba pública, el gris sube de 59 % a 70 % sin que los demás colores empeoren.
+En la prueba de sitio, v3 acierta 100 % en rojo y amarillo, 94 % en gris, 89 % en blanco y 75 % en negro (v2: 88 %, 74 % y 50 %). En la prueba pública, el gris sube de 59 % (v1) a 81 %. Bajan blanco (de 88 % a 82 %) y café (de 87 % a 80 %, sobre solo 15 fotos).
 
-Antes de la votación, descartar las predicciones con confianza menor a 0,7 sube la exactitud de v2 en el sitio a 85 % y conserva el 86 % de los recortes. La votación entre cuadros va en la misma dirección.
+Antes de la votación, descartar las predicciones con confianza menor a 0,7 deja a v3 en 93 % en el sitio y conserva el 95 % de los recortes. La votación entre cuadros va en la misma dirección.
 
 El preprocesado importa: con vecino más cercano en lugar del bilineal con antialiasing que usa el entrenamiento, el TFLite de v1 bajaba de 87,1 % a 83,2 % en la prueba pública. La app replica el filtro de PIL (`prepareCrop` en `preprocess.dart`, verificado contra PIL en las pruebas).
 
@@ -87,9 +92,17 @@ Una corrida de 30 épocas sin parada temprana sobre los datos públicos no super
 - **Nodo PC:** `apps/vision/models/vehicle-colors.pt`, configurable con `COLOR_MODEL` (vacío lo desactiva). Ultralytics redimensiona y recorta cada recorte igual que en el entrenamiento.
 - **Backend y contrato:** el campo `color` ya existía en el Detection Envelope 1.1 y en la tabla `detections`. El único cambio es en la ingesta: un sobre que llega sin color (porque la votación del track aún no termina) ya no borra el color guardado; un color distinto sí lo corrige.
 
+## Pruebas en vivo (12/10/2026)
+
+- **Teléfono (CEL-02, APK 1.2.0, modelo v2) frente a un monitor con `video-placas-01.mp4`:** 249 detecciones en 6 minutos, 151 con color (61 %). La mezcla de colores (sobre todo blanco y gris, además de rojos, taxis amarillos, negros y azules) coincide con el video. Con la calle de noche, en cambio, solo el 18 % tuvo color.
+- **Tapo C110 (CAMERA-1, nodo PC, modelo v3) sobre un parqueadero iluminado de noche:** 86 detecciones, 59 con color (69 %). Los dos tracks que se compararon con el cuadro en vivo tenían el color correcto. Con la clasificación de color, el nodo pasa de unos 10 a unos 6 cuadros por segundo.
+
+En ambas pruebas, la mayoría de los "desconocidos" vienen del seguimiento y no del clasificador. Los vehículos lejanos o quietos con confianza baja se pierden y renacen como tracks nuevos, que no alcanzan los 2 votos separados 0,5 s. Eso también duplica filas en `detections`.
+
 ## Límites
 
 - De noche y con luz infrarroja, la cámara ve en escala de grises; se espera `gray`, `black`, `white` o `null`.
 - Los vehículos lejanos (caja con un lado menor de 24 px) no se clasifican.
 - El dataset tiene pocos ejemplos de café y verde, que son los colores con menor exactitud esperada.
+- La cobertura depende del seguimiento: los tracks de vida corta quedan sin color (ver las pruebas en vivo).
 - Cada cámara nueva debería aportar recortes propios: `site_color_crops.py` hace el flujo completo (extraer, revisar, construir, reentrenar).

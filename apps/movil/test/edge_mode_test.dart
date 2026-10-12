@@ -613,6 +613,17 @@ void main() {
     expect(colorNamesEs.keys.toSet(), manifest.labels.values.toSet());
   });
 
+  test('cada modelo de assets/models está declarado en pubspec.yaml', () {
+    // The tests read assets from disk; only pubspec puts them in the APK.
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final models = Directory('assets/models').listSync().whereType<File>();
+    expect(models, isNotEmpty);
+    for (final model in models) {
+      final path = model.path.replaceAll(r'\\', '/');
+      expect(pubspec, contains('- $path'), reason: '$path no va en el APK');
+    }
+  });
+
   group('verificación del token', () {
     const config = EdgeConfig(
       cameraId: 'CEL-02',

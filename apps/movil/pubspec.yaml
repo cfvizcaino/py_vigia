@@ -76,6 +76,8 @@ flutter:
   assets:
     - assets/models/vehicles.tflite
     - assets/models/vehicles.json
+    - assets/models/colors.tflite
+    - assets/models/colors.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

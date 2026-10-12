@@ -4,7 +4,7 @@
   "source": "vehicle-colors.pt",
   "quantize": "32",
   "file": "colors.tflite",
-  "sha256": "a47b1296d0db44e2df338fa91a356777667852275d0797d3d48f237a28398af7",
+  "sha256": "dbb8987e3f9679e54631f619a73b79fbcaff0457cc3791f173b07cf81a88b082",
   "input": {
     "shape": [
       1,

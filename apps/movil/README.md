@@ -107,7 +107,7 @@ flutter build apk --release --target-platform android-arm,android-arm64 \
 bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.2.0
 ```
 
-- Solo ARM (arm64 y armv7, todos los teléfonos reales): quitar x86_64, que sirve solo a emuladores, baja el APK unos 21 MB (hoy 69 MB con los modelos de vehículos, 10 MB, y de color, 6 MB).
+- Solo ARM (arm64 y armv7, todos los teléfonos reales): quitar x86_64, que sirve solo a emuladores, baja el APK unos 21 MB (hoy 76 MB con los modelos de vehículos, 10 MB, y de color, 6 MB).
 - Ícono: `assets/icon/` y `dart run flutter_launcher_icons`.
 - CI: `.github/workflows/movil.yml` analiza, prueba y compila Android e iOS (sin firma) en cada cambio.
 
