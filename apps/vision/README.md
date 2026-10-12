@@ -109,6 +109,8 @@ python training/train_plate_detector.py \
 
 Consulta la [estrategia de detección y lectura de placas](../../docs/modeling/license-plates.md).
 
+El seguimiento usa ByteTrack con `vigia_vision/trackers/vigia-bytetrack.yaml` (`TRACKER`): recibe también las detecciones débiles para no perder un vehículo que ya sigue; se publica solo lo que alcanzó `YOLO_CONFIDENCE`. Ver [seguimiento sin fragmentar](../../docs/modeling/tracking.md).
+
 El color se estima con `models/vehicle-colors.pt` (`COLOR_MODEL`; vacío lo desactiva y el color queda desconocido). Para reentrenarlo:
 
 ```bash
