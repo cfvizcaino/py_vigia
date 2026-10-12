@@ -1,0 +1,6067 @@
+{
+ "date": "2026-10-12",
+ "target": "https://vigia-5dfe.mexicocentral.cloudapp.azure.com",
+ "server": "Azure Standard_B2ats_v2 (2 vCPU, ~0.9 GB RAM + 2 GB swap), Caddy + 1 Uvicorn worker + PostgreSQL 17",
+ "client": "PC en Barranquilla, Internet residencial; tools/load_bench.py",
+ "ingest": [
+  {
+   "nodes": 4,
+   "interval_s": 2.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 2.0,
+   "delivered_msg_s": 2.0,
+   "generated": 120,
+   "accepted": 120,
+   "lost": 0,
+   "http_p50_ms": 127.2,
+   "http_p95_ms": 217.3,
+   "http_p99_ms": 1499.5,
+   "delivery_p95_ms": 257.5,
+   "delivery_max_ms": 1828.2,
+   "errors": {},
+   "error_rate": 0.0,
+   "duplicates_expected": 8,
+   "duplicates_ok": 8,
+   "duplicates_wrong": 0
+  },
+  {
+   "nodes": 10,
+   "interval_s": 2.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 5.0,
+   "delivered_msg_s": 5.0,
+   "generated": 300,
+   "accepted": 300,
+   "lost": 0,
+   "http_p50_ms": 122.9,
+   "http_p95_ms": 205.2,
+   "http_p99_ms": 350.9,
+   "delivery_p95_ms": 226.0,
+   "delivery_max_ms": 1357.5,
+   "errors": {},
+   "error_rate": 0.0,
+   "duplicates_expected": 10,
+   "duplicates_ok": 10,
+   "duplicates_wrong": 0
+  },
+  {
+   "nodes": 25,
+   "interval_s": 2.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 12.5,
+   "delivered_msg_s": 12.5,
+   "generated": 750,
+   "accepted": 750,
+   "lost": 0,
+   "http_p50_ms": 124.6,
+   "http_p95_ms": 146.2,
+   "http_p99_ms": 366.1,
+   "delivery_p95_ms": 183.2,
+   "delivery_max_ms": 475.9,
+   "errors": {},
+   "error_rate": 0.0,
+   "duplicates_expected": 36,
+   "duplicates_ok": 36,
+   "duplicates_wrong": 0
+  },
+  {
+   "nodes": 50,
+   "interval_s": 2.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 25.0,
+   "delivered_msg_s": 25.0,
+   "generated": 1499,
+   "accepted": 1499,
+   "lost": 0,
+   "http_p50_ms": 126.6,
+   "http_p95_ms": 152.5,
+   "http_p99_ms": 387.9,
+   "delivery_p95_ms": 190.4,
+   "delivery_max_ms": 520.6,
+   "errors": {},
+   "error_rate": 0.0,
+   "duplicates_expected": 79,
+   "duplicates_ok": 79,
+   "duplicates_wrong": 0
+  },
+  {
+   "nodes": 100,
+   "interval_s": 2.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 50.0,
+   "delivered_msg_s": 50.0,
+   "generated": 2998,
+   "accepted": 2998,
+   "lost": 0,
+   "http_p50_ms": 131.2,
+   "http_p95_ms": 1335.7,
+   "http_p99_ms": 2579.4,
+   "delivery_p95_ms": 1583.6,
+   "delivery_max_ms": 3219.9,
+   "errors": {},
+   "error_rate": 0.0,
+   "duplicates_expected": 149,
+   "duplicates_ok": 149,
+   "duplicates_wrong": 0
+  },
+  {
+   "nodes": 100,
+   "interval_s": 1.0,
+   "duration_s": 60.0,
+   "offered_msg_s": 100.0,
+   "delivered_msg_s": 82.8,
+   "generated": 5993,
+   "accepted": 4968,
+   "lost": 1025,
+   "http_p50_ms": 448.0,
+   "http_p95_ms": 836.3,
+   "http_p99_ms": 1064.2,
+   "delivery_p95_ms": 902.5,
+   "delivery_max_ms": 2137.1,
+   "errors": {
+    "ReadTimeout": 400
+   },
+   "error_rate": 0.0711,
+   "duplicates_expected": 261,
+   "duplicates_ok": 257,
+   "duplicates_wrong": 4
+  },
+  {
+   "nodes": 100,
+   "interval_s": 0.5,
+   "duration_s": 60.0,
+   "offered_msg_s": 200.0,
+   "delivered_msg_s": 0.0,
+   "generated": 11943,
+   "accepted": 0,
+   "lost": 11943,
+   "http_p50_ms": 0,
+   "http_p95_ms": 0,
+   "http_p99_ms": 0,
+   "delivery_p95_ms": 0,
+   "delivery_max_ms": 0,
+   "errors": {
+    "ReadTimeout": 700
+   },
+   "error_rate": 1.0,
+   "duplicates_expected": 0,
+   "duplicates_ok": 0,
+   "duplicates_wrong": 0
+  }
+ ],
+ "query": [
+  {
+   "operators": 1,
+   "queries": 379,
+   "p50_ms": 128.0,
+   "p95_ms": 204.2,
+   "p99_ms": 599.1,
+   "queries_s": 6.32,
+   "statuses": {
+    "200": 379
+   },
+   "mean_candidates": 5.6
+  },
+  {
+   "operators": 5,
+   "queries": 1563,
+   "p50_ms": 159.9,
+   "p95_ms": 331.4,
+   "p99_ms": 582.6,
+   "queries_s": 26.05,
+   "statuses": {
+    "200": 1563
+   },
+   "mean_candidates": 14.6
+  },
+  {
+   "operators": 10,
+   "queries": 1319,
+   "p50_ms": 371.9,
+   "p95_ms": 1013.9,
+   "p99_ms": 1357.8,
+   "queries_s": 21.98,
+   "statuses": {
+    "200": 1319
+   },
+   "mean_candidates": 20.9
+  }
+ ],
+ "query_background_ingest": {
+  "nodes": 25,
+  "interval_s": 2.0,
+  "duration_s": 185.0,
+  "offered_msg_s": 12.5,
+  "delivered_msg_s": 12.5,
+  "generated": 2313,
+  "accepted": 2313,
+  "lost": 0,
+  "http_p50_ms": 151.3,
+  "http_p95_ms": 614.5,
+  "http_p99_ms": 889.0,
+  "delivery_p95_ms": 645.9,
+  "delivery_max_ms": 1536.9,
+  "errors": {},
+  "error_rate": 0.0,
+  "duplicates_expected": 109,
+  "duplicates_ok": 109,
+  "duplicates_wrong": 0
+ },
+ "fault": {
+  "nodes": 25,
+  "interval_s": 2.0,
+  "duration_s": 180,
+  "offered_msg_s": 12.5,
+  "delivered_msg_s": 12.5,
+  "generated": 2249,
+  "accepted": 2249,
+  "lost": 0,
+  "http_p50_ms": 125.3,
+  "http_p95_ms": 363.3,
+  "http_p99_ms": 1289.8,
+  "delivery_p95_ms": 2739.1,
+  "delivery_max_ms": 10340.4,
+  "errors": {
+   "http-502": 100
+  },
+  "error_rate": 0.0391,
+  "duplicates_expected": 106,
+  "duplicates_ok": 106,
+  "duplicates_wrong": 0,
+  "restart_at_s": 60,
+  "unavailable_s": 12.8,
+  "drain_after_recovery_s": 2.2
+ },
+ "database_check": {
+  "events_stored": 15255,
+  "distinct_event_id": 15255,
+  "distinct_session_sequence": 15255,
+  "client_accepted": 15197,
+  "client_generated": 28165,
+  "detections": 5405,
+  "observations": 5405
+ },
+ "incident": "A 200 msg/s el pool de SQLAlchemy (5+10) se agotó; el backend quedó unhealthy y no se recuperó sin carga; se reinició manualmente (~10 min sin API).",
+ "server_stats_samples": [
+  {
+   "t": 1791832878,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "82.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832878,
+   "container": "vigia-backend-1",
+   "cpu": "1.25%",
+   "mem": "51.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832878,
+   "container": "vigia-caddy-1",
+   "cpu": "0.19%",
+   "mem": "42.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832878,
+   "container": "vigia-db-1",
+   "cpu": "0.33%",
+   "mem": "34.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832878,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832884,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "83.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832884,
+   "container": "vigia-backend-1",
+   "cpu": "0.65%",
+   "mem": "52.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832884,
+   "container": "vigia-caddy-1",
+   "cpu": "0.09%",
+   "mem": "43.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832884,
+   "container": "vigia-db-1",
+   "cpu": "0.16%",
+   "mem": "36.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832884,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832890,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "83.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832890,
+   "container": "vigia-backend-1",
+   "cpu": "0.99%",
+   "mem": "52.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832890,
+   "container": "vigia-caddy-1",
+   "cpu": "0.12%",
+   "mem": "43.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832890,
+   "container": "vigia-db-1",
+   "cpu": "0.32%",
+   "mem": "36.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832890,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832896,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "34.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832896,
+   "container": "vigia-backend-1",
+   "cpu": "2.29%",
+   "mem": "52.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832896,
+   "container": "vigia-caddy-1",
+   "cpu": "0.22%",
+   "mem": "16.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832896,
+   "container": "vigia-db-1",
+   "cpu": "3.53%",
+   "mem": "30.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832896,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832902,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "34.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832902,
+   "container": "vigia-backend-1",
+   "cpu": "1.37%",
+   "mem": "52.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832902,
+   "container": "vigia-caddy-1",
+   "cpu": "0.21%",
+   "mem": "17.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832902,
+   "container": "vigia-db-1",
+   "cpu": "0.39%",
+   "mem": "30.59MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832902,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832908,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832908,
+   "container": "vigia-backend-1",
+   "cpu": "1.48%",
+   "mem": "52.33MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832908,
+   "container": "vigia-caddy-1",
+   "cpu": "0.22%",
+   "mem": "16.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832908,
+   "container": "vigia-db-1",
+   "cpu": "0.42%",
+   "mem": "30.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832908,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832915,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832915,
+   "container": "vigia-backend-1",
+   "cpu": "1.64%",
+   "mem": "52.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832915,
+   "container": "vigia-caddy-1",
+   "cpu": "0.21%",
+   "mem": "17.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832915,
+   "container": "vigia-db-1",
+   "cpu": "0.57%",
+   "mem": "30.72MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832915,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832921,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832921,
+   "container": "vigia-backend-1",
+   "cpu": "2.38%",
+   "mem": "52.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832921,
+   "container": "vigia-caddy-1",
+   "cpu": "0.28%",
+   "mem": "17.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832921,
+   "container": "vigia-db-1",
+   "cpu": "0.79%",
+   "mem": "30.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832921,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832927,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832927,
+   "container": "vigia-backend-1",
+   "cpu": "2.55%",
+   "mem": "52.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832927,
+   "container": "vigia-caddy-1",
+   "cpu": "0.31%",
+   "mem": "17.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832927,
+   "container": "vigia-db-1",
+   "cpu": "3.64%",
+   "mem": "31.22MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832927,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832933,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832933,
+   "container": "vigia-backend-1",
+   "cpu": "2.44%",
+   "mem": "52.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832933,
+   "container": "vigia-caddy-1",
+   "cpu": "0.31%",
+   "mem": "17.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832933,
+   "container": "vigia-db-1",
+   "cpu": "0.64%",
+   "mem": "31.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832933,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832939,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832939,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "52.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832939,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "17.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832939,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "31.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832939,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832945,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832945,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "52.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832945,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "17.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832945,
+   "container": "vigia-db-1",
+   "cpu": "0.03%",
+   "mem": "31.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832945,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832951,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832951,
+   "container": "vigia-backend-1",
+   "cpu": "3.78%",
+   "mem": "52.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832951,
+   "container": "vigia-caddy-1",
+   "cpu": "0.55%",
+   "mem": "19.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832951,
+   "container": "vigia-db-1",
+   "cpu": "0.91%",
+   "mem": "30.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832951,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832957,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832957,
+   "container": "vigia-backend-1",
+   "cpu": "3.08%",
+   "mem": "52.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832957,
+   "container": "vigia-caddy-1",
+   "cpu": "0.61%",
+   "mem": "19.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832957,
+   "container": "vigia-db-1",
+   "cpu": "3.64%",
+   "mem": "31.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832957,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832963,
+   "container": "vigia-web-1",
+   "cpu": "15.64%",
+   "mem": "38.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832963,
+   "container": "vigia-backend-1",
+   "cpu": "1.54%",
+   "mem": "52.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832963,
+   "container": "vigia-caddy-1",
+   "cpu": "0.24%",
+   "mem": "20.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832963,
+   "container": "vigia-db-1",
+   "cpu": "0.41%",
+   "mem": "31.47MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832963,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832969,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832969,
+   "container": "vigia-backend-1",
+   "cpu": "2.15%",
+   "mem": "52.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832969,
+   "container": "vigia-caddy-1",
+   "cpu": "0.34%",
+   "mem": "21.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832969,
+   "container": "vigia-db-1",
+   "cpu": "0.53%",
+   "mem": "31.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832969,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832975,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832975,
+   "container": "vigia-backend-1",
+   "cpu": "1.90%",
+   "mem": "52.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832975,
+   "container": "vigia-caddy-1",
+   "cpu": "0.20%",
+   "mem": "21.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832975,
+   "container": "vigia-db-1",
+   "cpu": "1.04%",
+   "mem": "31.88MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832975,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832981,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832981,
+   "container": "vigia-backend-1",
+   "cpu": "1.58%",
+   "mem": "52.58MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832981,
+   "container": "vigia-caddy-1",
+   "cpu": "0.13%",
+   "mem": "24.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832981,
+   "container": "vigia-db-1",
+   "cpu": "3.25%",
+   "mem": "31.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832981,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832987,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832987,
+   "container": "vigia-backend-1",
+   "cpu": "6.81%",
+   "mem": "52.56MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832987,
+   "container": "vigia-caddy-1",
+   "cpu": "0.10%",
+   "mem": "24.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832987,
+   "container": "vigia-db-1",
+   "cpu": "0.19%",
+   "mem": "31.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832987,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791832994,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832994,
+   "container": "vigia-backend-1",
+   "cpu": "1.09%",
+   "mem": "52.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832994,
+   "container": "vigia-caddy-1",
+   "cpu": "0.83%",
+   "mem": "24.63MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832994,
+   "container": "vigia-db-1",
+   "cpu": "0.23%",
+   "mem": "32.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791832994,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833000,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833000,
+   "container": "vigia-backend-1",
+   "cpu": "2.96%",
+   "mem": "52.33MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833000,
+   "container": "vigia-caddy-1",
+   "cpu": "0.32%",
+   "mem": "24.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833000,
+   "container": "vigia-db-1",
+   "cpu": "0.96%",
+   "mem": "31.83MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833000,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833006,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833006,
+   "container": "vigia-backend-1",
+   "cpu": "3.42%",
+   "mem": "52.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833006,
+   "container": "vigia-caddy-1",
+   "cpu": "0.34%",
+   "mem": "24.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833006,
+   "container": "vigia-db-1",
+   "cpu": "0.88%",
+   "mem": "31.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833006,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833012,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833012,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "52.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833012,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "24.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833012,
+   "container": "vigia-db-1",
+   "cpu": "2.97%",
+   "mem": "31.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833012,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833018,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "76.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833018,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "42.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833018,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "25.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833018,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "29.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833018,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833024,
+   "container": "vigia-web-1",
+   "cpu": "15.73%",
+   "mem": "81.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833024,
+   "container": "vigia-backend-1",
+   "cpu": "9.81%",
+   "mem": "42.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833024,
+   "container": "vigia-caddy-1",
+   "cpu": "1.09%",
+   "mem": "33.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833024,
+   "container": "vigia-db-1",
+   "cpu": "2.36%",
+   "mem": "29.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833024,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833030,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "81.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833030,
+   "container": "vigia-backend-1",
+   "cpu": "9.16%",
+   "mem": "42.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833030,
+   "container": "vigia-caddy-1",
+   "cpu": "0.97%",
+   "mem": "33.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833030,
+   "container": "vigia-db-1",
+   "cpu": "2.56%",
+   "mem": "29.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833030,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833036,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "81.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833036,
+   "container": "vigia-backend-1",
+   "cpu": "10.23%",
+   "mem": "42.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833036,
+   "container": "vigia-caddy-1",
+   "cpu": "1.73%",
+   "mem": "34.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833036,
+   "container": "vigia-db-1",
+   "cpu": "2.84%",
+   "mem": "29.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833036,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833042,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "81.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833042,
+   "container": "vigia-backend-1",
+   "cpu": "10.20%",
+   "mem": "43.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833042,
+   "container": "vigia-caddy-1",
+   "cpu": "1.18%",
+   "mem": "34.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833042,
+   "container": "vigia-db-1",
+   "cpu": "6.81%",
+   "mem": "29.37MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833042,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833048,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "86.41MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833048,
+   "container": "vigia-backend-1",
+   "cpu": "11.37%",
+   "mem": "43.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833048,
+   "container": "vigia-caddy-1",
+   "cpu": "1.21%",
+   "mem": "34.58MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833048,
+   "container": "vigia-db-1",
+   "cpu": "3.21%",
+   "mem": "31.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833048,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833054,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "87.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833054,
+   "container": "vigia-backend-1",
+   "cpu": "38.82%",
+   "mem": "42.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833054,
+   "container": "vigia-caddy-1",
+   "cpu": "1.77%",
+   "mem": "34.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833054,
+   "container": "vigia-db-1",
+   "cpu": "2.84%",
+   "mem": "32.08MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833054,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833060,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "87.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833060,
+   "container": "vigia-backend-1",
+   "cpu": "9.51%",
+   "mem": "43.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833060,
+   "container": "vigia-caddy-1",
+   "cpu": "1.06%",
+   "mem": "34.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833060,
+   "container": "vigia-db-1",
+   "cpu": "2.21%",
+   "mem": "32.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833060,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833067,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "88.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833067,
+   "container": "vigia-backend-1",
+   "cpu": "11.11%",
+   "mem": "43.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833067,
+   "container": "vigia-caddy-1",
+   "cpu": "1.18%",
+   "mem": "34.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833067,
+   "container": "vigia-db-1",
+   "cpu": "2.87%",
+   "mem": "31.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833067,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833073,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "88.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833073,
+   "container": "vigia-backend-1",
+   "cpu": "9.64%",
+   "mem": "43.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833073,
+   "container": "vigia-caddy-1",
+   "cpu": "0.96%",
+   "mem": "34.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833073,
+   "container": "vigia-db-1",
+   "cpu": "5.50%",
+   "mem": "32.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833073,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833079,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "88.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833079,
+   "container": "vigia-backend-1",
+   "cpu": "9.18%",
+   "mem": "43.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833079,
+   "container": "vigia-caddy-1",
+   "cpu": "1.00%",
+   "mem": "34.69MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833079,
+   "container": "vigia-db-1",
+   "cpu": "2.16%",
+   "mem": "32.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833079,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833085,
+   "container": "vigia-web-1",
+   "cpu": "14.33%",
+   "mem": "88.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833085,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "43.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833085,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "34.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833085,
+   "container": "vigia-db-1",
+   "cpu": "0.01%",
+   "mem": "32.33MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833085,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833091,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "88.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833091,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "42.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833091,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "34.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833091,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "32.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833091,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833097,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "88.47MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833097,
+   "container": "vigia-backend-1",
+   "cpu": "22.17%",
+   "mem": "42.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833097,
+   "container": "vigia-caddy-1",
+   "cpu": "2.37%",
+   "mem": "36.66MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833097,
+   "container": "vigia-db-1",
+   "cpu": "5.41%",
+   "mem": "32.64MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833097,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833103,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "53.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833103,
+   "container": "vigia-backend-1",
+   "cpu": "25.66%",
+   "mem": "46.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833103,
+   "container": "vigia-caddy-1",
+   "cpu": "2.48%",
+   "mem": "26.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833103,
+   "container": "vigia-db-1",
+   "cpu": "11.01%",
+   "mem": "47.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833103,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833109,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833109,
+   "container": "vigia-backend-1",
+   "cpu": "25.57%",
+   "mem": "46.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833109,
+   "container": "vigia-caddy-1",
+   "cpu": "2.35%",
+   "mem": "29.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833109,
+   "container": "vigia-db-1",
+   "cpu": "7.15%",
+   "mem": "48.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833109,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833115,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833115,
+   "container": "vigia-backend-1",
+   "cpu": "23.84%",
+   "mem": "47.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833115,
+   "container": "vigia-caddy-1",
+   "cpu": "2.26%",
+   "mem": "29.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833115,
+   "container": "vigia-db-1",
+   "cpu": "7.29%",
+   "mem": "48.63MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833115,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833121,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "56.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833121,
+   "container": "vigia-backend-1",
+   "cpu": "22.24%",
+   "mem": "47.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833121,
+   "container": "vigia-caddy-1",
+   "cpu": "3.03%",
+   "mem": "32.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833121,
+   "container": "vigia-db-1",
+   "cpu": "5.95%",
+   "mem": "48.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833121,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833128,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833128,
+   "container": "vigia-backend-1",
+   "cpu": "19.79%",
+   "mem": "48.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833128,
+   "container": "vigia-caddy-1",
+   "cpu": "1.98%",
+   "mem": "34.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833128,
+   "container": "vigia-db-1",
+   "cpu": "5.16%",
+   "mem": "48.88MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833128,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833134,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833134,
+   "container": "vigia-backend-1",
+   "cpu": "21.18%",
+   "mem": "48.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833134,
+   "container": "vigia-caddy-1",
+   "cpu": "2.18%",
+   "mem": "34.69MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833134,
+   "container": "vigia-db-1",
+   "cpu": "6.52%",
+   "mem": "48.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833134,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833140,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833140,
+   "container": "vigia-backend-1",
+   "cpu": "17.82%",
+   "mem": "48.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833140,
+   "container": "vigia-caddy-1",
+   "cpu": "1.61%",
+   "mem": "34.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833140,
+   "container": "vigia-db-1",
+   "cpu": "5.14%",
+   "mem": "49.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833140,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833146,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "60.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833146,
+   "container": "vigia-backend-1",
+   "cpu": "24.25%",
+   "mem": "48.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833146,
+   "container": "vigia-caddy-1",
+   "cpu": "1.54%",
+   "mem": "35.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833146,
+   "container": "vigia-db-1",
+   "cpu": "5.16%",
+   "mem": "49.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833146,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833152,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833152,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "47.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833152,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "34.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833152,
+   "container": "vigia-db-1",
+   "cpu": "0.11%",
+   "mem": "49.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833152,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833158,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "62.22MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833158,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "47.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833158,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "34.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833158,
+   "container": "vigia-db-1",
+   "cpu": "2.21%",
+   "mem": "51.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833158,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833164,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "62.22MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833164,
+   "container": "vigia-backend-1",
+   "cpu": "6.60%",
+   "mem": "48.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833164,
+   "container": "vigia-caddy-1",
+   "cpu": "2.80%",
+   "mem": "35.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833164,
+   "container": "vigia-db-1",
+   "cpu": "1.52%",
+   "mem": "49.96MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833164,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833170,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "62.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833170,
+   "container": "vigia-backend-1",
+   "cpu": "33.75%",
+   "mem": "49MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833170,
+   "container": "vigia-caddy-1",
+   "cpu": "3.49%",
+   "mem": "41.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833170,
+   "container": "vigia-db-1",
+   "cpu": "8.15%",
+   "mem": "50.37MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833170,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833176,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "63.56MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833176,
+   "container": "vigia-backend-1",
+   "cpu": "14.91%",
+   "mem": "79.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833176,
+   "container": "vigia-caddy-1",
+   "cpu": "4.79%",
+   "mem": "43.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833176,
+   "container": "vigia-db-1",
+   "cpu": "11.29%",
+   "mem": "50.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833176,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833182,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "64.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833182,
+   "container": "vigia-backend-1",
+   "cpu": "42.77%",
+   "mem": "89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833182,
+   "container": "vigia-caddy-1",
+   "cpu": "3.99%",
+   "mem": "46.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833182,
+   "container": "vigia-db-1",
+   "cpu": "10.85%",
+   "mem": "51.69MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833182,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833188,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "64.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833188,
+   "container": "vigia-backend-1",
+   "cpu": "47.00%",
+   "mem": "86.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833188,
+   "container": "vigia-caddy-1",
+   "cpu": "4.19%",
+   "mem": "48.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833188,
+   "container": "vigia-db-1",
+   "cpu": "18.96%",
+   "mem": "51.66MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833188,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "556KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833195,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "20.64MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833195,
+   "container": "vigia-backend-1",
+   "cpu": "33.92%",
+   "mem": "78.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833195,
+   "container": "vigia-caddy-1",
+   "cpu": "3.83%",
+   "mem": "32.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833195,
+   "container": "vigia-db-1",
+   "cpu": "7.31%",
+   "mem": "65.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833195,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "552KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833201,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "13.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833201,
+   "container": "vigia-backend-1",
+   "cpu": "107.98%",
+   "mem": "84.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833201,
+   "container": "vigia-caddy-1",
+   "cpu": "4.30%",
+   "mem": "37.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833201,
+   "container": "vigia-db-1",
+   "cpu": "16.19%",
+   "mem": "38.97MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833201,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833207,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "32.96MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833207,
+   "container": "vigia-backend-1",
+   "cpu": "42.17%",
+   "mem": "84.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833207,
+   "container": "vigia-caddy-1",
+   "cpu": "4.33%",
+   "mem": "43.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833207,
+   "container": "vigia-db-1",
+   "cpu": "11.57%",
+   "mem": "39.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833207,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833213,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "32.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833213,
+   "container": "vigia-backend-1",
+   "cpu": "40.83%",
+   "mem": "81.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833213,
+   "container": "vigia-caddy-1",
+   "cpu": "3.73%",
+   "mem": "43.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833213,
+   "container": "vigia-db-1",
+   "cpu": "11.36%",
+   "mem": "39.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833213,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833219,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "32.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833219,
+   "container": "vigia-backend-1",
+   "cpu": "44.18%",
+   "mem": "83.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833219,
+   "container": "vigia-caddy-1",
+   "cpu": "3.97%",
+   "mem": "44.65MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833219,
+   "container": "vigia-db-1",
+   "cpu": "10.68%",
+   "mem": "39.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833219,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833226,
+   "container": "vigia-web-1",
+   "cpu": "15.90%",
+   "mem": "33.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833226,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "84.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833226,
+   "container": "vigia-caddy-1",
+   "cpu": "1.40%",
+   "mem": "51.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833226,
+   "container": "vigia-db-1",
+   "cpu": "2.95%",
+   "mem": "39.59MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833226,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833232,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "33.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833232,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "84.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833232,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "50.17MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833232,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "39.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833232,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833238,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "33.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833238,
+   "container": "vigia-backend-1",
+   "cpu": "102.51%",
+   "mem": "101.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833238,
+   "container": "vigia-caddy-1",
+   "cpu": "15.27%",
+   "mem": "61.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833238,
+   "container": "vigia-db-1",
+   "cpu": "56.20%",
+   "mem": "60.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833238,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833244,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "33MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833244,
+   "container": "vigia-backend-1",
+   "cpu": "118.45%",
+   "mem": "91.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833244,
+   "container": "vigia-caddy-1",
+   "cpu": "7.43%",
+   "mem": "63.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833244,
+   "container": "vigia-db-1",
+   "cpu": "31.29%",
+   "mem": "64.43MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833244,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833250,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "40.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833250,
+   "container": "vigia-backend-1",
+   "cpu": "116.84%",
+   "mem": "91.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833250,
+   "container": "vigia-caddy-1",
+   "cpu": "7.04%",
+   "mem": "62.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833250,
+   "container": "vigia-db-1",
+   "cpu": "31.34%",
+   "mem": "58.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833250,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833256,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "40.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833256,
+   "container": "vigia-backend-1",
+   "cpu": "110.29%",
+   "mem": "91.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833256,
+   "container": "vigia-caddy-1",
+   "cpu": "8.37%",
+   "mem": "35.43MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833256,
+   "container": "vigia-db-1",
+   "cpu": "30.92%",
+   "mem": "60.94MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833256,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833263,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "45.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833263,
+   "container": "vigia-backend-1",
+   "cpu": "117.69%",
+   "mem": "99.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833263,
+   "container": "vigia-caddy-1",
+   "cpu": "7.74%",
+   "mem": "35.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833263,
+   "container": "vigia-db-1",
+   "cpu": "25.80%",
+   "mem": "64.55MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833263,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833269,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "59.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833269,
+   "container": "vigia-backend-1",
+   "cpu": "117.59%",
+   "mem": "84.02MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833269,
+   "container": "vigia-caddy-1",
+   "cpu": "8.41%",
+   "mem": "37.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833269,
+   "container": "vigia-db-1",
+   "cpu": "24.87%",
+   "mem": "65.47MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833269,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833275,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "59.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833275,
+   "container": "vigia-backend-1",
+   "cpu": "116.48%",
+   "mem": "83.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833275,
+   "container": "vigia-caddy-1",
+   "cpu": "7.82%",
+   "mem": "37.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833275,
+   "container": "vigia-db-1",
+   "cpu": "26.34%",
+   "mem": "65.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833275,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833281,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "58.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833281,
+   "container": "vigia-backend-1",
+   "cpu": "142.07%",
+   "mem": "96.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833281,
+   "container": "vigia-caddy-1",
+   "cpu": "8.08%",
+   "mem": "37.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833281,
+   "container": "vigia-db-1",
+   "cpu": "30.16%",
+   "mem": "65.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833281,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833287,
+   "container": "vigia-web-1",
+   "cpu": "21.52%",
+   "mem": "60.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833287,
+   "container": "vigia-backend-1",
+   "cpu": "111.22%",
+   "mem": "84.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833287,
+   "container": "vigia-caddy-1",
+   "cpu": "5.53%",
+   "mem": "37.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833287,
+   "container": "vigia-db-1",
+   "cpu": "12.19%",
+   "mem": "66.58MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833287,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833293,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833293,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "84.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833293,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "37.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833293,
+   "container": "vigia-db-1",
+   "cpu": "0.03%",
+   "mem": "66.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833293,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833299,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833299,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "87.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833299,
+   "container": "vigia-caddy-1",
+   "cpu": "4.45%",
+   "mem": "33.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833299,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "66.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833299,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833306,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833306,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "87.88MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833306,
+   "container": "vigia-caddy-1",
+   "cpu": "0.03%",
+   "mem": "33.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833306,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "66.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833306,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833312,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833312,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "91.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833312,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "35.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833312,
+   "container": "vigia-db-1",
+   "cpu": "2.91%",
+   "mem": "66.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833312,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833318,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833318,
+   "container": "vigia-backend-1",
+   "cpu": "16.19%",
+   "mem": "95.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833318,
+   "container": "vigia-caddy-1",
+   "cpu": "0.14%",
+   "mem": "35.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833318,
+   "container": "vigia-db-1",
+   "cpu": "2.59%",
+   "mem": "66.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833318,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833324,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833324,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "97.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833324,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "33.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833324,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "64.96MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833324,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833330,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "61.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833330,
+   "container": "vigia-backend-1",
+   "cpu": "0.15%",
+   "mem": "97.76MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833330,
+   "container": "vigia-caddy-1",
+   "cpu": "0.05%",
+   "mem": "32.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833330,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "65.17MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833330,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833336,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "61.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833336,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "97.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833336,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "35.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833336,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "65.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833336,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833342,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833342,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "97.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833342,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "35.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833342,
+   "container": "vigia-db-1",
+   "cpu": "3.08%",
+   "mem": "65.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833342,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833348,
+   "container": "vigia-web-1",
+   "cpu": "4.57%",
+   "mem": "60.97MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833348,
+   "container": "vigia-backend-1",
+   "cpu": "17.38%",
+   "mem": "113.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833348,
+   "container": "vigia-caddy-1",
+   "cpu": "0.95%",
+   "mem": "37.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833348,
+   "container": "vigia-db-1",
+   "cpu": "3.91%",
+   "mem": "65.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833348,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833354,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833354,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "100.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833354,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "37.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833354,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "65.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833354,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833360,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833360,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "104.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833360,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833360,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "65.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833360,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833366,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "60.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833366,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "103.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833366,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "36.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833366,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "65.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833366,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833372,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "20.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833372,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "119.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833372,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833372,
+   "container": "vigia-db-1",
+   "cpu": "3.69%",
+   "mem": "60.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833372,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833379,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "15.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833379,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "86.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833379,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "24.59MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833379,
+   "container": "vigia-db-1",
+   "cpu": "0.40%",
+   "mem": "84.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833379,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833385,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "16.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833385,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "90.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833385,
+   "container": "vigia-caddy-1",
+   "cpu": "0.04%",
+   "mem": "50.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833385,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "84.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833385,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833391,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "21.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833391,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "90.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833391,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "50.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833391,
+   "container": "vigia-db-1",
+   "cpu": "0.01%",
+   "mem": "84.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833391,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833397,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "23.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833397,
+   "container": "vigia-backend-1",
+   "cpu": "16.44%",
+   "mem": "122.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833397,
+   "container": "vigia-caddy-1",
+   "cpu": "11.65%",
+   "mem": "29.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833397,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "82.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833397,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833403,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "23.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833403,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "109.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833403,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833403,
+   "container": "vigia-db-1",
+   "cpu": "3.04%",
+   "mem": "83.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833403,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833409,
+   "container": "vigia-web-1",
+   "cpu": "18.69%",
+   "mem": "39.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833409,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "108.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833409,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "26.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833409,
+   "container": "vigia-db-1",
+   "cpu": "2.92%",
+   "mem": "81.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833409,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833414,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "39.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833414,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "108.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833414,
+   "container": "vigia-caddy-1",
+   "cpu": "9.70%",
+   "mem": "27.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833414,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "81.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833414,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833420,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833420,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "124.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833420,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833420,
+   "container": "vigia-db-1",
+   "cpu": "0.01%",
+   "mem": "81.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833420,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833426,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833426,
+   "container": "vigia-backend-1",
+   "cpu": "0.38%",
+   "mem": "110.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833426,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "28.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833426,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "81.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833426,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833432,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833432,
+   "container": "vigia-backend-1",
+   "cpu": "2.57%",
+   "mem": "112.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833432,
+   "container": "vigia-caddy-1",
+   "cpu": "6.98%",
+   "mem": "30.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833432,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "81.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833432,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833439,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "39.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833439,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "115MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833439,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "31.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833439,
+   "container": "vigia-db-1",
+   "cpu": "3.00%",
+   "mem": "81.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833439,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833445,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "40.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833445,
+   "container": "vigia-backend-1",
+   "cpu": "1.45%",
+   "mem": "114.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833445,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "30.49MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833445,
+   "container": "vigia-db-1",
+   "cpu": "0.10%",
+   "mem": "80.55MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833445,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833451,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "40.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833451,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "114.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833451,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "30.37MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833451,
+   "container": "vigia-db-1",
+   "cpu": "0.09%",
+   "mem": "80.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833451,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833457,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "40.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833457,
+   "container": "vigia-backend-1",
+   "cpu": "0.26%",
+   "mem": "115.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833457,
+   "container": "vigia-caddy-1",
+   "cpu": "0.25%",
+   "mem": "25.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833457,
+   "container": "vigia-db-1",
+   "cpu": "0.09%",
+   "mem": "80.76MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833457,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833463,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "40.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833463,
+   "container": "vigia-backend-1",
+   "cpu": "0.61%",
+   "mem": "115.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833463,
+   "container": "vigia-caddy-1",
+   "cpu": "1.45%",
+   "mem": "33.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833463,
+   "container": "vigia-db-1",
+   "cpu": "0.07%",
+   "mem": "80.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833463,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833469,
+   "container": "vigia-web-1",
+   "cpu": "15.94%",
+   "mem": "81.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833469,
+   "container": "vigia-backend-1",
+   "cpu": "44.79%",
+   "mem": "123.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833469,
+   "container": "vigia-caddy-1",
+   "cpu": "0.06%",
+   "mem": "36.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833469,
+   "container": "vigia-db-1",
+   "cpu": "4.41%",
+   "mem": "58.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833469,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833475,
+   "container": "vigia-web-1",
+   "cpu": "0.02%",
+   "mem": "35.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833475,
+   "container": "vigia-backend-1",
+   "cpu": "2.11%",
+   "mem": "125.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833475,
+   "container": "vigia-caddy-1",
+   "cpu": "4.18%",
+   "mem": "40.83MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833475,
+   "container": "vigia-db-1",
+   "cpu": "0.74%",
+   "mem": "34.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833475,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833481,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833481,
+   "container": "vigia-backend-1",
+   "cpu": "0.31%",
+   "mem": "125.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833481,
+   "container": "vigia-caddy-1",
+   "cpu": "0.52%",
+   "mem": "47.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833481,
+   "container": "vigia-db-1",
+   "cpu": "0.15%",
+   "mem": "35.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833481,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833487,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "42.97MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833487,
+   "container": "vigia-backend-1",
+   "cpu": "16.76%",
+   "mem": "146.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833487,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "47.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833487,
+   "container": "vigia-db-1",
+   "cpu": "0.16%",
+   "mem": "35.69MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833487,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833493,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833493,
+   "container": "vigia-backend-1",
+   "cpu": "0.18%",
+   "mem": "137MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833493,
+   "container": "vigia-caddy-1",
+   "cpu": "0.47%",
+   "mem": "34.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833493,
+   "container": "vigia-db-1",
+   "cpu": "0.19%",
+   "mem": "35.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833493,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833499,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833499,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "137.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833499,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "34.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833499,
+   "container": "vigia-db-1",
+   "cpu": "3.13%",
+   "mem": "35.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833499,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833506,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833506,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "137.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833506,
+   "container": "vigia-caddy-1",
+   "cpu": "0.04%",
+   "mem": "33.83MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833506,
+   "container": "vigia-db-1",
+   "cpu": "0.17%",
+   "mem": "36.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833506,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833512,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833512,
+   "container": "vigia-backend-1",
+   "cpu": "23.26%",
+   "mem": "139.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833512,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "33.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833512,
+   "container": "vigia-db-1",
+   "cpu": "0.08%",
+   "mem": "36.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833512,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833518,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833518,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "126.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833518,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833518,
+   "container": "vigia-db-1",
+   "cpu": "0.11%",
+   "mem": "36.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833518,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833524,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "38.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833524,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "126.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833524,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.37MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833524,
+   "container": "vigia-db-1",
+   "cpu": "0.13%",
+   "mem": "36.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833524,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833530,
+   "container": "vigia-web-1",
+   "cpu": "10.65%",
+   "mem": "55.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833530,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "120.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833530,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.08MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833530,
+   "container": "vigia-db-1",
+   "cpu": "3.11%",
+   "mem": "27.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833530,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833536,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "55.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833536,
+   "container": "vigia-backend-1",
+   "cpu": "0.14%",
+   "mem": "133.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833536,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "28.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833536,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "25.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833536,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833542,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "55.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833542,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "120.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833542,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "28.53MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833542,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "27.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833542,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833548,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "55.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833548,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "120.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833548,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "28.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833548,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "27.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833548,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833554,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833554,
+   "container": "vigia-backend-1",
+   "cpu": "0.18%",
+   "mem": "120.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833554,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833554,
+   "container": "vigia-db-1",
+   "cpu": "0.01%",
+   "mem": "23.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833554,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833560,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833560,
+   "container": "vigia-backend-1",
+   "cpu": "1.50%",
+   "mem": "134.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833560,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833560,
+   "container": "vigia-db-1",
+   "cpu": "3.43%",
+   "mem": "24.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833560,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833567,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833567,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "134.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833567,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "29.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833567,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "24.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833567,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833573,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833573,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "134.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833573,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833573,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "24.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833573,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833579,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833579,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "134.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833579,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "29.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833579,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "24.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833579,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833585,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833585,
+   "container": "vigia-backend-1",
+   "cpu": "1.58%",
+   "mem": "134.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833585,
+   "container": "vigia-caddy-1",
+   "cpu": "0.02%",
+   "mem": "32.49MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833585,
+   "container": "vigia-db-1",
+   "cpu": "3.01%",
+   "mem": "24.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833585,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833591,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "54.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833591,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "134.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833591,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "32.49MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833591,
+   "container": "vigia-db-1",
+   "cpu": "0.04%",
+   "mem": "25.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833591,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833597,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "54.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833597,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "134.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833597,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "32.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833597,
+   "container": "vigia-db-1",
+   "cpu": "0.02%",
+   "mem": "25.02MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833597,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833603,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833603,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "134.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833603,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "32.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833603,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "25.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833603,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833609,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.74MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833609,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "134MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833609,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "46.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833609,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "25.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833609,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833615,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "54.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833615,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "112.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833615,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "46.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833615,
+   "container": "vigia-db-1",
+   "cpu": "3.69%",
+   "mem": "25.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833615,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833621,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833621,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "113.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833621,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "38.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833621,
+   "container": "vigia-db-1",
+   "cpu": "0.01%",
+   "mem": "25.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833621,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "528KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833627,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "19.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833627,
+   "container": "vigia-backend-1",
+   "cpu": "12.70%",
+   "mem": "119.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833627,
+   "container": "vigia-caddy-1",
+   "cpu": "1.88%",
+   "mem": "30.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833627,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "14.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833627,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833635,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "14.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833635,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "21.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833635,
+   "container": "vigia-db-1",
+   "cpu": "0.55%",
+   "mem": "8.641MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833635,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833635,
+   "container": "vigia-backend-1",
+   "cpu": "40.83%",
+   "mem": "28.69MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833645,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "12.32MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833645,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "110MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833645,
+   "container": "vigia-caddy-1",
+   "cpu": "0.03%",
+   "mem": "15.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833645,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "30.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833645,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833652,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "11.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833652,
+   "container": "vigia-backend-1",
+   "cpu": "0.15%",
+   "mem": "110.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833652,
+   "container": "vigia-caddy-1",
+   "cpu": "0.12%",
+   "mem": "32.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833652,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "30.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833652,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833658,
+   "container": "vigia-web-1",
+   "cpu": "3.26%",
+   "mem": "17.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833658,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "109.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833658,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "15.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833658,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "14.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833658,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833664,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833664,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "109.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833664,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "12.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833664,
+   "container": "vigia-db-1",
+   "cpu": "2.95%",
+   "mem": "16.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833664,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833670,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833670,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "109.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833670,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "12.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833670,
+   "container": "vigia-db-1",
+   "cpu": "0.00%",
+   "mem": "16.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833670,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833677,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833677,
+   "container": "vigia-backend-1",
+   "cpu": "13.53%",
+   "mem": "81.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833677,
+   "container": "vigia-caddy-1",
+   "cpu": "1.86%",
+   "mem": "25.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833677,
+   "container": "vigia-db-1",
+   "cpu": "3.96%",
+   "mem": "31.22MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833677,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833683,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833683,
+   "container": "vigia-backend-1",
+   "cpu": "14.39%",
+   "mem": "82.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833683,
+   "container": "vigia-caddy-1",
+   "cpu": "1.60%",
+   "mem": "33.19MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833683,
+   "container": "vigia-db-1",
+   "cpu": "4.96%",
+   "mem": "33.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833683,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833689,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "17.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833689,
+   "container": "vigia-backend-1",
+   "cpu": "25.56%",
+   "mem": "82.31MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833689,
+   "container": "vigia-caddy-1",
+   "cpu": "1.42%",
+   "mem": "33.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833689,
+   "container": "vigia-db-1",
+   "cpu": "11.66%",
+   "mem": "33.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833689,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833695,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "21.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833695,
+   "container": "vigia-backend-1",
+   "cpu": "12.72%",
+   "mem": "82.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833695,
+   "container": "vigia-caddy-1",
+   "cpu": "2.56%",
+   "mem": "35.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833695,
+   "container": "vigia-db-1",
+   "cpu": "6.93%",
+   "mem": "34.17MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833695,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833701,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "27.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833701,
+   "container": "vigia-backend-1",
+   "cpu": "25.36%",
+   "mem": "66.52MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833701,
+   "container": "vigia-caddy-1",
+   "cpu": "2.50%",
+   "mem": "31.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833701,
+   "container": "vigia-db-1",
+   "cpu": "7.44%",
+   "mem": "43.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833701,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833707,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "23.65MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833707,
+   "container": "vigia-backend-1",
+   "cpu": "16.08%",
+   "mem": "75.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833707,
+   "container": "vigia-caddy-1",
+   "cpu": "2.01%",
+   "mem": "35.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833707,
+   "container": "vigia-db-1",
+   "cpu": "6.50%",
+   "mem": "38.84MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833707,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833713,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "23.65MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833713,
+   "container": "vigia-backend-1",
+   "cpu": "14.82%",
+   "mem": "76.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833713,
+   "container": "vigia-caddy-1",
+   "cpu": "1.40%",
+   "mem": "35.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833713,
+   "container": "vigia-db-1",
+   "cpu": "5.04%",
+   "mem": "38.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833713,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833719,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "56.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833719,
+   "container": "vigia-backend-1",
+   "cpu": "15.21%",
+   "mem": "76.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833719,
+   "container": "vigia-caddy-1",
+   "cpu": "2.20%",
+   "mem": "35.88MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833719,
+   "container": "vigia-db-1",
+   "cpu": "7.87%",
+   "mem": "39.13MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833719,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833725,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833725,
+   "container": "vigia-backend-1",
+   "cpu": "30.48%",
+   "mem": "88.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833725,
+   "container": "vigia-caddy-1",
+   "cpu": "1.74%",
+   "mem": "35.91MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833725,
+   "container": "vigia-db-1",
+   "cpu": "7.97%",
+   "mem": "39.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833725,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833732,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833732,
+   "container": "vigia-backend-1",
+   "cpu": "24.52%",
+   "mem": "89.55MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833732,
+   "container": "vigia-caddy-1",
+   "cpu": "1.75%",
+   "mem": "38.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833732,
+   "container": "vigia-db-1",
+   "cpu": "7.63%",
+   "mem": "40.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833732,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833738,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833738,
+   "container": "vigia-backend-1",
+   "cpu": "64.54%",
+   "mem": "90.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833738,
+   "container": "vigia-caddy-1",
+   "cpu": "3.55%",
+   "mem": "38.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833738,
+   "container": "vigia-db-1",
+   "cpu": "22.41%",
+   "mem": "43.77MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833738,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833744,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833744,
+   "container": "vigia-backend-1",
+   "cpu": "60.05%",
+   "mem": "93.96MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833744,
+   "container": "vigia-caddy-1",
+   "cpu": "3.83%",
+   "mem": "38.66MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833744,
+   "container": "vigia-db-1",
+   "cpu": "22.47%",
+   "mem": "45.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833744,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833750,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833750,
+   "container": "vigia-backend-1",
+   "cpu": "68.37%",
+   "mem": "97.19MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833750,
+   "container": "vigia-caddy-1",
+   "cpu": "3.64%",
+   "mem": "29.18MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833750,
+   "container": "vigia-db-1",
+   "cpu": "23.34%",
+   "mem": "48.97MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833750,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833756,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833756,
+   "container": "vigia-backend-1",
+   "cpu": "70.90%",
+   "mem": "98.61MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833756,
+   "container": "vigia-caddy-1",
+   "cpu": "3.96%",
+   "mem": "29.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833756,
+   "container": "vigia-db-1",
+   "cpu": "21.58%",
+   "mem": "53.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833756,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833762,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.45MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833762,
+   "container": "vigia-backend-1",
+   "cpu": "70.91%",
+   "mem": "100.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833762,
+   "container": "vigia-caddy-1",
+   "cpu": "3.33%",
+   "mem": "29.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833762,
+   "container": "vigia-db-1",
+   "cpu": "21.37%",
+   "mem": "55.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833762,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833768,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.41MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833768,
+   "container": "vigia-backend-1",
+   "cpu": "60.37%",
+   "mem": "102.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833768,
+   "container": "vigia-caddy-1",
+   "cpu": "3.34%",
+   "mem": "30.28MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833768,
+   "container": "vigia-db-1",
+   "cpu": "21.71%",
+   "mem": "56.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833768,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833774,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.41MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833774,
+   "container": "vigia-backend-1",
+   "cpu": "69.62%",
+   "mem": "105MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833774,
+   "container": "vigia-caddy-1",
+   "cpu": "3.03%",
+   "mem": "30.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833774,
+   "container": "vigia-db-1",
+   "cpu": "19.20%",
+   "mem": "59.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833774,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833780,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "57.59MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833780,
+   "container": "vigia-backend-1",
+   "cpu": "35.25%",
+   "mem": "88.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833780,
+   "container": "vigia-caddy-1",
+   "cpu": "3.34%",
+   "mem": "30.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833780,
+   "container": "vigia-db-1",
+   "cpu": "29.98%",
+   "mem": "58.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833780,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833787,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "67.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833787,
+   "container": "vigia-backend-1",
+   "cpu": "103.16%",
+   "mem": "88.85MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833787,
+   "container": "vigia-caddy-1",
+   "cpu": "4.48%",
+   "mem": "30.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833787,
+   "container": "vigia-db-1",
+   "cpu": "28.84%",
+   "mem": "61.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833787,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833793,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "9.203MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833793,
+   "container": "vigia-backend-1",
+   "cpu": "34.55%",
+   "mem": "89.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833793,
+   "container": "vigia-caddy-1",
+   "cpu": "3.86%",
+   "mem": "30.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833793,
+   "container": "vigia-db-1",
+   "cpu": "39.64%",
+   "mem": "56.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833793,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833799,
+   "container": "vigia-web-1",
+   "cpu": "5.36%",
+   "mem": "40.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833799,
+   "container": "vigia-backend-1",
+   "cpu": "105.21%",
+   "mem": "93.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833799,
+   "container": "vigia-caddy-1",
+   "cpu": "3.65%",
+   "mem": "34.58MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833799,
+   "container": "vigia-db-1",
+   "cpu": "42.09%",
+   "mem": "75.99MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833799,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833805,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833805,
+   "container": "vigia-backend-1",
+   "cpu": "102.90%",
+   "mem": "101MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833805,
+   "container": "vigia-caddy-1",
+   "cpu": "3.60%",
+   "mem": "34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833805,
+   "container": "vigia-db-1",
+   "cpu": "52.23%",
+   "mem": "73.03MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833805,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833812,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833812,
+   "container": "vigia-backend-1",
+   "cpu": "104.59%",
+   "mem": "110MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833812,
+   "container": "vigia-caddy-1",
+   "cpu": "2.71%",
+   "mem": "40.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833812,
+   "container": "vigia-db-1",
+   "cpu": "42.80%",
+   "mem": "77.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833812,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833818,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833818,
+   "container": "vigia-backend-1",
+   "cpu": "104.30%",
+   "mem": "111.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833818,
+   "container": "vigia-caddy-1",
+   "cpu": "2.78%",
+   "mem": "40.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833818,
+   "container": "vigia-db-1",
+   "cpu": "41.02%",
+   "mem": "79.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833818,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833824,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833824,
+   "container": "vigia-backend-1",
+   "cpu": "102.14%",
+   "mem": "112.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833824,
+   "container": "vigia-caddy-1",
+   "cpu": "3.05%",
+   "mem": "41.07MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833824,
+   "container": "vigia-db-1",
+   "cpu": "48.41%",
+   "mem": "67.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833824,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833830,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833830,
+   "container": "vigia-backend-1",
+   "cpu": "105.29%",
+   "mem": "121.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833830,
+   "container": "vigia-caddy-1",
+   "cpu": "3.16%",
+   "mem": "41MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833830,
+   "container": "vigia-db-1",
+   "cpu": "42.88%",
+   "mem": "65.37MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833830,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833836,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833836,
+   "container": "vigia-backend-1",
+   "cpu": "102.25%",
+   "mem": "124.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833836,
+   "container": "vigia-caddy-1",
+   "cpu": "2.96%",
+   "mem": "40.98MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833836,
+   "container": "vigia-db-1",
+   "cpu": "40.23%",
+   "mem": "61.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833836,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833842,
+   "container": "vigia-web-1",
+   "cpu": "20.67%",
+   "mem": "35.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833842,
+   "container": "vigia-backend-1",
+   "cpu": "104.67%",
+   "mem": "126.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833842,
+   "container": "vigia-caddy-1",
+   "cpu": "2.91%",
+   "mem": "43.28MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833842,
+   "container": "vigia-db-1",
+   "cpu": "44.35%",
+   "mem": "77.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833842,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833849,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "34.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833849,
+   "container": "vigia-backend-1",
+   "cpu": "106.53%",
+   "mem": "134.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833849,
+   "container": "vigia-caddy-1",
+   "cpu": "3.06%",
+   "mem": "43.63MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833849,
+   "container": "vigia-db-1",
+   "cpu": "40.49%",
+   "mem": "77.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833849,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "480KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833855,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "5.02MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833855,
+   "container": "vigia-backend-1",
+   "cpu": "82.95%",
+   "mem": "115.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833855,
+   "container": "vigia-caddy-1",
+   "cpu": "2.24%",
+   "mem": "28.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833855,
+   "container": "vigia-db-1",
+   "cpu": "32.18%",
+   "mem": "66.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833855,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833862,
+   "container": "vigia-web-1",
+   "cpu": "4.90%",
+   "mem": "44.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833862,
+   "container": "vigia-backend-1",
+   "cpu": "7.34%",
+   "mem": "113.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833862,
+   "container": "vigia-caddy-1",
+   "cpu": "0.98%",
+   "mem": "45.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833862,
+   "container": "vigia-db-1",
+   "cpu": "2.12%",
+   "mem": "63.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833862,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833868,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "82.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833868,
+   "container": "vigia-backend-1",
+   "cpu": "8.81%",
+   "mem": "104.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833868,
+   "container": "vigia-caddy-1",
+   "cpu": "1.17%",
+   "mem": "46.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833868,
+   "container": "vigia-db-1",
+   "cpu": "2.71%",
+   "mem": "69.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833868,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "504KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833874,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "11.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833874,
+   "container": "vigia-backend-1",
+   "cpu": "8.73%",
+   "mem": "110.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833874,
+   "container": "vigia-caddy-1",
+   "cpu": "1.07%",
+   "mem": "38.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833874,
+   "container": "vigia-db-1",
+   "cpu": "2.17%",
+   "mem": "76.43MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833874,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833880,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "11.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833880,
+   "container": "vigia-backend-1",
+   "cpu": "10.04%",
+   "mem": "110.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833880,
+   "container": "vigia-caddy-1",
+   "cpu": "1.23%",
+   "mem": "41.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833880,
+   "container": "vigia-db-1",
+   "cpu": "2.60%",
+   "mem": "77.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833880,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833886,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "25.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833886,
+   "container": "vigia-backend-1",
+   "cpu": "11.37%",
+   "mem": "108.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833886,
+   "container": "vigia-caddy-1",
+   "cpu": "1.93%",
+   "mem": "42.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833886,
+   "container": "vigia-db-1",
+   "cpu": "2.91%",
+   "mem": "77.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833886,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833892,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "25.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833892,
+   "container": "vigia-backend-1",
+   "cpu": "9.71%",
+   "mem": "108.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833892,
+   "container": "vigia-caddy-1",
+   "cpu": "1.16%",
+   "mem": "42.33MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833892,
+   "container": "vigia-db-1",
+   "cpu": "5.91%",
+   "mem": "77.14MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833892,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833899,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "24.97MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833899,
+   "container": "vigia-backend-1",
+   "cpu": "8.63%",
+   "mem": "108.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833899,
+   "container": "vigia-caddy-1",
+   "cpu": "1.28%",
+   "mem": "42.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833899,
+   "container": "vigia-db-1",
+   "cpu": "3.02%",
+   "mem": "77.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833899,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833905,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "25.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833905,
+   "container": "vigia-backend-1",
+   "cpu": "10.65%",
+   "mem": "111.1MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833905,
+   "container": "vigia-caddy-1",
+   "cpu": "1.30%",
+   "mem": "51.46MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833905,
+   "container": "vigia-db-1",
+   "cpu": "2.87%",
+   "mem": "77.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833905,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833911,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "25.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833911,
+   "container": "vigia-backend-1",
+   "cpu": "37.19%",
+   "mem": "109.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833911,
+   "container": "vigia-caddy-1",
+   "cpu": "1.18%",
+   "mem": "51.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833911,
+   "container": "vigia-db-1",
+   "cpu": "2.89%",
+   "mem": "76.59MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833911,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833917,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "25.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833917,
+   "container": "vigia-backend-1",
+   "cpu": "9.45%",
+   "mem": "109.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833917,
+   "container": "vigia-caddy-1",
+   "cpu": "1.08%",
+   "mem": "51.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833917,
+   "container": "vigia-db-1",
+   "cpu": "2.55%",
+   "mem": "76.21MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833917,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833923,
+   "container": "vigia-web-1",
+   "cpu": "3.49%",
+   "mem": "43.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833923,
+   "container": "vigia-backend-1",
+   "cpu": "12.46%",
+   "mem": "70.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833923,
+   "container": "vigia-caddy-1",
+   "cpu": "2.82%",
+   "mem": "33.15MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833923,
+   "container": "vigia-db-1",
+   "cpu": "11.96%",
+   "mem": "41.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833923,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833930,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "20.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833930,
+   "container": "vigia-backend-1",
+   "cpu": "53.23%",
+   "mem": "99.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833930,
+   "container": "vigia-caddy-1",
+   "cpu": "0.23%",
+   "mem": "40.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833930,
+   "container": "vigia-db-1",
+   "cpu": "1.12%",
+   "mem": "26.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833930,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "524KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833937,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "24.36MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833937,
+   "container": "vigia-backend-1",
+   "cpu": "10.93%",
+   "mem": "80.02MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833937,
+   "container": "vigia-caddy-1",
+   "cpu": "1.20%",
+   "mem": "42.71MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833937,
+   "container": "vigia-db-1",
+   "cpu": "3.28%",
+   "mem": "40.35MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833937,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833943,
+   "container": "vigia-web-1",
+   "cpu": "4.64%",
+   "mem": "70.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833943,
+   "container": "vigia-backend-1",
+   "cpu": "11.09%",
+   "mem": "79.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833943,
+   "container": "vigia-caddy-1",
+   "cpu": "1.31%",
+   "mem": "53.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833943,
+   "container": "vigia-db-1",
+   "cpu": "3.48%",
+   "mem": "40.54MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833943,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833949,
+   "container": "vigia-web-1",
+   "cpu": "0.26%",
+   "mem": "88.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833949,
+   "container": "vigia-backend-1",
+   "cpu": "10.57%",
+   "mem": "71.6MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833949,
+   "container": "vigia-caddy-1",
+   "cpu": "1.22%",
+   "mem": "37.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833949,
+   "container": "vigia-db-1",
+   "cpu": "7.10%",
+   "mem": "53.12MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833949,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833955,
+   "container": "vigia-web-1",
+   "cpu": "0.08%",
+   "mem": "89.66MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833955,
+   "container": "vigia-backend-1",
+   "cpu": "9.60%",
+   "mem": "74.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833955,
+   "container": "vigia-caddy-1",
+   "cpu": "1.09%",
+   "mem": "39.48MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833955,
+   "container": "vigia-db-1",
+   "cpu": "3.41%",
+   "mem": "57.94MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833955,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833961,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "89.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833961,
+   "container": "vigia-backend-1",
+   "cpu": "10.34%",
+   "mem": "74.28MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833961,
+   "container": "vigia-caddy-1",
+   "cpu": "1.13%",
+   "mem": "39.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833961,
+   "container": "vigia-db-1",
+   "cpu": "2.66%",
+   "mem": "58.79MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833961,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833967,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "89.93MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833967,
+   "container": "vigia-backend-1",
+   "cpu": "12.06%",
+   "mem": "71.09MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833967,
+   "container": "vigia-caddy-1",
+   "cpu": "1.26%",
+   "mem": "39.94MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833967,
+   "container": "vigia-db-1",
+   "cpu": "2.95%",
+   "mem": "58.06MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833967,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833973,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "104.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833973,
+   "container": "vigia-backend-1",
+   "cpu": "9.45%",
+   "mem": "71.16MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833973,
+   "container": "vigia-caddy-1",
+   "cpu": "1.07%",
+   "mem": "41.11MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833973,
+   "container": "vigia-db-1",
+   "cpu": "2.04%",
+   "mem": "58.27MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833973,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833980,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "104.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833980,
+   "container": "vigia-backend-1",
+   "cpu": "11.43%",
+   "mem": "71.4MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833980,
+   "container": "vigia-caddy-1",
+   "cpu": "2.32%",
+   "mem": "40.22MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833980,
+   "container": "vigia-db-1",
+   "cpu": "5.66%",
+   "mem": "63.82MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833980,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833986,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "104.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833986,
+   "container": "vigia-backend-1",
+   "cpu": "8.95%",
+   "mem": "69.7MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833986,
+   "container": "vigia-caddy-1",
+   "cpu": "1.02%",
+   "mem": "40.3MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833986,
+   "container": "vigia-db-1",
+   "cpu": "2.33%",
+   "mem": "63.39MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833986,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833992,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "116.9MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833992,
+   "container": "vigia-backend-1",
+   "cpu": "8.48%",
+   "mem": "69.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833992,
+   "container": "vigia-caddy-1",
+   "cpu": "0.94%",
+   "mem": "44.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833992,
+   "container": "vigia-db-1",
+   "cpu": "2.39%",
+   "mem": "62.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833992,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791833998,
+   "container": "vigia-web-1",
+   "cpu": "2.49%",
+   "mem": "56.44MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833998,
+   "container": "vigia-backend-1",
+   "cpu": "12.97%",
+   "mem": "68.25MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833998,
+   "container": "vigia-caddy-1",
+   "cpu": "2.62%",
+   "mem": "47.75MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833998,
+   "container": "vigia-db-1",
+   "cpu": "3.44%",
+   "mem": "62.87MiB / 892.9MiB"
+  },
+  {
+   "t": 1791833998,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834004,
+   "container": "vigia-web-1",
+   "cpu": "0.11%",
+   "mem": "56.94MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834004,
+   "container": "vigia-backend-1",
+   "cpu": "9.67%",
+   "mem": "68.29MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834004,
+   "container": "vigia-caddy-1",
+   "cpu": "1.19%",
+   "mem": "47.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834004,
+   "container": "vigia-db-1",
+   "cpu": "2.78%",
+   "mem": "63.34MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834004,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834010,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834010,
+   "container": "vigia-backend-1",
+   "cpu": "9.84%",
+   "mem": "66.81MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834010,
+   "container": "vigia-caddy-1",
+   "cpu": "1.13%",
+   "mem": "31.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834010,
+   "container": "vigia-db-1",
+   "cpu": "6.12%",
+   "mem": "43.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834010,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834016,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834016,
+   "container": "vigia-backend-1",
+   "cpu": "10.96%",
+   "mem": "61.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834016,
+   "container": "vigia-caddy-1",
+   "cpu": "1.00%",
+   "mem": "31.05MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834016,
+   "container": "vigia-db-1",
+   "cpu": "2.80%",
+   "mem": "44.5MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834016,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834022,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "56.73MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834022,
+   "container": "vigia-backend-1",
+   "cpu": "12.78%",
+   "mem": "60.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834022,
+   "container": "vigia-caddy-1",
+   "cpu": "1.02%",
+   "mem": "33.28MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834022,
+   "container": "vigia-db-1",
+   "cpu": "2.25%",
+   "mem": "44.47MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834022,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834028,
+   "container": "vigia-web-1",
+   "cpu": "2.48%",
+   "mem": "56.92MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834028,
+   "container": "vigia-backend-1",
+   "cpu": "21.71%",
+   "mem": "94.2MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834028,
+   "container": "vigia-caddy-1",
+   "cpu": "1.30%",
+   "mem": "33.47MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834028,
+   "container": "vigia-db-1",
+   "cpu": "3.97%",
+   "mem": "43.68MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834028,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834034,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.26MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834034,
+   "container": "vigia-backend-1",
+   "cpu": "26.08%",
+   "mem": "41.8MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834034,
+   "container": "vigia-caddy-1",
+   "cpu": "1.27%",
+   "mem": "30.65MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834034,
+   "container": "vigia-db-1",
+   "cpu": "18.46%",
+   "mem": "42.94MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834034,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834042,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834042,
+   "container": "vigia-backend-1",
+   "cpu": "0.15%",
+   "mem": "34.89MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834042,
+   "container": "vigia-caddy-1",
+   "cpu": "0.03%",
+   "mem": "37.08MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834042,
+   "container": "vigia-db-1",
+   "cpu": "0.10%",
+   "mem": "43.38MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834042,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834048,
+   "container": "vigia-web-1",
+   "cpu": "15.52%",
+   "mem": "35.43MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834048,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "34.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834048,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "36.86MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834048,
+   "container": "vigia-db-1",
+   "cpu": "0.14%",
+   "mem": "43.51MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834048,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834054,
+   "container": "vigia-web-1",
+   "cpu": "0.01%",
+   "mem": "35.42MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834054,
+   "container": "vigia-backend-1",
+   "cpu": "0.13%",
+   "mem": "34.62MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834054,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "39.04MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834054,
+   "container": "vigia-db-1",
+   "cpu": "0.11%",
+   "mem": "43.56MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834054,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834060,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "35.28MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834060,
+   "container": "vigia-backend-1",
+   "cpu": "0.12%",
+   "mem": "35.58MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834060,
+   "container": "vigia-caddy-1",
+   "cpu": "0.00%",
+   "mem": "38.78MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834060,
+   "container": "vigia-db-1",
+   "cpu": "1.49%",
+   "mem": "45.24MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834060,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  },
+  {
+   "t": 1791834066,
+   "container": "vigia-web-1",
+   "cpu": "0.00%",
+   "mem": "29.57MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834066,
+   "container": "vigia-backend-1",
+   "cpu": "0.11%",
+   "mem": "35.83MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834066,
+   "container": "vigia-caddy-1",
+   "cpu": "0.06%",
+   "mem": "25.95MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834066,
+   "container": "vigia-db-1",
+   "cpu": "0.11%",
+   "mem": "50.23MiB / 892.9MiB"
+  },
+  {
+   "t": 1791834066,
+   "container": "vigia-osrm-1",
+   "cpu": "0.00%",
+   "mem": "476KiB / 892.9MiB"
+  }
+ ]
+}
