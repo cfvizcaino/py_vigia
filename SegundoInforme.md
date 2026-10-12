@@ -228,7 +228,7 @@ Los requerimientos no funcionales se aplican de manera proporcional a un prototi
 
 # 9. Evaluación de alternativas
 
-Se compararon tres alternativas: **A)** centralización de video en un servidor; **B)** arquitectura híbrida con nodos edge y backend modular, seleccionada por VIGIA; y **C)** plataforma industrial GPU multiflujo, representada por DeepStream. En el corte anterior la comparación era solo analítica. En este corte, la alternativa seleccionada se midió bajo carga controlada sobre su despliegue real. De A se midió lo que puede medirse con el hardware disponible (ancho de banda y costo de inferencia por flujo). C se midió en la GPU del portátil del proyecto (sección 9.4); las cifras del fabricante siguen citadas aparte porque corresponden a otra GPU y a otro modelo.
+Se compararon tres alternativas: **A)** centralización de video en un servidor; **B)** arquitectura híbrida con nodos edge y backend modular, seleccionada por VIGIA; y **C)** plataforma industrial GPU multiflujo, representada por DeepStream. En el corte anterior la comparación era solo analítica. En este corte, la alternativa seleccionada se midió bajo carga controlada sobre su despliegue real. De A se midió lo que puede medirse con el hardware disponible (ancho de banda y costo de inferencia por flujo). C se midió en un segundo portátil con GPU NVIDIA (sección 9.4); las cifras del fabricante siguen citadas aparte porque corresponden a otra GPU y a otro modelo.
 
 ## 9.1 Métricas y umbrales de aceptación
 
@@ -251,7 +251,7 @@ El benchmark se ejecutó el 12/10/2026 contra el servidor del piloto, es decir, 
 
 - **Servidor:** VM Azure Standard_B2ats_v2 (2 vCPU AMD, ~0,9 GB de RAM más 2 GB de swap) en México Central.
 - **Pila:** Caddy con TLS, un proceso Uvicorn del backend y PostgreSQL 17 en la misma máquina.
-- **Generador:** el PC del proyecto en Barranquilla, por Internet residencial; la latencia incluye la red real.
+- **Generador:** el portátil de desarrollo en Barranquilla, por Internet residencial; la latencia incluye la red real.
 
 La herramienta `apps/backend/tools/load_bench.py` [37] simula nodos que se comportan como el edge real:
 
@@ -309,7 +309,7 @@ Mientras tanto, la ingestión de fondo entregó todo, sin errores, pero con p95 
 | Entrega p95 / máxima | 2,7 s / 10,3 s | — |
 | Reenvíos reconocidos como `duplicate` | 106/106 | Todos |
 
-**Alternativa A, lo que sí se midió.** La Tapo C110 transmite su flujo principal (2304×1296) a 1,10 Mbit/s, unos 0,5 GB por hora. Es un valor bajo: se midió durante 90 s de una escena nocturna casi estática, y una escena diurna con movimiento eleva la tasa del códec. Los metadatos de la misma cámara, con la media real de 8,8 detecciones por sobre registrada en producción, ocupan unos 2,7 KB cada 2 s, es decir, unos 11 kbit/s: **unas 100 veces menos**. En cómputo, YOLO26n en CPU procesó un cuadro cada 96 ms a 640 px usando los 8 hilos del portátil del proyecto (AMD Ryzen 7 3700U), unos 10 cuadros por segundo. A 8 análisis por segundo por cámara, un servidor de la alternativa A necesitaría unas 8 veces la capacidad total de ese procesador solo para inferir 10 cámaras. En la alternativa B, la central dedicó un 2 % de una vCPU a 10 nodos y un 17 % a 50 nodos (tabla 9.2).
+**Alternativa A, lo que sí se midió.** La Tapo C110 transmite su flujo principal (2304×1296) a 1,10 Mbit/s, unos 0,5 GB por hora. Es un valor bajo: se midió durante 90 s de una escena nocturna casi estática, y una escena diurna con movimiento eleva la tasa del códec. Los metadatos de la misma cámara, con la media real de 8,8 detecciones por sobre registrada en producción, ocupan unos 2,7 KB cada 2 s, es decir, unos 11 kbit/s: **unas 100 veces menos**. En cómputo, YOLO26n en CPU procesó un cuadro cada 96 ms a 640 px usando los 8 hilos del portátil de desarrollo (AMD Ryzen 7 3700U, sin GPU), unos 10 cuadros por segundo. A 8 análisis por segundo por cámara, un servidor de la alternativa A necesitaría unas 8 veces la capacidad total de ese procesador solo para inferir 10 cámaras. En la alternativa B, la central dedicó un 2 % de una vCPU a 10 nodos y un 17 % a 50 nodos (tabla 9.2).
 
 **Comparación de las tres alternativas.** La tabla 9.5 resume la comparación y marca de dónde viene cada valor.
 
@@ -328,7 +328,7 @@ Mientras tanto, la ingestión de fondo entregó todo, sin errores, pero con p95 
 
 ## 9.4 DeepStream en local, y lo que sigue sin medirse
 
-- **Alternativa C (DeepStream), medida en local el 12/10/2026.** La VM del piloto no tiene GPU, así que la corrida se hizo en el portátil del proyecto: NVIDIA GeForce RTX 5050 Laptop (8 GB), controlador 610.74, CUDA 13.3. DeepStream 8.0.0 en Docker Desktop sobre WSL2, con TensorRT 10.9, CUDA runtime 12.9 y cuDNN 9.8. El pipeline es el de referencia del SDK, no el RT-DETR de la nota de NVIDIA [24]: decodificación del video de muestra 1080p H.264 incluido en el SDK, detector TrafficCamNet (ResNet18 podado) en FP16 con motor TensorRT construido en esta GPU, y rastreador NvDCF en modo rendimiento. Sin clasificadores secundarios y sin pantalla. El sumidero no espera al reloj del archivo (`sync=0`), así que el número es el caudal máximo del pipeline, no una reproducción a 30 FPS. Cada escalón repite el mismo archivo; no son cámaras físicas distintas. NVIDIA advierte que el multiflujo en WSL rinde por debajo de un Ubuntu nativo; esta corrida está en ese caso.
+- **Alternativa C (DeepStream), medida en local el 12/10/2026.** La VM del piloto no tiene GPU, así que la corrida se hizo en un segundo portátil, distinto del de desarrollo, con una NVIDIA GeForce RTX 5050 Laptop (8 GB), controlador 610.74, CUDA 13.3. DeepStream 8.0.0 en Docker Desktop sobre WSL2, con TensorRT 10.9, CUDA runtime 12.9 y cuDNN 9.8. El pipeline es el de referencia del SDK, no el RT-DETR de la nota de NVIDIA [24]: decodificación del video de muestra 1080p H.264 incluido en el SDK, detector TrafficCamNet (ResNet18 podado) en FP16 con motor TensorRT construido en esta GPU, y rastreador NvDCF en modo rendimiento. Sin clasificadores secundarios y sin pantalla. El sumidero no espera al reloj del archivo (`sync=0`), así que el número es el caudal máximo del pipeline, no una reproducción a 30 FPS. Cada escalón repite el mismo archivo; no son cámaras físicas distintas. NVIDIA advierte que el multiflujo en WSL rinde por debajo de un Ubuntu nativo; esta corrida está en ese caso.
 
 **Tabla 9.6.** DeepStream 8.0 en la RTX 5050 Laptop. FPS por flujo es la media que imprime `deepstream-app` al cierre de la ventana; el agregado es esa media por el número de flujos.
 
