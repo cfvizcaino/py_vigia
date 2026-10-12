@@ -47,6 +47,17 @@ class TrackState:
         }
 
 
+# The detector hands ByteTrack everything from here up: weak detections only keep
+# existing tracks alive (see trackers/vigia-bytetrack.yaml); YOLO_CONFIDENCE still
+# decides what is published.
+DETECTOR_FLOOR = 0.1
+
+
+def publishable(tracks: dict[int, TrackState], min_confidence: float) -> dict[int, TrackState]:
+    """Vehículos que alcanzaron la confianza de publicación al menos una vez."""
+    return {key: track for key, track in tracks.items() if track.confidence >= min_confidence}
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
@@ -75,7 +86,9 @@ def update_tracks(
             tracks[track_id] = TrackState(
                 track_id=track_id,
                 vehicle_type={2: "car", 3: "motorcycle"}.get(class_id, str(class_id)),
-                confidence=round(float(score), 4),
+                # Best score seen: weak detections that keep a track alive must not
+                # lower the confidence it already reached.
+                confidence=max(round(float(score), 4), previous.confidence if previous else 0.0),
                 first_seen=previous.first_seen if previous else now_iso,
                 last_seen=now_iso,
                 first_center=previous.first_center if previous else center,

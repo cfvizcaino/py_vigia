@@ -134,7 +134,11 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
             '${detector.manifest.name}-tflite${detector.manifest.inputSize}',
         modelDigest: detector.manifest.digest,
         detect: (frame) async {
-          final result = await detector.detect(frame);
+          // Weak detections too: the tracker uses them to keep vehicles.
+          final result = await detector.detect(
+            frame,
+            minScore: IouTracker.detectorFloor,
+          );
           return (detections: result.detections, elapsed: result.elapsed);
         },
         classifyColors: colors?.classify,

@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from .config import Settings
-from .events import TrackState, update_tracks, write_snapshot
+from .events import DETECTOR_FLOOR, TrackState, publishable, update_tracks, write_snapshot
 from .publisher import SnapshotPublisher
 
 COCO_VEHICLE_CLASSES = [2, 3]  # car, motorcycle
@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--confidence", type=float, help="Confianza mínima entre 0 y 1.")
     parser.add_argument("--max-frames", type=int, default=0, help="Detenerse después de N frames; 0 procesa indefinidamente.")
     parser.add_argument("--write-every", type=float, default=2.0, help="Segundos entre actualizaciones del JSON.")
-    parser.add_argument("--retention", type=float, default=10.0, help="Segundos que un track permanece en el snapshot.")
+    parser.add_argument("--retention", type=float, default=20.0, help="Segundos que un track permanece en el snapshot (más que la memoria del rastreador).")
     return parser
 
 
@@ -52,9 +52,9 @@ def run(args: argparse.Namespace) -> None:
         source=source,
         stream=True,
         persist=True,
-        tracker="bytetrack.yaml",
+        tracker=settings.tracker,
         classes=COCO_VEHICLE_CLASSES,
-        conf=confidence,
+        conf=min(DETECTOR_FLOOR, confidence),
         verbose=False,
     )
 
@@ -84,7 +84,7 @@ def run(args: argparse.Namespace) -> None:
                     settings.camera_id,
                     model_name,
                     frame_number,
-                    tracks,
+                    publishable(tracks, confidence),
                     session_id=session_id,
                     sequence_number=sequence_number,
                     node_version=settings.node_version,
@@ -107,7 +107,7 @@ def run(args: argparse.Namespace) -> None:
             settings.camera_id,
             model_name,
             final_frame,
-            tracks,
+            publishable(tracks, confidence),
             session_id=session_id,
             sequence_number=sequence_number,
             node_version=settings.node_version,

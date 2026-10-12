@@ -1,0 +1,16 @@
+# ByteTrack de VIGIA. Medido con training/evaluate_tracking.py (docs/modeling/tracking.md):
+# con la configuración por defecto y detecciones filtradas en 0,35, un auto lejano que
+# baja un instante de 0,35 se pierde y renace con otro id (41 tracks para 9 autos
+# estacionados en 90 s; con esta configuración, 12).
+tracker_type: bytetrack
+# Detecciones fuertes: asocian y pueden revivir tracks perdidos (= YOLO_CONFIDENCE).
+track_high_thresh: 0.35
+# Detecciones débiles (0,1–0,35): solo mantienen vivo un track que ya existe. El nodo
+# pasa conf=0,1 al detector para que lleguen hasta aquí.
+track_low_thresh: 0.1
+# Un vehículo nuevo exige la misma confianza que antes, para no perder cobertura.
+new_track_thresh: 0.35
+# Cuadros que se recuerda un track perdido: ~10-15 s a los 6-9 análisis/s del nodo.
+track_buffer: 90
+match_thresh: 0.8
+fuse_score: True

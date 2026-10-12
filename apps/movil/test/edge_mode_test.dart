@@ -256,17 +256,71 @@ void main() {
     test('olvida los tracks pasada la retención y no mezcla etiquetas', () {
       final tracker = IouTracker(retention: const Duration(seconds: 2));
       final now = DateTime.utc(2026);
-      tracker.update([
-        _car(10, 10),
-        Detection(
-          box: const Box(10, 10, 110, 70),
-          score: 0.8,
-          label: 'motorcycle',
-        ),
-      ], now);
+      for (final ms in [0, 100]) {
+        tracker.update([
+          _car(10, 10),
+          Detection(
+            box: const Box(10, 10, 110, 70),
+            score: 0.8,
+            label: 'motorcycle',
+          ),
+        ], now.add(Duration(milliseconds: ms)));
+      }
       expect(tracker.active(now), hasLength(2));
       tracker.update(const [], now.add(const Duration(seconds: 3)));
       expect(tracker.active(now.add(const Duration(seconds: 3))), isEmpty);
+    });
+  });
+
+  group('seguimiento sin fragmentar', () {
+    final start = DateTime.utc(2026, 10, 12);
+    DateTime at(int ms) => start.add(Duration(milliseconds: ms));
+
+    test('las detecciones débiles mantienen al vehículo con su id', () {
+      final tracker = IouTracker();
+      tracker.update([_car(100, 100)], at(0));
+      tracker.update([_car(104, 100)], at(170));
+      // The score dips under 0.35 for a second: the old tracker lost it here.
+      for (var i = 2; i < 8; i++) {
+        tracker.update([_car(100 + i * 4.0, 100, score: 0.18)], at(170 * i));
+      }
+      tracker.update([_car(140, 100)], at(170 * 8));
+      final tracks = tracker.active(at(170 * 8));
+      expect(tracks.map((t) => t.id), [1]);
+      expect(tracks.single.bestScore, closeTo(0.9, 1e-9));
+      expect(tracks.single.score, closeTo(0.9, 1e-9));
+    });
+
+    test('un parpadeo de un cuadro nunca se publica', () {
+      final tracker = IouTracker();
+      tracker.update([_car(100, 100)], at(0));
+      expect(tracker.active(at(0)), isEmpty, reason: 'tentative');
+      tracker.update(const [], at(170));
+      tracker.update([_car(400, 100)], at(340));
+      tracker.update([_car(404, 100)], at(510));
+      expect(tracker.active(at(510)).map((t) => t.id), [2]);
+    });
+
+    test('una detección débil no crea vehículos', () {
+      final tracker = IouTracker();
+      for (var i = 0; i < 5; i++) {
+        tracker.update([_car(100, 100, score: 0.2)], at(170 * i));
+      }
+      expect(tracker.active(at(680)), isEmpty);
+    });
+
+    test('recupera un vehículo perdido unos segundos, con su predicción', () {
+      final tracker = IouTracker();
+      // 50 px/s to the right, hidden 3 s behind a pole, then seen again.
+      tracker.update([_car(100, 100)], at(0));
+      tracker.update([_car(110, 100)], at(200));
+      tracker.update([_car(120, 100)], at(400));
+      for (var i = 3; i < 18; i++) {
+        tracker.update(const [], at(200 * i));
+      }
+      tracker.update([_car(270, 100)], at(3400));
+      expect(tracker.active(at(3400)).map((t) => t.id), [1]);
+      expect(tracker.active(at(3400)).single.direction, 'izquierda-a-derecha');
     });
   });
 
@@ -331,11 +385,12 @@ void main() {
         },
         outbox: Outbox(directory: directory, serverUrl: 'x', token: 't'),
       )..start();
-      for (var i = 0; i < 3; i++) {
+      // Frame 1 only creates tentative tracks; colour sampling starts at 2.
+      for (var i = 0; i < 4; i++) {
         await engine.process(_bgraFrame(2, 2));
       }
       expect(sizes, [1, 1, 1], reason: 'the 10 px box is never classified');
-      expect(engine.stats.framesProcessed, 3);
+      expect(engine.stats.framesProcessed, 4);
       expect(engine.stats.failures, 0);
       expect(engine.stats.colorFailures, 1);
       final tracks = engine.tracker.active(tick);
@@ -531,6 +586,8 @@ void main() {
         }),
       ),
     )..start();
+    // A vehicle is published from its second detection on.
+    await engine.process(_bgraFrame(2, 2));
     await engine.process(_bgraFrame(2, 2));
     await engine.snapshot();
     await _until(() => bodies.isNotEmpty);

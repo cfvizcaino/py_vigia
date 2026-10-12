@@ -9,11 +9,21 @@ from typing import Any
 
 from .colors import ColorVotes, classify_tracks, prune
 from .config import Settings, is_local_camera
-from .events import TrackState, build_snapshot, update_tracks, utc_now, write_snapshot_payload
+from .events import (
+    DETECTOR_FLOOR,
+    TrackState,
+    build_snapshot,
+    publishable,
+    update_tracks,
+    utc_now,
+    write_snapshot_payload,
+)
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
 from .publisher import SnapshotPublisher
 
 COCO_VEHICLE_CLASSES = [2, 3]
+# Longer than the tracker's memory, so a vehicle ByteTrack revives keeps its record.
+TRACK_RETENTION_SECONDS = 20.0
 
 
 class VisionRuntime:
@@ -103,6 +113,7 @@ class VisionRuntime:
             return self._build_snapshot(self._frame_number, dict(self._tracks))
 
     def _build_snapshot(self, frame_number: int, tracks: dict[int, TrackState]) -> dict[str, Any]:
+        tracks = publishable(tracks, self.settings.confidence)
         with self._snapshot_lock:
             self._sequence_number += 1
             return build_snapshot(
@@ -236,9 +247,9 @@ class VisionRuntime:
                     result = model.track(
                         frame,
                         persist=True,
-                        tracker="bytetrack.yaml",
+                        tracker=self.settings.tracker,
                         classes=COCO_VEHICLE_CLASSES,
-                        conf=self.settings.confidence,
+                        conf=min(DETECTOR_FLOOR, self.settings.confidence),
                         verbose=False,
                     )[0]
                     now_monotonic = time.monotonic()
@@ -277,7 +288,7 @@ class VisionRuntime:
                                 else (self._processing_fps * 0.85) + (instant_fps * 0.15)
                             )
                         self._last_frame_monotonic = now_monotonic
-                        update_tracks(result, self._tracks, self._last_seen, now_monotonic, 10.0)
+                        update_tracks(result, self._tracks, self._last_seen, now_monotonic, TRACK_RETENTION_SECONDS)
                         prune(self._color_votes, set(self._tracks))
                         for track_id, votes in self._color_votes.items():
                             if votes.color:

@@ -97,7 +97,7 @@ Una corrida de 30 épocas sin parada temprana sobre los datos públicos no super
 - **Teléfono (CEL-02, APK 1.2.0, modelo v2) frente a un monitor con `video-placas-01.mp4`:** 249 detecciones en 6 minutos, 151 con color (61 %). La mezcla de colores (sobre todo blanco y gris, además de rojos, taxis amarillos, negros y azules) coincide con el video. Con la calle de noche, en cambio, solo el 18 % tuvo color.
 - **Tapo C110 (CAMERA-1, nodo PC, modelo v3) sobre un parqueadero iluminado de noche:** 86 detecciones, 59 con color (69 %). Los dos tracks que se compararon con el cuadro en vivo tenían el color correcto. Con la clasificación de color, el nodo pasa de unos 10 a unos 6 cuadros por segundo.
 
-En ambas pruebas, la mayoría de los "desconocidos" vienen del seguimiento y no del clasificador. Los vehículos lejanos o quietos con confianza baja se pierden y renacen como tracks nuevos, que no alcanzan los 2 votos separados 0,5 s. Eso también duplica filas en `detections`.
+En ambas pruebas, la mayoría de los "desconocidos" vienen del seguimiento y no del clasificador. Los vehículos lejanos o quietos con confianza baja se pierden y renacen como tracks nuevos, que no alcanzan los 2 votos separados 0,5 s. Eso también duplica filas en `detections`. Ver [seguimiento sin fragmentar](tracking.md), que lo corrige.
 
 ## Límites
 

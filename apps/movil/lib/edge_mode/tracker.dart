@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'colors.dart';
 import 'detections.dart';
 
@@ -10,18 +12,32 @@ class Track {
     required this.firstCenter,
     required this.box,
     required this.score,
-  }) : lastSeen = firstSeen,
-       lastCenter = firstCenter;
+  }) : firstBox = box,
+       lastSeen = firstSeen,
+       lastCenter = firstCenter,
+       bestScore = score;
 
   final int id;
   final String label;
   final DateTime firstSeen;
   final (double, double) firstCenter;
+  final Box firstBox;
   DateTime lastSeen;
   (double, double) lastCenter;
   Box box;
+
+  /// Score in the latest frame (overlay) and the best one seen (published, as
+  /// the PC node does: a vehicle kept alive by weak detections stays reported
+  /// with the confidence it reached).
   double score;
-  int misses = 0;
+  double bestScore;
+
+  /// Frames matched; a track is published from [IouTracker.minHits] on.
+  int hits = 1;
+
+  /// Centre velocity in pixels per second, smoothed.
+  double vx = 0;
+  double vy = 0;
   final colorVotes = ColorVotes();
 
   /// Voted colour, or null while unknown.
@@ -37,65 +53,110 @@ class Track {
     }
     return dy > 0 ? 'arriba-a-abajo' : 'abajo-a-arriba';
   }
+
+  /// Where the box should be at [now] if the vehicle kept its velocity
+  /// (at most 2 s ahead, so a long-lost track does not drift away).
+  Box predicted(DateTime now) {
+    final seconds = math.min(
+      2.0,
+      now.difference(lastSeen).inMicroseconds / 1e6,
+    );
+    final dx = vx * seconds;
+    final dy = vy * seconds;
+    return Box(box.x1 + dx, box.y1 + dy, box.x2 + dx, box.y2 + dy);
+  }
+
+  void _observe(Detection detection, DateTime now) {
+    final seconds = now.difference(lastSeen).inMicroseconds / 1e6;
+    final center = detection.box.center;
+    if (seconds > 0) {
+      final ix = (center.$1 - lastCenter.$1) / seconds;
+      final iy = (center.$2 - lastCenter.$2) / seconds;
+      vx = hits == 1 ? ix : vx * 0.5 + ix * 0.5;
+      vy = hits == 1 ? iy : vy * 0.5 + iy * 0.5;
+    }
+    box = detection.box;
+    score = detection.score;
+    bestScore = math.max(bestScore, detection.score);
+    lastSeen = now;
+    lastCenter = center;
+    hits++;
+  }
 }
 
-/// Greedy IoU tracker: enough for a fixed phone camera at a few fps. A track
-/// survives short gaps (`maxMisses` frames) so a vehicle keeps one id.
+/// ByteTrack-style tracker for a fixed phone camera at a few analyses per
+/// second (apps/vision uses Ultralytics' ByteTrack with the same thresholds):
+///
+/// 1. Strong detections (≥ [highThresh]) are matched to every track, including
+///    ones lost for up to [retention], against the last and the predicted box.
+/// 2. Weak detections ([detectorFloor]–[highThresh]) only keep tracks seen in
+///    the previous update alive: a distant car whose score dips is not lost.
+/// 3. Unmatched strong detections (≥ [newThresh]) start tentative tracks, which
+///    are published only after [minHits] matches and dropped if the next
+///    update misses them. One-frame flickers never become vehicles.
+///
+/// Without this, a vehicle that dipped under the threshold for a second was
+/// recreated with a new id: ~100 tracks for ~30 vehicles in a minute of video.
 class IouTracker {
   IouTracker({
-    this.matchIou = 0.3,
-    this.maxMisses = 6,
+    this.highThresh = 0.35,
+    this.newThresh = 0.35,
+    this.matchIou = 0.2,
+    this.minHits = 2,
     this.retention = const Duration(seconds: 10),
   });
 
+  /// Lowest detector score the tracker consumes (step 2 needs weak ones).
+  static const detectorFloor = 0.1;
+
+  final double highThresh;
+  final double newThresh;
   final double matchIou;
-  final int maxMisses;
+  final int minHits;
   final Duration retention;
   final Map<int, Track> _tracks = {};
+  DateTime? _lastUpdate;
   int _nextId = 1;
 
-  /// Tracks seen within the retention window (what a snapshot reports).
+  /// Confirmed tracks seen within the retention window (what a snapshot reports).
   List<Track> active(DateTime now) =>
       _tracks.values
-          .where((track) => now.difference(track.lastSeen) <= retention)
+          .where(
+            (track) =>
+                track.hits >= minHits &&
+                now.difference(track.lastSeen) <= retention,
+          )
           .toList(growable: false)
         ..sort((a, b) => a.id.compareTo(b.id));
 
   void update(List<Detection> detections, DateTime now) {
-    final unmatched = [...detections]
-      ..sort((a, b) => b.score.compareTo(a.score));
     final live = _tracks.values
-        .where((track) => track.misses <= maxMisses)
+        .where((track) => now.difference(track.lastSeen) <= retention)
         .toList();
-    final matched = <int>{};
-    for (final detection in [...unmatched]) {
-      Track? best;
-      var bestIou = matchIou;
-      for (final track in live) {
-        if (matched.contains(track.id) || track.label != detection.label) {
-          continue;
-        }
-        final overlap = track.box.iou(detection.box);
-        if (overlap >= bestIou) {
-          best = track;
-          bestIou = overlap;
-        }
-      }
-      if (best != null) {
-        matched.add(best.id);
-        unmatched.remove(detection);
-        best
-          ..box = detection.box
-          ..score = detection.score
-          ..lastSeen = now
-          ..lastCenter = detection.box.center
-          ..misses = 0;
-      }
-    }
-    for (final track in live) {
-      if (!matched.contains(track.id)) track.misses++;
-    }
-    for (final detection in unmatched) {
+    final strong = [
+      for (final d in detections)
+        if (d.score >= highThresh) d,
+    ];
+    final weak = [
+      for (final d in detections)
+        if (d.score >= detectorFloor && d.score < highThresh) d,
+    ];
+
+    final matched = <Track>{};
+    final unmatchedStrong = _associate(live, strong, now, matched);
+    final previous = _lastUpdate;
+    final tracked = [
+      for (final track in live)
+        if (!matched.contains(track) && track.lastSeen == previous) track,
+    ];
+    _associate(tracked, weak, now, matched);
+
+    // Tentative tracks get one chance: matched in the very next update or gone.
+    _tracks.removeWhere(
+      (_, track) => track.hits < minHits && !matched.contains(track),
+    );
+    for (final detection in unmatchedStrong) {
+      if (detection.score < newThresh) continue;
       final id = _nextId++;
       _tracks[id] = Track(
         id: id,
@@ -109,5 +170,41 @@ class IouTracker {
     _tracks.removeWhere(
       (_, track) => now.difference(track.lastSeen) > retention,
     );
+    _lastUpdate = now;
+  }
+
+  /// Greedy matching by best overlap (with the last or the predicted box),
+  /// same label only. Updates matched tracks; returns unmatched detections.
+  List<Detection> _associate(
+    List<Track> tracks,
+    List<Detection> detections,
+    DateTime now,
+    Set<Track> matched,
+  ) {
+    final pairs = <(double, Track, Detection)>[];
+    for (final track in tracks) {
+      if (matched.contains(track)) continue;
+      final predicted = track.predicted(now);
+      for (final detection in detections) {
+        if (track.label != detection.label) continue;
+        final overlap = math.max(
+          track.box.iou(detection.box),
+          predicted.iou(detection.box),
+        );
+        if (overlap >= matchIou) pairs.add((overlap, track, detection));
+      }
+    }
+    pairs.sort((a, b) => b.$1.compareTo(a.$1));
+    final used = <Detection>{};
+    for (final (_, track, detection) in pairs) {
+      if (matched.contains(track) || used.contains(detection)) continue;
+      track._observe(detection, now);
+      matched.add(track);
+      used.add(detection);
+    }
+    return [
+      for (final d in detections)
+        if (!used.contains(d)) d,
+    ];
   }
 }

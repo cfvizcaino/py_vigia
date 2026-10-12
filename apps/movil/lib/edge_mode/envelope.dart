@@ -50,7 +50,7 @@ Map<String, dynamic> buildEnvelope({
       {
         'trackId': track.id,
         'vehicleType': track.label,
-        'confidence': double.parse(track.score.toStringAsFixed(4)),
+        'confidence': double.parse(track.bestScore.toStringAsFixed(4)),
         'firstSeen': _iso(track.firstSeen),
         'lastSeen': _iso(track.lastSeen),
         'direction': track.direction,
