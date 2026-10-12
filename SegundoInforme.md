@@ -1,6 +1,6 @@
 # Segundo informe - VIGIA
 
-**Versión revisada: 12 de octubre de 2026.** Actualiza el corte del 23 de septiembre con lo implementado y medido hasta esta fecha, y atiende las observaciones de la revisión: citas internas para el contrato, el algoritmo y los componentes; justificación de los umbrales de 500 m, 2 km y 8–70 km/h; evidencia por fila en la tabla del estado del arte; y un benchmark bajo carga controlada de la alternativa seleccionada, con umbrales de aceptación. Lo que todavía no puede medirse se declara como tal en la sección 9.4.
+**Versión revisada: 12 de octubre de 2026.** Actualiza el corte del 23 de septiembre con lo implementado y medido hasta esta fecha, y atiende las observaciones de la revisión: citas internas para el contrato, el algoritmo y los componentes; justificación de los umbrales de 500 m, 2 km y 8–70 km/h; evidencia por fila en la tabla del estado del arte; y un benchmark bajo carga controlada de la alternativa seleccionada, con umbrales de aceptación. Lo que todavía no puede medirse se declara como tal en la sección 9.5.
 
 ## Resumen
 
@@ -8,7 +8,7 @@ VIGIA aborda la dificultad de reconstruir el recorrido probable de un vehículo 
 
 Al 12 de octubre de 2026, el flujo vertical opera de extremo a extremo sobre un servidor central en Azure. Los nodos edge (un computador con una cámara Tapo C110 y teléfonos Android que detectan con YOLO26n en el propio dispositivo) siguen vehículos, estiman su color y publican un contrato versionado (`Detection Envelope 1.1`) por HTTPS con un token por cámara, una cola persistente y reintentos. El backend FastAPI sobre PostgreSQL ingiere de forma idempotente, autentica personas y roles, audita el uso y reconstruye rutas candidatas sobre la red vial de OSRM. Una consola web y una aplicación móvil consultan y explican los resultados. La plataforma central se actualiza sola desde integración continua y revierte a la versión anterior si la nueva no queda sana.
 
-La validación ya es cuantitativa. En un benchmark controlado contra el servidor real, la alternativa seleccionada sostuvo 25 mensajes por segundo (50 nodos; 2,5 veces la carga exigida) con p95 de ingestión de 152 ms, sin eventos perdidos ni duplicados lógicos, y saturó en dos puntos: la latencia superó el umbral a 50 msg/s y el throughput máximo fue de unos 83 msg/s. A 200 msg/s el backend colapsó y necesitó un reinicio manual, un defecto que se documenta y se corregirá. Un reinicio del backend bajo carga no perdió eventos (12,8 s fuera de servicio y la cola drenada en 2,2 s). Las pruebas de resiliencia entregaron 248 de 248 eventos exactamente una vez tras un corte de red de 5 minutos. El clasificador de color alcanzó 91,6 % de exactitud en la prueba de sitio, y el nuevo seguimiento redujo la fragmentación de 106 a 35 tracks en un mismo video. Sobre un dataset sintético con verdad de terreno, el ranking obtiene recall@3 de 0,429; un análisis de sensibilidad sustenta los umbrales elegidos. Quedan pendientes la evaluación independiente con recorridos de campo, la lectura de placas, el agente de actualización de los nodos y la mensajería MQTT.
+La validación ya es cuantitativa. En un benchmark controlado contra el servidor real, la alternativa seleccionada sostuvo 25 mensajes por segundo (50 nodos; 2,5 veces la carga exigida) con p95 de ingestión de 152 ms, sin eventos perdidos ni duplicados lógicos, y saturó en dos puntos: la latencia superó el umbral a 50 msg/s y el throughput máximo fue de unos 83 msg/s. A 200 msg/s el backend colapsó y necesitó un reinicio manual, un defecto que se documenta y se corregirá. Un reinicio del backend bajo carga no perdió eventos (12,8 s fuera de servicio y la cola drenada en 2,2 s). La alternativa C (DeepStream) se midió en una GPU de portátil: unos 580 cuadros por segundo, del orden de 50 veces lo que procesa la CPU. Eso muestra que centralizar con GPU es viable, y que lo que favorece a B es la red, la privacidad, el costo y la tolerancia a fallos; además, un edge con GPU cabe dentro de B. Las pruebas de resiliencia entregaron 248 de 248 eventos exactamente una vez tras un corte de red de 5 minutos. El clasificador de color alcanzó 91,6 % de exactitud en la prueba de sitio, y el nuevo seguimiento redujo la fragmentación de 106 a 35 tracks en un mismo video. Sobre un dataset sintético con verdad de terreno, el ranking obtiene recall@3 de 0,429; un análisis de sensibilidad sustenta los umbrales elegidos. Quedan pendientes la evaluación independiente con recorridos de campo, la lectura de placas, el agente de actualización de los nodos y la mensajería MQTT.
 
 ## Abstract
 
@@ -16,7 +16,7 @@ VIGIA addresses the difficulty of reconstructing a vehicle's likely path when re
 
 As of October 12, 2026, the vertical flow runs end to end on a central server in Azure. Edge nodes (a computer with a Tapo C110 camera and Android phones running YOLO26n on the device) track vehicles, estimate their color, and publish a versioned contract (`Detection Envelope 1.1`) over HTTPS with per-camera tokens, a persistent queue, and retries. A FastAPI backend on PostgreSQL ingests idempotently, authenticates users and roles, audits usage, and reconstructs candidate routes over the OSRM road network. A web console and a mobile app query and explain the results. The central platform deploys itself from continuous integration and rolls back when a new version is unhealthy.
 
-Validation is now quantitative. In a controlled benchmark against the real server, the selected alternative sustained 25 messages per second (50 nodes, 2.5 times the required load) with a p95 ingestion latency of 152 ms, no lost events and no logical duplicates, saturating at two points: latency exceeded the threshold at 50 msg/s and throughput peaked at about 83 msg/s. At 200 msg/s the backend collapsed and needed a manual restart, a defect that is documented and will be fixed. A backend restart under load lost no events. Resilience tests delivered 248 of 248 events exactly once after a 5-minute network outage. The color classifier reached 91.6 % accuracy on the site test, and the new tracker reduced fragmentation from 106 to 35 tracks on the same video. On a synthetic dataset with ground truth, the ranking reaches recall@3 of 0.429, and a sensitivity analysis supports the chosen thresholds. Independent field evaluation, plate reading, the edge update agent, and MQTT messaging remain pending.
+Validation is now quantitative. In a controlled benchmark against the real server, the selected alternative sustained 25 messages per second (50 nodes, 2.5 times the required load) with a p95 ingestion latency of 152 ms, no lost events and no logical duplicates, saturating at two points: latency exceeded the threshold at 50 msg/s and throughput peaked at about 83 msg/s. At 200 msg/s the backend collapsed and needed a manual restart, a defect that is documented and will be fixed. A backend restart under load lost no events. Alternative C (DeepStream) was measured on a laptop GPU at about 580 frames per second, roughly 50 times the CPU; this shows that centralizing with a GPU is feasible, and that what favors B is bandwidth, privacy, cost and fault tolerance, while a GPU edge still fits inside B. Resilience tests delivered 248 of 248 events exactly once after a 5-minute network outage. The color classifier reached 91.6 % accuracy on the site test, and the new tracker reduced fragmentation from 106 to 35 tracks on the same video. On a synthetic dataset with ground truth, the ranking reaches recall@3 of 0.429, and a sensitivity analysis supports the chosen thresholds. Independent field evaluation, plate reading, the edge update agent, and MQTT messaging remain pending.
 
 ---
 
@@ -326,9 +326,9 @@ Mientras tanto, la ingestión de fondo entregó todo, sin errores, pero con p95 
 | Costo para el MVP | Servidor con mucha CPU o GPU, más almacenamiento de video | VM de 2 vCPU y 1 GB dentro del crédito académico (**operando**) | GPU NVIDIA, fuera del crédito |
 | Privacidad | Todo el video sale de cada sitio | Solo salen metadatos | Igual que A si es central |
 
-## 9.4 DeepStream en local, y lo que sigue sin medirse
+## 9.4 Alternativa C medida en local (DeepStream)
 
-- **Alternativa C (DeepStream), medida en local el 12/10/2026.** La VM del piloto no tiene GPU, así que la corrida se hizo en un segundo portátil, distinto del de desarrollo, con una NVIDIA GeForce RTX 5050 Laptop (8 GB), controlador 610.74, CUDA 13.3. DeepStream 8.0.0 en Docker Desktop sobre WSL2, con TensorRT 10.9, CUDA runtime 12.9 y cuDNN 9.8. El pipeline es el de referencia del SDK, no el RT-DETR de la nota de NVIDIA [24]: decodificación del video de muestra 1080p H.264 incluido en el SDK, detector TrafficCamNet (ResNet18 podado) en FP16 con motor TensorRT construido en esta GPU, y rastreador NvDCF en modo rendimiento. Sin clasificadores secundarios y sin pantalla. El sumidero no espera al reloj del archivo (`sync=0`), así que el número es el caudal máximo del pipeline, no una reproducción a 30 FPS. Cada escalón repite el mismo archivo; no son cámaras físicas distintas. NVIDIA advierte que el multiflujo en WSL rinde por debajo de un Ubuntu nativo; esta corrida está en ese caso.
+La VM del piloto no tiene GPU, así que la corrida se hizo en un segundo portátil, distinto del de desarrollo, con una NVIDIA GeForce RTX 5050 Laptop (8 GB), controlador 610.74, CUDA 13.3. DeepStream 8.0.0 en Docker Desktop sobre WSL2, con TensorRT 10.9, CUDA runtime 12.9 y cuDNN 9.8. El pipeline es el de referencia del SDK, no el RT-DETR de la nota de NVIDIA [24]: decodificación del video de muestra 1080p H.264 incluido en el SDK, detector TrafficCamNet (ResNet18 podado) en FP16 con motor TensorRT construido en esta GPU, y rastreador NvDCF en modo rendimiento. Sin clasificadores secundarios y sin pantalla. El sumidero no espera al reloj del archivo (`sync=0`), así que el número es el caudal máximo del pipeline, no una reproducción a 30 FPS. Cada escalón repite el mismo archivo; no son cámaras físicas distintas. NVIDIA advierte que el multiflujo en WSL rinde por debajo de un Ubuntu nativo; esta corrida está en ese caso.
 
 **Tabla 9.6.** DeepStream 8.0 en la RTX 5050 Laptop. FPS por flujo es la media que imprime `deepstream-app` al cierre de la ventana; el agregado es esa media por el número de flujos.
 
@@ -339,21 +339,68 @@ Mientras tanto, la ingestión de fondo entregó todo, sin errores, pero con p95 
 | 8 | 74 | 595 |
 | 16 | 36 | 570 |
 
-Un solo flujo no llena la GPU (344 FPS). A partir de 4 flujos el agregado se queda entre 570 y 595 FPS y el ritmo por flujo baja al repartirse. Con 16 flujos cada uno sigue por encima de 30 FPS. Estas cifras miden cuadros procesados en la GPU, no la ingestión de metadatos de la alternativa B, así que no se restan de los msg/s de la sección 9.3. Las 642 FPS de RT-DETR en una L40s [24] siguen siendo de otro modelo y de otra GPU. El procedimiento reproducible está en `docs/evidence/deepstream-local-bench.sh`.
-- **Alternativa A completa.** No se montó un servidor central que decodifique e infiera los flujos de varias cámaras: la VM de 1 GB no puede ejecutar PyTorch de forma útil. Se midieron sus dos costos dominantes (red e inferencia por flujo) y se derivó la capacidad necesaria.
+El procedimiento reproducible está en `docs/evidence/deepstream-local-bench.sh`.
+
+**Cómo leer la tabla 9.6:**
+
+- **Qué mide un FPS.** Es la cantidad de cuadros que el pipeline completo —decodificar, detectar y seguir— procesa por segundo. Mide caudal, no latencia: con `sync=0` el sistema procesa tan rápido como puede, y la cifra no dice cuánto tarda un cuadro en atravesar el pipeline.
+- **Un flujo: 344 FPS.** Un solo video no llena la GPU. El límite está en la cadena de ese flujo (se decodifica un video a la vez y se infiere en lotes de un cuadro), no en la capacidad de cómputo.
+- **Desde 4 flujos: techo de unos 580 FPS.** El agregado deja de crecer (580, 595 y 570 FPS con 4, 8 y 16 flujos). Ese es el techo de esa GPU para este pipeline; agregar flujos solo reparte la misma capacidad, y por eso el ritmo por flujo cae a la mitad cada vez que se duplican los flujos.
+- **Cuántas cámaras caben.**
+    - A 30 FPS por cámara, unas 19; la corrida con 16 flujos lo confirma, con 36 FPS cada uno.
+    - Al ritmo de análisis que usa VIGIA (6 a 10 análisis por segundo por cámara), del orden de 58 a 97 cámaras en esa sola GPU, en teoría. No incluye el costo de recibir y decodificar flujos RTSP reales.
+- **Frente a la CPU.** YOLO26n en el Ryzen 7 3700U, con sus 8 hilos, procesó unos 10 cuadros por segundo (sección 9.3). La GPU procesa del orden de **50 a 60 veces más**. La comparación es de orden de magnitud, no exacta: los modelos son distintos (TrafficCamNet podado frente a YOLO26n a 640 px).
+- **Frente a la alternativa B.** Las unidades no son comparables:
+    - el centro de C procesa **cuadros de video**, entre 8 y 30 por segundo por cámara;
+    - el centro de B procesa **mensajes de metadatos**, 0,5 por segundo por cámara, y cada uno resume unos 16 cuadros ya analizados en el borde.
+  
+    Por eso los FPS de la tabla 9.6 no se suman ni se restan de los msg/s de la sección 9.3. Las 642 FPS de RT-DETR en una L40s [24] tampoco se comparan con esta corrida: son otro modelo y otra GPU.
+
+**Cautelas.**
+
+- **Video repetido:** todos los flujos repiten el mismo archivo. No hay cámaras distintas, ni recepción RTSP, ni cortes de red.
+- **WSL2:** rinde por debajo de un Ubuntu nativo, así que las cifras son conservadoras.
+- **Precisión no medida:** TrafficCamNet podado es más liviano que el modelo de VIGIA, y se midió la velocidad, no la calidad de detección.
+- **Solo percepción:** la medición no incluye correlación de rutas, base de datos ni consultas.
+
+**Qué concluye esta medición:**
+
+1. **Centralizar con GPU es técnicamente viable.** Con una GPU, la alternativa A deja de estar limitada por cómputo: una sola GPU de portátil procesaría decenas de cámaras. Por tanto, **la alternativa B no puede justificarse por rendimiento bruto**, y este informe no lo hace.
+2. **Lo que decide la arquitectura no son los FPS.** Para 60 cámaras:
+
+    | Factor | Video centralizado con GPU (A con la capacidad de C) | Edge + centro (B) |
+    |---|---|---|
+    | Red hacia el centro | ≈ 66 Mbit/s (≥ 1,1 Mbit/s por cámara, **medido**) | ≈ 0,66 Mbit/s (≈ 11 kbit/s por cámara, **medido**) |
+    | Datos personales | Todo el video sale de cada vivienda o comunidad | Solo salen metadatos (Ley 1581 [3]) |
+    | Costo del centro | Servidor con GPU NVIDIA, fuera del crédito académico | VM de 2 vCPU y 1 GB (≈ 6 USD/mes) |
+    | Fallo del centro | Se pierde la captura durante la caída | Los nodos encolan; 0 pérdidas medidas (sección 9.3) |
+
+3. **B y C no son excluyentes: C cabe dentro de B.** En la arquitectura B, un edge es cualquier componente que publique el `Detection Envelope 1.1` [31]. Un sitio con muchas cámaras (un conjunto residencial o un campus) puede tener **un solo nodo edge con GPU** que ejecute DeepStream, o YOLO sobre TensorRT, y publique el mismo contrato. Así se suma al sistema sin cambiar el centro, la base de datos ni las consultas. C queda como la ruta de escalamiento para sitios con muchas cámaras dentro de la arquitectura seleccionada, no como su reemplazo.
+
+    Para usarla falta:
+
+    - un adaptador de los metadatos de DeepStream al contrato 1.1;
+    - medir su precisión con las cámaras del sitio.
+
+## 9.5 Lo que sigue sin medirse
+
+- **Alternativa A completa.** No se montó un servidor central que decodifique e infiera los flujos de varias cámaras: la VM de 1 GB no puede ejecutar PyTorch de forma útil. Se midieron sus dos costos dominantes (red e inferencia por flujo en CPU), y la sección 9.4 muestra la capacidad que tendría con una GPU.
 - **Carga de 25 cámaras físicas.** El escalón de carga se hizo con nodos simulados que generan el mismo contrato. La inferencia real solo se midió en dos nodos físicos: el teléfono, con unos 6 análisis/s, y la Tapo con el nodo PC, con 6 a 10 análisis/s.
+- **DeepStream con cámaras reales.** La corrida de la sección 9.4 repite un archivo; faltan flujos RTSP reales y la precisión del detector en las cámaras del sitio.
 - **Red entre sedes.** Las mediciones usan Internet residencial; la VPN WireGuard entre sedes está preparada pero no activada.
 
-## 9.5 Selección
+## 9.6 Selección y conclusión
 
-La alternativa B se mantiene. Ahora la respaldan mediciones:
+La alternativa B se mantiene. Ahora la respaldan mediciones de las tres alternativas:
 
 - **Cumple todos los umbrales** de la sección 9.1 con la carga esperada (4 a 10 nodos) y hasta 50 nodos (sección 9.3). Por encima de 50 msg/s se degrada, y a 200 msg/s mostró un defecto de recuperación que debe corregirse antes de crecer.
-- **Red:** transmite unas 100 veces menos datos por cámara que la alternativa A.
+- **Red:** transmite unas 100 veces menos datos por cámara que centralizar el video, sea en CPU (A) o en GPU (C).
+- **Privacidad:** el video nunca sale del sitio; al centro solo llegan metadatos.
 - **Resiliencia:** un fallo del centro no pierde eventos, porque cada nodo los encola.
-- **Costo:** opera en una VM de 2 vCPU y 1 GB dentro del crédito académico, mientras que A necesitaría inferir todos los flujos en el centro y C exige GPU.
+- **Costo:** opera en una VM de 2 vCPU y 1 GB dentro del crédito académico. A necesitaría inferir todos los flujos en el centro (unas 8 veces una CPU de portátil para 10 cámaras), y C exige una GPU NVIDIA en el centro.
+- **Escalamiento:** para sitios con muchas cámaras, un edge con GPU (DeepStream) se integra sin cambiar el centro (sección 9.4).
 
-La selección sigue apoyándose en suficiencia, privacidad, sustituibilidad y costo, no en superioridad universal. DeepStream bien configurado procesa más video por servidor; B es la que mejor cumple los requisitos del MVP con los recursos disponibles.
+**Conclusión.** La medición de DeepStream muestra que la GPU procesa del orden de 50 veces más video que la CPU, así que **el rendimiento bruto no es lo que separa a las alternativas**: con una GPU, centralizar es viable. B se elige porque es la única que, con los recursos del proyecto, cumple a la vez los umbrales de rendimiento medidos, la minimización de datos personales, el costo y la tolerancia a fallos. Además, no cierra la puerta a la aceleración por GPU: la incorpora en el borde, donde está el video.
 
 # 10. Diseño y arquitectura
 
@@ -479,24 +526,24 @@ El repositorio contiene cuatro aplicaciones (visión, backend, web y móvil), co
 ## 11.2 Componentes implementados
 
 - **Nodo PC.** Implementa:
-  - configuración segura y fuentes RTSP, HTTP o cámara local;
-  - reconexión, YOLO26n y ByteTrack con detecciones débiles;
-  - dirección y color votado;
-  - sobres 1.1 con cola en disco y retroceso exponencial;
-  - vista previa, MJPEG y estado con códigos de error;
-  - la etapa opcional de detección de placas (sin OCR).
+    - configuración segura y fuentes RTSP, HTTP o cámara local;
+    - reconexión, YOLO26n y ByteTrack con detecciones débiles;
+    - dirección y color votado;
+    - sobres 1.1 con cola en disco y retroceso exponencial;
+    - vista previa, MJPEG y estado con códigos de error;
+    - la etapa opcional de detección de placas (sin OCR).
 - **Edge autónomo en el teléfono.** Implementa:
-  - YOLO26n en TFLite float32 a 320 px, en un *isolate* aparte;
-  - rastreador de dos etapas con confirmación y predicción por velocidad;
-  - clasificador de color con el mismo redimensionado bilineal que el entrenamiento;
-  - cola en disco y verificación del token antes de guardarlo.
+    - YOLO26n en TFLite float32 a 320 px, en un *isolate* aparte;
+    - rastreador de dos etapas con confirmación y predicción por velocidad;
+    - clasificador de color con el mismo redimensionado bilineal que el entrenamiento;
+    - cola en disco y verificación del token antes de guardarlo.
 - **Backend.** Implementa:
-  - ingestión idempotente;
-  - credenciales por cámara con hash, caducidad y revocación;
-  - usuarios con `scrypt`, sesiones revocables, bloqueo por intentos, roles y auditoría;
-  - consultas con rutas viales ponderadas y búsqueda tolerante a color desconocido;
-  - exportación generada en el servidor;
-  - dataset sintético de puntajes con evaluador, y herramientas de sensibilidad y benchmark.
+    - ingestión idempotente;
+    - credenciales por cámara con hash, caducidad y revocación;
+    - usuarios con `scrypt`, sesiones revocables, bloqueo por intentos, roles y auditoría;
+    - consultas con rutas viales ponderadas y búsqueda tolerante a color desconocido;
+    - exportación generada en el servidor;
+    - dataset sintético de puntajes con evaluador, y herramientas de sensibilidad y benchmark.
 - **Consola web y aplicación móvil.** Implementan mapa, consultas, rutas sobre calles, explicación del puntaje, historial, exportación auditada, modo demo identificado, administración y estados de error.
 
 ## 11.3 Integraciones realizadas
@@ -606,13 +653,14 @@ Con 14 trayectorias, cada una vale 0,071 de recall, así que las diferencias peq
 
 - **Color** [39]: clasificador `yolo26n-cls`, entrenado con datos públicos, VCoR y recortes revisados de las cámaras propias. Exactitud por recorte:
 
-  | Prueba | Exactitud |
-  |---|---:|
-  | Prueba pública | 87,7 % |
-  | VCoR | 94,5 % |
-  | Prueba de sitio (46 vehículos que el modelo no vio) | 91,6 % (63,2 % antes del ajuste) |
+    | Prueba | Exactitud |
+    |---|---:|
+    | Prueba pública | 87,7 % |
+    | VCoR | 94,5 % |
+    | Prueba de sitio (46 vehículos que el modelo no vio) | 91,6 % (63,2 % antes del ajuste) |
 
-  El gris o plateado del sitio pasó del 25 % al 94 %. En el teléfono, con el preprocesado de la app, el modelo convertido rinde igual (90,5 % en el sitio).
+    El gris o plateado del sitio pasó del 25 % al 94 %. En el teléfono, con el preprocesado de la app, el modelo convertido rinde igual (90,5 % en el sitio).
+
 - **Seguimiento** [40]: con las mismas detecciones grabadas, el teléfono pasó de 106 tracks (80 fragmentos) a 35 tracks (2 fragmentos), cubriendo el 98,3 % de las detecciones fuertes. En el parqueadero, el nodo PC pasó de 41 a 12 tracks para 9 autos estacionados, sin perder ninguno.
 
 ## 13.5 Pruebas de usabilidad
@@ -627,6 +675,7 @@ El proyecto pasó de factibilidad técnica a un piloto operable y medido. Los re
 
 - **El flujo vertical opera en la nube**, de la cámara a la consulta, con idempotencia demostrada (0 duplicados en P1.2 y en el benchmark) y sin pérdidas ante fallos.
 - **La alternativa B cumple sus umbrales** con la carga esperada y hasta 50 nodos (sección 9.3) en una VM de 1 GB. Con eso, la decisión arquitectónica deja de ser solo analítica. El benchmark también expuso un defecto real: bajo una sobrecarga de 20 veces, el backend no se recupera solo.
+- **La alternativa C, medida en GPU (unos 580 cuadros/s en una RTX 5050 de portátil), cambió el argumento de la selección:** con una GPU, el rendimiento bruto deja de ser un límite. B se justifica por red, privacidad, costo y resiliencia, y admite un edge con GPU para sitios con muchas cámaras (sección 9.4).
 - **La visión en el borde mejoró con datos del sitio:** el color pasó del 63 % al 92 % en la prueba de sitio y la fragmentación del seguimiento bajó a la tercera parte. Las métricas públicas o de laboratorio no bastan: el ajuste con datos de las cámaras reales fue lo que más mejoró los resultados.
 - **El ranking es explicable y sus umbrales están sustentados,** pero su calidad sigue limitada: recall@3 de 0,429 en un dataset sintético, y un top-k que no se diversifica en hora pico. Es el principal frente técnico para el cierre.
 
@@ -656,6 +705,7 @@ La evidencia permite afirmar que la arquitectura, la comunicación y la visión 
 | P1 | Prueba con usuarios | Cinco participantes, tres tareas, métricas de la sección 13.5 |
 | P2 | Servicio en segundo plano en Android | Detección con la pantalla apagada |
 | P2 | Endurecimiento | Límite de peticiones por IP y CSP en Caddy; respaldos fuera de Azure |
+| P2 | Edge con GPU (DeepStream o TensorRT) | Adaptador de metadatos DeepStream → Envelope 1.1; precisión y FPS con flujos RTSP reales de un sitio con muchas cámaras |
 | P2 | MQTT / PostGIS | Solo si la carga medida lo exige (hoy no: sección 9.3) |
 
 Los riesgos principales son el tiempo para obtener recorridos de campo con verdad de terreno, la calidad de las placas en las cámaras disponibles y la ampliación de alcance. La mitigación es priorizar la evaluación del ranking, mantener las placas como etapa condicionada a la calidad medida y conservar el transporte intercambiable.
