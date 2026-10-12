@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../camera_mode/frame_encoder.dart';
+import 'colors.dart';
 import 'detections.dart';
 import 'envelope.dart';
 import 'outbox.dart';
@@ -11,6 +12,12 @@ typedef DetectFrame =
       FrameData frame,
     );
 
+/// Colour probabilities for each box of one frame, in order.
+typedef ClassifyColors = Future<List<Map<String, double>>> Function(
+  FrameData frame,
+  List<Box> boxes,
+);
+
 class EdgeStats {
   const EdgeStats({
     required this.framesProcessed,
@@ -20,6 +27,7 @@ class EdgeStats {
     required this.snapshots,
     required this.outbox,
     this.failures = 0,
+    this.colorFailures = 0,
     this.lastError,
   });
 
@@ -32,6 +40,7 @@ class EdgeStats {
 
   /// Frames whose detection failed or timed out, and the latest reason.
   final int failures;
+  final int colorFailures;
   final String? lastError;
 }
 
@@ -45,6 +54,7 @@ class EdgeEngine {
     required this.modelDigest,
     required this.detect,
     required this.outbox,
+    this.classifyColors,
     IouTracker? tracker,
     this.snapshotInterval = const Duration(seconds: 2),
     this.detectTimeout = const Duration(seconds: 10),
@@ -57,6 +67,9 @@ class EdgeEngine {
   final String? modelDigest;
   final DetectFrame detect;
   final Outbox outbox;
+
+  /// Null when the app ships no colour model: colours then stay unknown.
+  final ClassifyColors? classifyColors;
   final IouTracker tracker;
   final Duration snapshotInterval;
   final Duration detectTimeout;
@@ -70,9 +83,13 @@ class EdgeEngine {
   DateTime? _lastProcessed;
   bool _busy = false;
   int _failures = 0;
+  int _colorFailures = 0;
   String? _lastError;
   Timer? _timer;
   List<Detection> latestDetections = const [];
+
+  /// Tracks matched in the latest frame, with their voted colour (overlay).
+  List<Track> latestTracks = const [];
 
   bool get running => _timer != null;
   bool get busy => _busy;
@@ -85,6 +102,7 @@ class EdgeEngine {
     snapshots: _sequence,
     outbox: outbox.status,
     failures: _failures,
+    colorFailures: _colorFailures,
     lastError: _lastError,
   );
 
@@ -125,6 +143,11 @@ class EdgeEngine {
       }
       _lastProcessed = now;
       _lastError = null;
+      await _sampleColors(frame, now);
+      latestTracks = [
+        for (final track in tracker.active(now))
+          if (track.lastSeen == now) track,
+      ];
     } on TimeoutException {
       _failures++;
       _lastError = 'La detección tardó más de ${detectTimeout.inSeconds} s.';
@@ -133,6 +156,40 @@ class EdgeEngine {
       _lastError = '$error';
     } finally {
       _busy = false;
+    }
+  }
+
+  /// Adds a colour vote to the tracks seen in this frame that still need one,
+  /// fewest votes first and a few crops at most, so detection keeps its pace.
+  Future<void> _sampleColors(FrameData frame, DateTime now) async {
+    final classify = classifyColors;
+    if (classify == null) return;
+    final pending =
+        tracker
+            .active(now)
+            .where(
+              (track) =>
+                  track.lastSeen == now &&
+                  track.box.width >= ColorVotes.minSidePx &&
+                  track.box.height >= ColorVotes.minSidePx &&
+                  track.colorVotes.wantsSample(now),
+            )
+            .toList()
+          ..sort((a, b) => a.colorVotes.votes.compareTo(b.colorVotes.votes));
+    final selected = pending.take(ColorVotes.maxCropsPerFrame).toList();
+    if (selected.isEmpty) return;
+    try {
+      final probabilities = await classify(frame, [
+        for (final track in selected) track.box,
+      ]).timeout(detectTimeout);
+      for (var i = 0; i < selected.length; i++) {
+        selected[i].colorVotes.add(probabilities[i], now);
+      }
+    } catch (error) {
+      // A colour failure must not cost the detection: the vehicle is still
+      // reported, just without colour.
+      _colorFailures++;
+      _lastError = 'Color: $error';
     }
   }
 

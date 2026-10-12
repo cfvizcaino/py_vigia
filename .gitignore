@@ -57,3 +57,6 @@ htmlcov/
 
 # Configuración de nodos edge por cámara (contiene credenciales)
 /apps/vision/nodes/
+
+# Resultados de entrenamiento de Ultralytics
+runs/

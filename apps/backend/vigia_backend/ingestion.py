@@ -112,7 +112,10 @@ def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> Ing
         detection = db.get(Detection, observation.detection_id)
         if detection is not None:
             detection.vehicle_type = edge_detection.vehicle_type
-            detection.color = edge_detection.color
+            # Colour is voted over several frames on the edge: a snapshot taken
+            # while the vote is still open must not erase a colour already known.
+            if edge_detection.color is not None:
+                detection.color = edge_detection.color
             detection.direction = edge_detection.direction
             detection.confidence = edge_detection.confidence
             detection.observed_at = edge_detection.last_seen

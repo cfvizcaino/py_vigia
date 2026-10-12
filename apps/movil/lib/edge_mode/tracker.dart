@@ -1,3 +1,4 @@
+import 'colors.dart';
 import 'detections.dart';
 
 /// One tracked vehicle, mirroring the vision node's TrackState.
@@ -21,6 +22,10 @@ class Track {
   Box box;
   double score;
   int misses = 0;
+  final colorVotes = ColorVotes();
+
+  /// Voted colour, or null while unknown.
+  String? get color => colorVotes.color;
 
   /// Same rule as the edge node: dominant displacement, 25 px dead zone.
   String get direction {

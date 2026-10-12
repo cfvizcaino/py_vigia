@@ -109,6 +109,15 @@ python training/train_plate_detector.py \
 
 Consulta la [estrategia de detección y lectura de placas](../../docs/modeling/license-plates.md).
 
+El color se estima con `models/vehicle-colors.pt` (`COLOR_MODEL`; vacío lo desactiva y el color queda desconocido). Para reentrenarlo:
+
+```bash
+.venv/bin/python training/build_color_dataset.py datasets/colors/<fuente> --output datasets/colors/vigia-colors-v2
+.venv/bin/python training/train_color_classifier.py --data datasets/colors/vigia-colors-v2
+```
+
+Detalles y resultados en [color del vehículo](../../docs/modeling/vehicle-color.md).
+
 ## Alcance actual
 
 - Detecta las clases COCO `car` y `motorcycle`.
@@ -116,6 +125,7 @@ Consulta la [estrategia de detección y lectura de placas](../../docs/modeling/l
 - Estima una dirección sencilla según el movimiento de la caja.
 - Escribe tipo, confianza, hora, dirección y caja delimitadora.
 - Puede localizar y capturar placas cuando se configura un peso especializado.
-- Color, marca, modelo y texto de la placa permanecen vacíos hasta incorporar componentes especializados y OCR.
+- Estima el color de cada vehículo con un clasificador votado entre cuadros (`COLOR_MODEL`); ver [color del vehículo](../../docs/modeling/vehicle-color.md).
+- Marca, modelo y texto de la placa permanecen vacíos hasta incorporar componentes especializados y OCR.
 
 El modelo se descarga automáticamente la primera vez. Este prototipo utiliza Ultralytics YOLO; antes de un uso cerrado o comercial se deberá revisar su licencia.

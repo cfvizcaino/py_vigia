@@ -43,7 +43,9 @@ class IngestionTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.db.close()
 
-    def envelope(self, *, event_id: uuid.UUID, sequence: int, confidence: float = 0.8) -> DetectionEnvelopeV11:
+    def envelope(
+        self, *, event_id: uuid.UUID, sequence: int, confidence: float = 0.8, color: str | None = None
+    ) -> DetectionEnvelopeV11:
         return DetectionEnvelopeV11.model_validate(
             {
                 "schemaVersion": "1.1",
@@ -66,7 +68,7 @@ class IngestionTests(unittest.TestCase):
                         "lastSeen": (self.first_seen + timedelta(seconds=sequence)).isoformat(),
                         "direction": "izquierda-a-derecha",
                         "boundingBox": [1, 2, 30, 40],
-                        "color": None,
+                        "color": color,
                         "make": None,
                         "model": None,
                         "licensePlate": None,
@@ -92,6 +94,15 @@ class IngestionTests(unittest.TestCase):
         detection = self.db.scalar(select(Detection))
         self.assertIsNotNone(detection)
         self.assertEqual(detection.confidence, 0.93)
+
+    def test_track_colour_is_filled_corrected_and_never_erased(self) -> None:
+        colours = []
+        for sequence, colour in enumerate((None, "white", None, "gray"), start=1):
+            ingest_detection_envelope(
+                self.db, self.envelope(event_id=uuid.uuid4(), sequence=sequence, color=colour)
+            )
+            colours.append(self.db.scalar(select(Detection.color)))
+        self.assertEqual(colours, [None, "white", "white", "gray"])
 
     def test_same_sequence_with_different_event_is_rejected(self) -> None:
         ingest_detection_envelope(self.db, self.envelope(event_id=uuid.uuid4(), sequence=1))

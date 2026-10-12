@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:movil/camera_mode/frame_encoder.dart';
+import 'package:movil/edge_mode/colors.dart';
 import 'package:movil/edge_mode/detections.dart';
 import 'package:movil/edge_mode/detector.dart';
 import 'package:movil/edge_mode/edge_config.dart';
@@ -100,6 +101,36 @@ void main() {
       expect(_red(input, 1, 0), 1); // Sensor (0, 1).
       expect(_red(input, 2, 0), 0); // Sensor (0, 0).
       expect(_red(input, 2, 3), 30); // Sensor (3, 0).
+    });
+
+    test('el recorte de color toma el cuadrado central de la caja', () {
+      // Box 4×2 at (1, 0) → centred square x 2..4, y 0..2, scaled to 4×4.
+      final crop = prepareCrop(CropRequest(_bgraFrame(8, 4), (1, 0, 5, 2), 4));
+      int red(int x, int y) => (crop[(y * 4 + x) * 3] * 255).round();
+      expect(red(0, 0), 20); // Upright (2, 0).
+      expect(red(3, 3), 31); // Upright (3, 1).
+      expect(crop[1], closeTo(200 / 255, 1e-6));
+    });
+
+    test('el recorte reduce con el bilineal con antialiasing de PIL', () {
+      // Reference values: PIL Image.resize(BILINEAR) on the same red channel.
+      final crop = prepareCrop(CropRequest(_bgraFrame(4, 4), (0, 0, 4, 4), 2));
+      final red = [for (var i = 0; i < 4; i++) crop[i * 3] * 255];
+      expect(red[0], closeTo(7.8571, 1e-3));
+      expect(red[1], closeTo(23.5714, 1e-3));
+      expect(red[2], closeTo(9.4286, 1e-3));
+      expect(red[3], closeTo(25.1429, 1e-3));
+      final odd = prepareCrop(CropRequest(_bgraFrame(6, 6), (0, 0, 6, 6), 4));
+      expect(odd[3] * 255, closeTo(17.7778 + 0.375, 1e-3)); // Pixel (1, 0).
+    });
+
+    test('el recorte de color respeta la rotación del sensor', () {
+      final frame = _bgraFrame(4, 2, rotation: 90); // Upright 2×4.
+      final crop = prepareCrop(CropRequest(frame, (0, 0, 2, 2), 2));
+      final input = prepareInput(PreprocessRequest(frame, 4));
+      // Upright (0, 0) is sensor (0, 1) in both paths.
+      expect(crop[0], input.pixels[(0 * 4 + 1) * 3]);
+      expect((crop[0] * 255).round(), 1);
     });
 
     test('convierte YUV420 a RGB', () {
@@ -236,6 +267,91 @@ void main() {
       expect(tracker.active(now), hasLength(2));
       tracker.update(const [], now.add(const Duration(seconds: 3)));
       expect(tracker.active(now.add(const Duration(seconds: 3))), isEmpty);
+    });
+  });
+
+  group('color', () {
+    test('exige dos votos y un promedio claro', () {
+      final now = DateTime.utc(2026);
+      final votes = ColorVotes()..add({'red': 0.9, 'white': 0.1}, now);
+      expect(votes.color, isNull);
+      votes.add({'red': 0.7, 'white': 0.3}, now);
+      expect(votes.color, 'red');
+      final unsure = ColorVotes()
+        ..add({'red': 0.45, 'white': 0.4, 'gray': 0.15}, now)
+        ..add({'red': 0.4, 'white': 0.45, 'gray': 0.15}, now);
+      expect(unsure.color, isNull);
+    });
+
+    test('espacia las muestras y deja de pedirlas', () {
+      final start = DateTime.utc(2026);
+      final votes = ColorVotes();
+      expect(votes.wantsSample(start), isTrue);
+      votes.add({'red': 1}, start);
+      expect(
+        votes.wantsSample(start.add(const Duration(milliseconds: 200))),
+        isFalse,
+      );
+      for (var i = 1; i < ColorVotes.maxVotes; i++) {
+        votes.add({'red': 1}, start.add(Duration(seconds: i)));
+      }
+      expect(votes.wantsSample(start.add(const Duration(hours: 1))), isFalse);
+    });
+
+    test('el motor envía el color votado y un fallo de color no tumba la detección', () async {
+      final directory = await Directory.systemTemp.createTemp('vigia-engine');
+      addTearDown(() => directory.delete(recursive: true));
+      var tick = DateTime.utc(2026, 10, 11);
+      var classifyCalls = 0;
+      final sizes = <int>[];
+      final engine = EdgeEngine(
+        cameraId: 'CEL-02',
+        modelName: 'm',
+        modelDigest: null,
+        snapshotInterval: const Duration(hours: 1),
+        clock: () => tick = tick.add(const Duration(seconds: 1)),
+        detect: (_) async => (
+          detections: [
+            _car(10, 20),
+            Detection(
+              box: const Box(300, 300, 310, 310),
+              score: 0.9,
+              label: 'car',
+            ),
+          ],
+          elapsed: Duration.zero,
+        ),
+        classifyColors: (frame, boxes) async {
+          classifyCalls++;
+          sizes.add(boxes.length);
+          if (classifyCalls == 2) throw StateError('clasificador roto');
+          return [
+            for (final _ in boxes) {'white': 0.8, 'black': 0.2},
+          ];
+        },
+        outbox: Outbox(directory: directory, serverUrl: 'x', token: 't'),
+      )..start();
+      for (var i = 0; i < 3; i++) {
+        await engine.process(_bgraFrame(2, 2));
+      }
+      expect(sizes, [1, 1, 1], reason: 'the 10 px box is never classified');
+      expect(engine.stats.framesProcessed, 3);
+      expect(engine.stats.failures, 0);
+      expect(engine.stats.colorFailures, 1);
+      final tracks = engine.tracker.active(tick);
+      expect(tracks.map((track) => track.color), ['white', null]);
+      expect(engine.latestTracks, hasLength(2));
+      final envelope = buildEnvelope(
+        cameraId: 'CEL-02',
+        sessionId: uuidV4(),
+        sequenceNumber: 1,
+        frameNumber: 3,
+        modelName: 'm',
+        modelDigest: null,
+        tracks: tracks,
+      );
+      expect((envelope['detections'] as List).first['color'], 'white');
+      await engine.stop();
     });
   });
 
@@ -475,6 +591,38 @@ void main() {
       );
     },
   );
+
+  test('el clasificador de color empaquetado declara sus 8 colores', () {
+    final manifest = ModelManifest.fromJson(
+      jsonDecode(File('assets/models/colors.json').readAsStringSync())
+          as Map<String, dynamic>,
+    );
+    expect(manifest.task, 'classify');
+    expect(manifest.inputSize, 128);
+    expect(manifest.outputShape, [1, 8]);
+    expect(manifest.labels.values.toSet(), {
+      'black',
+      'blue',
+      'brown',
+      'gray',
+      'green',
+      'red',
+      'white',
+      'yellow',
+    });
+    expect(colorNamesEs.keys.toSet(), manifest.labels.values.toSet());
+  });
+
+  test('cada modelo de assets/models está declarado en pubspec.yaml', () {
+    // The tests read assets from disk; only pubspec puts them in the APK.
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final models = Directory('assets/models').listSync().whereType<File>();
+    expect(models, isNotEmpty);
+    for (final model in models) {
+      final path = model.path.replaceAll(r'\\', '/');
+      expect(pubspec, contains('- $path'), reason: '$path no va en el APK');
+    }
+  });
 
   group('verificación del token', () {
     const config = EdgeConfig(

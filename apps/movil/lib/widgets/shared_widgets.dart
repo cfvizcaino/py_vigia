@@ -66,13 +66,27 @@ String vehicleLabel(String? type) => switch (type) {
 const colorLabels = {
   'white': 'Blanco',
   'black': 'Negro',
-  'gray': 'Gris',
+  'gray': 'Gris o plateado',
   'silver': 'Plateado',
   'red': 'Rojo',
   'blue': 'Azul',
   'green': 'Verde',
   'yellow': 'Amarillo',
+  'brown': 'Café',
 };
+
+/// Colours the cameras' classifier reports (apps/vision/training/
+/// build_color_dataset.py); silver is reported as gray.
+const reportedColors = [
+  'white',
+  'black',
+  'gray',
+  'red',
+  'blue',
+  'green',
+  'yellow',
+  'brown',
+];
 
 String colorLabel(String? color) => switch (color) {
   null || '' => 'Sin especificar',

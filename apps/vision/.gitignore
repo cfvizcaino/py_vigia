@@ -17,3 +17,5 @@ runs/
 *.webm
 *.onnx
 *.pt
+# Modelos propios pequeños que el nodo necesita (el detector base lo descarga Ultralytics).
+!models/*.pt

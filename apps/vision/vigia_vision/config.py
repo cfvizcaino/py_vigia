@@ -20,6 +20,7 @@ class Settings:
     plate_confidence: float
     plate_every_n_frames: int
     plate_output: Path
+    color_model: str | None
     output: Path
     tapo_host: str | None
     tapo_username: str | None
@@ -79,6 +80,7 @@ class Settings:
             plate_confidence=plate_confidence,
             plate_every_n_frames=plate_every_n_frames,
             plate_output=Path(os.getenv("PLATE_OUTPUT", "outputs/plates")),
+            color_model=os.getenv("COLOR_MODEL", "models/vehicle-colors.pt").strip() or None,
             output=Path(os.getenv("DETECTION_OUTPUT", "outputs/detections.json")),
             tapo_host=os.getenv("TAPO_HOST"),
             tapo_username=os.getenv("TAPO_USERNAME"),

@@ -108,6 +108,135 @@ ModelInput prepareInput(PreprocessRequest request) {
   );
 }
 
+class CropRequest {
+  const CropRequest(
+    this.frame,
+    this.box,
+    this.size, {
+    this.channelsFirst = false,
+  });
+
+  final FrameData frame;
+
+  /// Upright-frame pixels: x1, y1, x2, y2.
+  final (double, double, double, double) box;
+  final int size;
+  final bool channelsFirst;
+}
+
+/// A box's centred square, resized to the classifier input: the same view as
+/// Ultralytics' classify transform (resize the short side, centre crop), with
+/// the same antialiased bilinear filter as PIL/torchvision. Nearest-neighbour
+/// here costs about 4 points of accuracy on the test set.
+Float32List prepareCrop(CropRequest request) {
+  final frame = request.frame;
+  final size = request.size;
+  final rotation = ((frame.rotationDegrees % 360) + 360) % 360;
+  final turned = rotation == 90 || rotation == 270;
+  final uprightWidth = turned ? frame.height : frame.width;
+  final uprightHeight = turned ? frame.width : frame.height;
+  final (x1, y1, x2, y2) = request.box;
+  final side = math.max(
+    1,
+    math.min(
+      math.min(x2 - x1, y2 - y1).round(),
+      math.min(uprightWidth, uprightHeight),
+    ),
+  );
+  final left = (x1 + (x2 - x1 - side) / 2).round().clamp(
+    0,
+    uprightWidth - side,
+  );
+  final top = (y1 + (y2 - y1 - side) / 2).round().clamp(
+    0,
+    uprightHeight - side,
+  );
+
+  // 1. The square at full resolution, upright RGB (interleaved).
+  final square = Float32List(side * side * 3);
+  final sampler = _Sampler(frame);
+  for (var y = 0; y < side; y++) {
+    final uy = top + y;
+    for (var x = 0; x < side; x++) {
+      final ux = left + x;
+      final (sx, sy) = switch (rotation) {
+        90 => (uy, frame.height - 1 - ux),
+        180 => (frame.width - 1 - ux, frame.height - 1 - uy),
+        270 => (frame.width - 1 - uy, ux),
+        _ => (ux, uy),
+      };
+      sampler.write(sx, sy, square, (y * side + x) * 3, 1);
+    }
+  }
+
+  // 2. Separable resize: rows to `size` columns, then columns to `size` rows.
+  final taps = _bilinearTaps(side, size);
+  final rows = Float32List(side * size * 3);
+  for (var y = 0; y < side; y++) {
+    for (var ox = 0; ox < size; ox++) {
+      final (start, weights) = taps[ox];
+      var r = 0.0, g = 0.0, b = 0.0;
+      for (var k = 0; k < weights.length; k++) {
+        final i = (y * side + start + k) * 3;
+        r += square[i] * weights[k];
+        g += square[i + 1] * weights[k];
+        b += square[i + 2] * weights[k];
+      }
+      final o = (y * size + ox) * 3;
+      rows[o] = r;
+      rows[o + 1] = g;
+      rows[o + 2] = b;
+    }
+  }
+  final out = Float32List(size * size * 3);
+  final plane = size * size;
+  for (var oy = 0; oy < size; oy++) {
+    final (start, weights) = taps[oy];
+    for (var ox = 0; ox < size; ox++) {
+      var r = 0.0, g = 0.0, b = 0.0;
+      for (var k = 0; k < weights.length; k++) {
+        final i = ((start + k) * size + ox) * 3;
+        r += rows[i] * weights[k];
+        g += rows[i + 1] * weights[k];
+        b += rows[i + 2] * weights[k];
+      }
+      final pixel = oy * size + ox;
+      if (request.channelsFirst) {
+        out[pixel] = r;
+        out[plane + pixel] = g;
+        out[2 * plane + pixel] = b;
+      } else {
+        out[pixel * 3] = r;
+        out[pixel * 3 + 1] = g;
+        out[pixel * 3 + 2] = b;
+      }
+    }
+  }
+  return out;
+}
+
+/// PIL's bilinear resampling weights: a triangle widened by the downscale
+/// factor (antialiasing), for each output index its first input and weights.
+List<(int, List<double>)> _bilinearTaps(int inSize, int outSize) {
+  final scale = inSize / outSize;
+  final filterScale = math.max(1.0, scale);
+  return [
+    for (var i = 0; i < outSize; i++)
+      () {
+        final center = (i + 0.5) * scale;
+        // Truncation, not floor, exactly as PIL's C code.
+        final first = math.max(0, (center - filterScale + 0.5).toInt());
+        final last = math.min(inSize, (center + filterScale + 0.5).toInt());
+        final weights = [
+          for (var j = first; j < last; j++)
+            math.max(0.0, 1 - ((j - center + 0.5) / filterScale).abs()),
+        ];
+        final total = weights.fold<double>(0, (sum, w) => sum + w);
+        return (first, [for (final w in weights) w / total]);
+      }(),
+  ];
+}
+
 class _Sampler {
   _Sampler(this.frame);
 

@@ -63,7 +63,9 @@ export type QueryResult = {
   routes: CandidateRoute[];
 };
 
-export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris", silver: "Plateado", red: "Rojo", blue: "Azul", green: "Verde", yellow: "Amarillo" };
+export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris o plateado", silver: "Plateado", red: "Rojo", blue: "Azul", green: "Verde", yellow: "Amarillo", brown: "Café" };
+/** Colours the cameras' classifier reports (apps/vision/training/build_color_dataset.py); silver comes out as gray. */
+export const REPORTED_COLORS = ["white", "black", "gray", "red", "blue", "green", "yellow", "brown"];
 export const STATUS_LABELS: Record<string, string> = { online: "En línea", offline: "Sin conexión", simulated: "Simulada" };
 export const vehicleLabel = (type: string) => type === "motorcycle" ? "Motocicleta" : "Automóvil";
 export const percent = (value: number) => `${Math.round(value * 100)}%`;

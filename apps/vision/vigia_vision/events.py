@@ -19,6 +19,7 @@ class TrackState:
     first_center: tuple[float, float]
     last_center: tuple[float, float]
     bounding_box: list[int]
+    color: str | None = None
 
     @property
     def direction(self) -> str:
@@ -39,7 +40,7 @@ class TrackState:
             "lastSeen": self.last_seen,
             "direction": self.direction,
             "boundingBox": self.bounding_box,
-            "color": None,
+            "color": self.color,
             "make": None,
             "model": None,
             "licensePlate": None,
@@ -80,6 +81,7 @@ def update_tracks(
                 first_center=previous.first_center if previous else center,
                 last_center=center,
                 bounding_box=[round(x1), round(y1), round(x2), round(y2)],
+                color=previous.color if previous else None,
             )
             last_seen_monotonic[track_id] = now_monotonic
 

@@ -8,7 +8,7 @@ import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
-import { COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
+import { COLORS, REPORTED_COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Trayectorias" | "Administración";
@@ -246,7 +246,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     <div className="query-fields">
       <fieldset disabled={searching || connecting || source === "loading" || source === "offline"}>
         <label>Punto de búsqueda<select value={selected?.external_id ?? ""} onChange={(event) => setSelectedCamera(event.target.value)} required>{!cameras.length && <option value="">Sin dispositivos</option>}{cameras.map((camera) => <option key={camera.id} value={camera.external_id}>{camera.external_id} · {camera.name}</option>)}</select></label>
-        <div className="field-row"><label>Vehículo<select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="">Todos</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></select></label><label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option value="">Todos</option>{Object.entries(COLORS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}{color && !COLORS[color] && <option value={color}>{color}</option>}</select></label></div>
+        <div className="field-row"><label>Vehículo<select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="">Todos</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></select></label><label>Color<select value={color} onChange={(event) => setColor(event.target.value)}><option value="">Todos</option>{REPORTED_COLORS.map((key) => <option key={key} value={key}>{COLORS[key]}</option>)}{color && !REPORTED_COLORS.includes(color) && <option value={color}>{COLORS[color] ?? color}</option>}</select></label></div>
         <label>Fecha · hora de Colombia<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>
         <div className="field-row"><label>Desde<input type="time" value={timeFrom} onChange={(event) => setTimeFrom(event.target.value)} required/></label><label>Hasta<input type="time" value={timeTo} onChange={(event) => setTimeTo(event.target.value)} required/></label></div>
         <label className="radius-label">Radio de búsqueda<output>{radius >= 1000 ? `${(radius / 1000).toLocaleString("es-CO")} km` : `${radius} m`}</output><input type="range" min="100" max="5000" step="100" value={radius} onChange={(event) => setRadius(Number(event.target.value))}/></label>

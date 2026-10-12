@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Iterator
 from typing import Any
 
+from .colors import ColorVotes, classify_tracks, prune
 from .config import Settings, is_local_camera
 from .events import TrackState, build_snapshot, update_tracks, utc_now, write_snapshot_payload
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
@@ -39,6 +40,9 @@ class VisionRuntime:
         self._captured_plate_tracks: set[int] = set()
         self._plate_detection_enabled = False
         self._plate_error_code: str | None = None
+        self._color_votes: dict[int, ColorVotes] = {}
+        self._color_enabled = False
+        self._color_error_code: str | None = None
         self._session_id = uuid.uuid4()
         self._sequence_number = 0
         self._latest_snapshot: dict[str, Any] | None = None
@@ -85,6 +89,9 @@ class VisionRuntime:
                 "plateDetectionEnabled": self._plate_detection_enabled,
                 "plateModel": os.path.basename(self.settings.plate_model) if self.settings.plate_model else None,
                 "plateErrorCode": self._plate_error_code,
+                "colorEnabled": self._color_enabled,
+                "colorModel": os.path.basename(self.settings.color_model) if self.settings.color_model else None,
+                "colorErrorCode": self._color_error_code,
                 "errorCode": self._error_code,
                 "publisher": self._publisher.status(),
             }
@@ -157,6 +164,11 @@ class VisionRuntime:
             self._plate_detection_enabled = enabled
             self._plate_error_code = error_code
 
+    def _set_color_state(self, enabled: bool, error_code: str | None = None) -> None:
+        with self._lock:
+            self._color_enabled = enabled
+            self._color_error_code = error_code
+
     def _run(self) -> None:
         try:
             import cv2
@@ -185,6 +197,15 @@ class VisionRuntime:
                     self._set_plate_state(True)
             except Exception:
                 self._set_plate_state(False, "PLATE_MODEL_LOAD_ERROR")
+
+        color_model = None
+        if self.settings.color_model:
+            try:
+                color_model = YOLO(self.settings.color_model, task="classify")
+                self._set_color_state(True)
+            except Exception:
+                # Without it the node still detects; colours stay unknown, as before.
+                self._set_color_state(False, "COLOR_MODEL_LOAD_ERROR")
 
         os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
         last_write = 0.0
@@ -239,6 +260,13 @@ class VisionRuntime:
                         except Exception:
                             self._set_plate_state(True, "PLATE_PROCESSING_ERROR")
 
+                    if color_model:
+                        try:
+                            classify_tracks(color_model, frame, track_boxes(result), self._color_votes, now_monotonic)
+                            self._set_color_state(True)
+                        except Exception:
+                            self._set_color_state(True, "COLOR_PROCESSING_ERROR")
+
                     with self._lock:
                         self._frame_number += 1
                         if self._last_frame_monotonic is not None:
@@ -250,6 +278,10 @@ class VisionRuntime:
                             )
                         self._last_frame_monotonic = now_monotonic
                         update_tracks(result, self._tracks, self._last_seen, now_monotonic, 10.0)
+                        prune(self._color_votes, set(self._tracks))
+                        for track_id, votes in self._color_votes.items():
+                            if votes.color:
+                                self._tracks[track_id].color = votes.color
                         annotated = result.plot()
                         if plate_model and next_frame_number % self.settings.plate_every_n_frames == 0:
                             self._plate_detections = plate_detections
@@ -287,3 +319,14 @@ class VisionRuntime:
             tracks_copy = dict(self._tracks)
             frame_number = self._frame_number
         self._emit_snapshot(frame_number, tracks_copy)
+
+
+def track_boxes(result: Any) -> dict[int, list[int]]:
+    """Track id → caja en píxeles de los vehículos del cuadro actual."""
+    boxes = result.boxes
+    if boxes is None or boxes.id is None:
+        return {}
+    return {
+        track_id: [round(value) for value in xyxy]
+        for xyxy, track_id in zip(boxes.xyxy.cpu().tolist(), boxes.id.int().cpu().tolist(), strict=True)
+    }
