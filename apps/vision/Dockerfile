@@ -16,6 +16,7 @@ RUN pip install --upgrade pip \
     && pip install -r requirements.txt
 
 COPY vigia_vision ./vigia_vision
+COPY models ./models
 RUN mkdir -p /app/outputs
 
 EXPOSE 8001

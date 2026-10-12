@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from training.build_color_dataset import build_dataset as build_color_dataset
 from training.build_plate_dataset import build_dataset
 from training.import_roboflow_yolo import import_dataset
 from training.prepare_video_frames import parse_range, timestamps
@@ -68,6 +69,53 @@ class TrainingToolsTests(unittest.TestCase):
             self.assertEqual(audit["tight_crop_images"], 0)
             self.assertEqual(audit["warnings"], [])
             self.assertTrue((output / "labels" / "val" / "val-valid.txt").is_file())
+
+    def test_color_dataset_unifies_names_dedupes_and_splits_every_class(self):
+        from PIL import Image
+
+        from training.build_color_dataset import VIGIA_COLORS
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            folders = {color: color for color in VIGIA_COLORS} | {"gray": "Grey", "pink": "pink"}
+            for index, (color, folder) in enumerate(folders.items()):
+                (source / folder).mkdir(parents=True)
+                for shade in range(5):
+                    Image.new("RGB", (40, 30), (shade * 40, index * 25, 9)).save(source / folder / f"{shade}.jpg")
+            red = list(folders).index("red")
+            Image.new("RGB", (40, 30), (0, red * 25, 9)).save(source / "red" / "copy.jpg")  # same bytes as red/0
+            Image.new("RGB", (10, 30), "white").save(source / "white" / "tiny.jpg")
+
+            summary = build_color_dataset([source], root / "colors")
+
+            for split in ("train", "val", "test"):
+                self.assertEqual(set(summary["counts"][split]), set(VIGIA_COLORS))
+            self.assertEqual(sum(summary["counts"][s]["gray"] for s in ("train", "val", "test")), 5)
+            self.assertEqual(summary["skipped"], {"color:pink": 5, "diminuta": 1, "duplicada": 1})
+            self.assertTrue(any((root / "colors" / "test" / "gray").iterdir()))
+
+    def test_color_dataset_keeps_the_splits_a_source_brings(self):
+        from PIL import Image
+
+        from training.build_color_dataset import VIGIA_COLORS
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            flat, site = root / "flat", root / "site"
+            for index, color in enumerate(VIGIA_COLORS):
+                (flat / color).mkdir(parents=True)
+                for shade in range(3):
+                    Image.new("RGB", (40, 30), (shade * 40, index * 25, 9)).save(flat / color / f"{shade}.jpg")
+            for split, shade in (("train", 200), ("test", 220)):
+                (site / split / "gray").mkdir(parents=True)
+                Image.new("RGB", (40, 30), (shade, 9, 9)).save(site / split / "gray" / "car.jpg")
+
+            summary = build_color_dataset([flat, site], root / "colors")
+
+            self.assertEqual(
+                [summary["counts"][split]["gray"] for split in ("train", "val", "test")], [1 + 1, 1, 1 + 1]
+            )
 
 
 if __name__ == "__main__":

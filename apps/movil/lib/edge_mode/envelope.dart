@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'tracker.dart';
 
-const edgeNodeVersion = 'movil-1.1.0';
+const edgeNodeVersion = 'movil-1.2.0';
 
 /// RFC 4122 version 4 identifier from a secure random source.
 String uuidV4([Random? random]) {
@@ -55,7 +55,7 @@ Map<String, dynamic> buildEnvelope({
         'lastSeen': _iso(track.lastSeen),
         'direction': track.direction,
         'boundingBox': track.box.toList(),
-        'color': null,
+        'color': track.color,
         'make': null,
         'model': null,
         // Filled by the future plate stage; the contract already carries it.

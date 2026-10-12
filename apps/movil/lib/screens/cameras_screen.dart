@@ -307,12 +307,11 @@ class _QueryScreenState extends State<QueryScreen> {
                 value: null,
                 child: Text('Cualquier color'),
               ),
-              ...colorLabels.entries.map(
-                (entry) => DropdownMenuItem<String?>(
-                  value: entry.key,
-                  child: Text(entry.value),
+              for (final color in {...reportedColors, ?_color})
+                DropdownMenuItem<String?>(
+                  value: color,
+                  child: Text(colorLabel(color)),
                 ),
-              ),
             ],
             onChanged: (value) => setState(() => _color = value),
           ),

@@ -205,4 +205,4 @@ Pruebas negativas en vivo:
 
 - El teléfono debe seguir conectado por USB y con IP Webcam activa; para una instalación fija sin cable hace falta la VPN de sedes remotas (pendiente de la decisión de conectividad).
 - En el modo cámara, la detección corre en el PC. El edge autónomo detecta en el teléfono, pero solo con la app en primer plano: falta el servicio en segundo plano.
-- El color del vehículo todavía no se detecta (`color: null`); las rutas usan tipo, tiempo y red vial.
+- El color se estima en el teléfono y en el nodo PC con un clasificador votado entre cuadros; ante la duda queda desconocido. Ver [color del vehículo](../modeling/vehicle-color.md).

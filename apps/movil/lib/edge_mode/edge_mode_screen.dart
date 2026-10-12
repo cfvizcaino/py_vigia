@@ -11,11 +11,12 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../camera_mode/frame_encoder.dart';
 import '../session.dart';
-import 'detections.dart';
+import 'colors.dart';
 import 'detector.dart';
 import 'edge_config.dart';
 import 'edge_engine.dart';
 import 'outbox.dart';
+import 'tracker.dart';
 
 final edgeConfigStoreProvider = Provider<EdgeConfigStore>(
   (ref) => DeviceEdgeConfigStore(ref.watch(preferencesProvider)),
@@ -41,6 +42,8 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
   bool _resumeWhenVisible = false;
   CameraController? _camera;
   OnDeviceDetector? _detector;
+  ColorClassifier? _colors;
+  bool _colorsTried = false;
   EdgeEngine? _engine;
   int _sensorOrientation = 0;
   int _extraRotation = 0;
@@ -97,6 +100,15 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
     });
     try {
       final detector = _detector ??= await OnDeviceDetector.load();
+      if (!_colorsTried) {
+        _colorsTried = true;
+        try {
+          _colors = await ColorClassifier.load();
+        } catch (_) {
+          // Detection works without it; colours are then reported as unknown.
+        }
+      }
+      final colors = _colors;
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
         throw const _EdgeProblem('Este teléfono no reporta cámaras.');
@@ -125,6 +137,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
           final result = await detector.detect(frame);
           return (detections: result.detections, elapsed: result.elapsed);
         },
+        classifyColors: colors?.classify,
         outbox: Outbox(
           directory: Directory(
             '${support.path}/edge_outbox/${config.cameraId}',
@@ -289,7 +302,7 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
                   CameraPreview(camera),
                   CustomPaint(
                     painter: _BoxesPainter(
-                      engine?.latestDetections ?? const [],
+                      engine?.latestTracks ?? const [],
                       _uprightSize(camera),
                       _extraRotation,
                     ),
@@ -310,7 +323,11 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
           ),
         const SizedBox(height: 12),
         if (stats != null)
-          _EdgeStatusCard(stats: stats, cameraFrames: _cameraFrames),
+          _EdgeStatusCard(
+            stats: stats,
+            cameraFrames: _cameraFrames,
+            colorsEnabled: _colors != null,
+          ),
         if (_error != null) ...[
           const SizedBox(height: 10),
           Text(_error!, style: const TextStyle(color: Color(0xFFFFB4AB))),
@@ -402,15 +419,15 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
 /// Draws the model's boxes over the preview. Boxes come in the coordinates of
 /// the frame after the extra rotation, so the painter undoes that rotation.
 class _BoxesPainter extends CustomPainter {
-  _BoxesPainter(this.detections, this.previewFrame, this.extraRotation);
+  _BoxesPainter(this.tracks, this.previewFrame, this.extraRotation);
 
-  final List<Detection> detections;
+  final List<Track> tracks;
   final Size previewFrame;
   final int extraRotation;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (detections.isEmpty) return;
+    if (tracks.isEmpty) return;
     final turned = extraRotation == 90 || extraRotation == 270;
     final uprightWidth = turned ? previewFrame.height : previewFrame.width;
     final uprightHeight = turned ? previewFrame.width : previewFrame.height;
@@ -425,12 +442,15 @@ class _BoxesPainter extends CustomPainter {
       ..rotate(-extraRotation * math.pi / 180)
       ..scale(scale)
       ..translate(-uprightWidth / 2, -uprightHeight / 2);
-    for (final detection in detections) {
-      final box = detection.box;
+    for (final track in tracks) {
+      final box = track.box;
+      final color = colorNamesEs[track.color];
       canvas.drawRect(Rect.fromLTRB(box.x1, box.y1, box.x2, box.y2), stroke);
       final label = TextPainter(
         text: TextSpan(
-          text: '${detection.label} ${(detection.score * 100).round()}%',
+          text:
+              '${track.label}${color == null ? '' : ' $color'} '
+              '${(track.score * 100).round()}%',
           style: TextStyle(
             color: Colors.black,
             fontSize: 11 / scale,
@@ -446,15 +466,20 @@ class _BoxesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BoxesPainter oldDelegate) =>
-      oldDelegate.detections != detections ||
+      oldDelegate.tracks != tracks ||
       oldDelegate.extraRotation != extraRotation;
 }
 
 class _EdgeStatusCard extends StatelessWidget {
-  const _EdgeStatusCard({required this.stats, required this.cameraFrames});
+  const _EdgeStatusCard({
+    required this.stats,
+    required this.cameraFrames,
+    required this.colorsEnabled,
+  });
 
   final EdgeStats stats;
   final int cameraFrames;
+  final bool colorsEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -500,6 +525,13 @@ class _EdgeStatusCard extends StatelessWidget {
           Text(
             'Cámara: $cameraFrames cuadros · modelo: ${stats.framesProcessed} analizados'
             '${stats.failures == 0 ? '' : ' · ${stats.failures} fallidos'}',
+            style: muted,
+          ),
+          Text(
+            colorsEnabled
+                ? 'Color: activo'
+                      '${stats.colorFailures == 0 ? '' : ' · ${stats.colorFailures} fallidos'}'
+                : 'Color: modelo no disponible (se reporta desconocido)',
             style: muted,
           ),
           if (stats.lastError != null) ...[

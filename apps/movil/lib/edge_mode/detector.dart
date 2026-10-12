@@ -9,9 +9,10 @@ import 'detections.dart';
 import 'preprocess.dart';
 
 /// What apps/vision/training/export_mobile.py writes next to each model, so the
-/// app decodes any YOLO export (vehicles today, plates later) without guessing.
+/// app decodes any YOLO export (vehicles, colours, later plates) without guessing.
 class ModelManifest {
   const ModelManifest({
+    this.task = 'detect',
     required this.name,
     required this.sha256,
     required this.inputSize,
@@ -31,6 +32,7 @@ class ModelManifest {
       throw const FormatException('Manifiesto de modelo inválido');
     }
     return ModelManifest(
+      task: json['task'] as String? ?? 'detect',
       name: (json['source'] as String).replaceAll(RegExp(r'\.pt$'), ''),
       sha256: json['sha256'] as String,
       inputSize: channelsFirst ? shape[2] : shape[1],
@@ -41,6 +43,8 @@ class ModelManifest {
     );
   }
 
+  /// `detect` or `classify` (manifests from before colours had no field).
+  final String task;
   final String name;
   final String sha256;
   final int inputSize;
@@ -165,6 +169,82 @@ class OnDeviceDetector {
       preprocess: result.preprocess,
       inference: result.inference,
     );
+  }
+
+  void close() => _interpreter.close();
+}
+
+class _ColorJob {
+  const _ColorJob(this.address, this.requests, this.classes);
+
+  final int address;
+  final List<CropRequest> requests;
+  final int classes;
+}
+
+List<Float32List> _runColors(_ColorJob job) {
+  final interpreter = Interpreter.fromAddress(job.address, allocated: true);
+  return [
+    for (final request in job.requests)
+      () {
+        final output = Float32List(job.classes);
+        interpreter.run(prepareCrop(request).buffer, output.buffer);
+        return output;
+      }(),
+  ];
+}
+
+/// The colour classifier (YOLO26n-cls): every crop of one frame goes through a
+/// single worker isolate.
+class ColorClassifier {
+  ColorClassifier._(this.manifest, this._interpreter);
+
+  static const colorsAsset = 'assets/models/colors';
+
+  final ModelManifest manifest;
+  final Interpreter _interpreter;
+
+  static Future<ColorClassifier> load({
+    String asset = colorsAsset,
+    int threads = 2,
+  }) async {
+    final manifest = ModelManifest.fromJson(
+      jsonDecode(await rootBundle.loadString('$asset.json'))
+          as Map<String, dynamic>,
+    );
+    if (manifest.task != 'classify') {
+      throw FormatException('$asset no es un clasificador');
+    }
+    final interpreter = await Interpreter.fromAsset(
+      '$asset.tflite',
+      options: InterpreterOptions()..threads = threads,
+    );
+    return ColorClassifier._(manifest, interpreter);
+  }
+
+  /// Class probabilities (softmax) per box, in the same order.
+  Future<List<Map<String, double>>> classify(
+    FrameData frame,
+    List<Box> boxes,
+  ) async {
+    if (boxes.isEmpty) return const [];
+    final classes = manifest.outputShape.last;
+    final outputs = await compute(
+      _runColors,
+      _ColorJob(_interpreter.address, [
+        for (final box in boxes)
+          CropRequest(
+            frame,
+            (box.x1, box.y1, box.x2, box.y2),
+            manifest.inputSize,
+            channelsFirst: manifest.channelsFirst,
+          ),
+      ], classes),
+    );
+    return [
+      for (final output in outputs)
+        {for (var i = 0; i < classes; i++) ?manifest.labels[i]: output[i]},
+    ];
   }
 
   void close() => _interpreter.close();
