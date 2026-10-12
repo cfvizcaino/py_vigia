@@ -43,11 +43,12 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 12/10 | Seguimiento sin fragmentar: el teléfono baja de 74 a 23 tracks/min y el color llega al 86 % de los vehículos ([detalle](./modeling/tracking.md)) | #23 |
 | 12/10 | APK 1.2.0 publicado en `/descargar` | — |
 | 12/10 | Benchmark de carga en Azure: 25 msg/s (50 nodos) con p95 de 152 ms, 0 pérdidas y 0 duplicados; consultas con p95 de 1,0 s con 10 operadores; reinicio bajo carga sin pérdidas. Hallazgo: a 200 msg/s el backend se bloquea y no se recupera solo ([evidencia](./evidence/benchmark-azure-20261012.md)) | — |
+| 12/10 | Robustez ante sobrecarga: descarte de carga con 503, pool que falla rápido, dos procesos y vigilante. La repetición acepta 184 de 200 msg/s sin bloquearse y cumple la latencia hasta 50 msg/s ([evidencia](./evidence/benchmark-azure-20261012.md)) | #27 |
 | 12/10 | Análisis de sensibilidad de umbrales y pesos del puntaje ([evidencia](./evidence/sensibilidad-puntaje-20261012.md)); segundo informe actualizado | — |
 
 ## Orden de ejecución siguiente
 
-1. **Robustez del backend ante sobrecarga** (hallazgo del benchmark): pool que falla rápido con 503, concurrencia acotada, varios procesos y reinicio automático si el chequeo de salud falla; repetir la escalada.
+1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tarda de 6 a 8 s (p95). Generar solo los pares con enlace vial y ventana temporal compatible.
 1. **Consulta por color tolerante a desconocidos.** Que una búsqueda por color no descarte las detecciones sin color (la reconstrucción ya las trata como coincidencia débil).
 2. **Placas.** Detector de placas medido con datos del sitio, OCR para placas colombianas y votación del texto por track; primero en el nodo PC y luego en el teléfono.
 3. **Retención de eventos crudos** y heartbeat más espaciado sin vehículos, antes de sumar muchas cámaras (≈160 MB/día con 10 cámaras).

@@ -100,3 +100,42 @@ Durante estas consultas, la ingestión de fondo (25 nodos, 12,5 msg/s) entregó 
 - **Inferencia:** YOLO26n a 640 px tarda **96 ms por cuadro** usando los 8 hilos de un AMD Ryzen 7 3700U (~10 cuadros/s); a 320 px, 36 ms.
   - Diez cámaras a 8 análisis/s exigirían unas 8 veces esa CPU completa, solo para inferir en el centro.
   - En B, la central dedicó un 2 % de una vCPU a 10 nodos.
+
+## Repetición tras la corrección (12/10/2026, 23:00 UTC)
+
+**Corrección aplicada** (PR #27):
+- descarte de carga con 503 inmediato (20 peticiones simultáneas por proceso);
+- espera máxima de 5 s por una conexión del pool;
+- dos procesos de Uvicorn;
+- vigilante que reinicia los servicios `unhealthy`.
+
+Misma herramienta y mismos escalones. Esta vez el cliente estaba en otra red residencial. Datos crudos: [`benchmark-azure-20261012-repeticion.json`](./benchmark-azure-20261012-repeticion.json).
+
+| Nodos × intervalo | Ofrecido → aceptado (msg/s) | p50 / p95 | p95 entrega | Respuestas 503 / 502 | Pendientes al cierre | Antes de la corrección |
+|---|---:|---:|---:|---:|---:|---|
+| 4 × 2 s | 2 → 2 | 137 / 361 ms | 400 ms | 0 / 0 | 0 | 127 / 217 ms |
+| 10 × 2 s | 5 → 5 | 124 / 189 ms | 214 ms | 0 / 0 | 0 | 123 / 205 ms |
+| 25 × 2 s | 12,5 → 12,5 | 125 / 171 ms | 206 ms | 0 / 0 | 0 | 125 / 146 ms |
+| 50 × 2 s | 25 → 25 | 126 / 160 ms | 200 ms | 0 / 0 | 0 | 127 / 152 ms |
+| 100 × 2 s | 50 → 50 | 131 / **377 ms** | 409 ms | 0 / 0 | 0 | 131 / 1 336 ms (no cumplía) |
+| 100 × 1 s | 100 → **99,8** | 253 / 970 ms | 25,8 s | 1 476 / 22 | **0** | 82,8 msg/s, 1 025 pendientes |
+| 100 × 0,5 s | 200 → **184,3** | 329 / 531 ms | 38,7 s | 4 311 / 0 | 870 | **0 msg/s: colapso** |
+
+**Resultados:**
+
+- **Ya no colapsa.** A 200 msg/s entran 184 msg/s y el resto recibe 503 al instante; los nodos los reintentan. `/health` respondió 200 en las 129 sondas de toda la corrida (p95 de 2,0 s, máximo de 6,6 s), sin reinicios manuales ni del vigilante, y al terminar respondía en 0,5 s.
+- **Capacidad:** el umbral de latencia (p95 < 500 ms) ahora se cumple hasta 50 msg/s (100 nodos), el doble que antes.
+- **Retraso de entrega:** bajo sobrecarga sube a decenas de segundos, porque los sobres esperan en la cola del nodo con retroceso. Es el comportamiento buscado: el centro se protege y los eventos llegan después.
+- **Integridad:** 25 028 eventos aceptados por el cliente y 25 028 en la base, todos únicos; 8 784 detecciones para 8 784 tracks. Algunos reenvíos deliberados no volvieron como `duplicate` (248/292 y 395/535) porque recibieron un 503, no porque se duplicaran: la base no tiene ningún evento repetido.
+- **Los 22 errores 502** se deben a que el supervisor de Uvicorn reinició un proceso que no respondió su chequeo interno en 5 s mientras la CPU estaba saturada (4 reinicios en toda la corrida). Se amplió ese plazo a 30 s (`UVICORN_TIMEOUT_WORKER_HEALTHCHECK`); un bloqueo real lo sigue cubriendo el vigilante.
+- **Memoria justa:** OSRM ocupa ~530 MB de los 892 MB de la VM y quedó en swap durante la prueba; los dos procesos del backend llegaron a 230 MB.
+
+**Consultas con datos densos.** Esta vez las consultas empezaron justo después del escalón de 200 msg/s. Con una ventana de 3 minutos, cada consulta procesó en promedio 220 detecciones candidatas (antes, 5,6):
+
+| Operadores | Consultas/s | p50 | p95 | Candidatas (media) | 503 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 0,6 | 707 ms | 8 353 ms | 220 | 0 |
+| 5 | 2,9 | 1 095 ms | 6 386 ms | 141 | 15 |
+| 10 | 11,7 | 496 ms | 2 483 ms | 31 | 47 |
+
+El costo de reconstruir rutas crece con fuerza con el número de detecciones candidatas: hoy se evalúan todos los pares. Con ~30 candidatas el p95 vuelve a rondar los 2 s, y con 140 a 220 supera los 6 s. **Nuevo hallazgo:** hay que acotar la búsqueda, generando solo los pares con enlace vial y dentro de la ventana temporal compatible, antes de exponer consultas sobre zonas densas.

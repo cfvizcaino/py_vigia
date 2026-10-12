@@ -49,6 +49,11 @@ services:
       # Two Uvicorn processes for the 2 vCPU. Per process: up to 20 requests at a time
       # (the rest get 503 at once) and 5+5 connections that wait at most 5 s (overload.py).
       WEB_CONCURRENCY: "2"
+      # Uvicorn restarts a worker that does not answer its supervisor within 5 s. At
+      # 100 msg/s on 2 vCPU a busy worker missed it and was killed (22 × 502 in the
+      # benchmark rerun of 12/10). Overload is handled by the 503 shedding; give the
+      # supervisor ping time. A truly hung process is still caught by the watchdog.
+      UVICORN_TIMEOUT_WORKER_HEALTHCHECK: "30"
     volumes:
       - backend-data:/app/data
     restart: unless-stopped
