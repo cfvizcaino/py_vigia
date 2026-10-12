@@ -118,7 +118,7 @@ La tabla 5.1 resume la comparación. Cada fila cita su fuente y declara **qué t
 |---|---|---|---|---|---|
 | NVR tradicional | Grabación y consulta centralizadas | Revisión manual de video de un mismo propietario | No correlaciona cámaras de distintos dueños; transmite y almacena todo el video | [4], sección 9.3 | Análisis propio; costo de red **medido** en la sección 9.3 (1,10 Mbit/s por cámara) |
 | Frigate | NVR local con detección y MQTT | Detección de objetos en tiempo real; LPR integrado (YOLOv9 + PaddleOCR) | Un sitio; recomienda acelerador dedicado; no reconstruye rutas entre sitios | [5], [22], [23] | Documentación oficial; tiempos de inferencia publicados por el proyecto, no medidos aquí |
-| NVIDIA DeepStream / Metropolis | Analítica multicámara acelerada por GPU | Cientos de FPS por GPU; metadatos y *broker* para analítica central | Requiere GPU NVIDIA, TensorRT y calibración | [6], [7], [24] | Documentación y cifras de rendimiento del fabricante; **no medido aquí** por falta de GPU (sección 9.4) |
+| NVIDIA DeepStream / Metropolis | Analítica multicámara acelerada por GPU | Cientos de FPS por GPU; metadatos y *broker* para analítica central | Requiere GPU NVIDIA, TensorRT y calibración | [6], [7], [24] | Cifras del fabricante en otras GPU [24]; **medido aquí** en una RTX 5050 Laptop con DeepStream 8.0 (sección 9.4) |
 | ByteTrack | Seguimiento multiobjeto (algoritmo) | 80,3 MOTA y 77,3 IDF1 en MOT17, 30 FPS en V100 | Identidad solo dentro de una cámara | [1], [8] | Artículo revisado por pares (ECCV 2022); su efecto en VIGIA está **medido** en [40] |
 | Plate Recognizer | ALPR comercial (nube o local) | Más de 90 países; 50–100 ms por imagen | Servicio de terceros; costo por licencia; datos fuera del sistema | [25] | Declaración del fabricante, sin verificación independiente |
 | **VIGIA (este trabajo)** | Edge + centro modular con correlación explicable | Ingestión idempotente, rutas candidatas sobre red vial y color en el borde | Sin placas aún; ranking calibrado solo con datos sintéticos | [30]–[41] | **Mediciones propias** (secciones 9.3 y 13) |
@@ -228,7 +228,7 @@ Los requerimientos no funcionales se aplican de manera proporcional a un prototi
 
 # 9. Evaluación de alternativas
 
-Se compararon tres alternativas: **A)** centralización de video en un servidor; **B)** arquitectura híbrida con nodos edge y backend modular, seleccionada por VIGIA; y **C)** plataforma industrial GPU multiflujo, representada por DeepStream. En el corte anterior la comparación era solo analítica. En este corte, la alternativa seleccionada se midió bajo carga controlada sobre su despliegue real. De A se midió lo que puede medirse con el hardware disponible (ancho de banda y costo de inferencia por flujo). C no pudo medirse por falta de GPU NVIDIA, y se reporta con las cifras del fabricante, identificadas como tales.
+Se compararon tres alternativas: **A)** centralización de video en un servidor; **B)** arquitectura híbrida con nodos edge y backend modular, seleccionada por VIGIA; y **C)** plataforma industrial GPU multiflujo, representada por DeepStream. En el corte anterior la comparación era solo analítica. En este corte, la alternativa seleccionada se midió bajo carga controlada sobre su despliegue real. De A se midió lo que puede medirse con el hardware disponible (ancho de banda y costo de inferencia por flujo). C se midió en la GPU del portátil del proyecto (sección 9.4); las cifras del fabricante siguen citadas aparte porque corresponden a otra GPU y a otro modelo.
 
 ## 9.1 Métricas y umbrales de aceptación
 
@@ -318,17 +318,28 @@ Mientras tanto, la ingestión de fondo entregó todo, sin errores, pero con p95 
 | Criterio | A. Video centralizado | B. Edge + centro (seleccionada) | C. DeepStream (GPU) |
 |---|---|---|---|
 | Red por cámara | ≥ 1,10 Mbit/s (**medido**: Tapo, escena nocturna) | ≈ 11 kbit/s (**medido**: 2,7 KB cada 2 s) | Igual que A si la inferencia es central (no medido) |
-| Cómputo central para 10 cámaras a 8 análisis/s | ≈ 8 veces un Ryzen 7 3700U completo (**derivado** de 96 ms/cuadro medido) | 2 % de una vCPU (**medido**) | Una GPU NVIDIA; 96–642 FPS por equipo (**fabricante** [24]) |
-| Throughput central | Limitado por la inferencia, ≈ 10 cuadros/s por CPU de portátil (**medido**) | 25 msg/s con p95 de 152 ms; máximo ≈ 83 msg/s (**medido**) | Cientos de FPS por GPU (**fabricante** [24]) |
-| Latencia | Red de video más cola de inferencia (no medido) | p95 de 146–217 ms hasta 25 msg/s; consulta p95 de 1,0 s con 10 operadores (**medido**) | Baja en GPU (**fabricante**; no medido) |
-| Saturación | Al superar la inferencia disponible (derivado) | Latencia desde 50 msg/s; colapso a 200 msg/s sin recuperación automática (**medido**) | No medido |
+| Cómputo central para 10 cámaras a 8 análisis/s | ≈ 8 veces un Ryzen 7 3700U completo (**derivado** de 96 ms/cuadro medido) | 2 % de una vCPU (**medido**) | Una RTX 5050 Laptop sostiene ~74 FPS por flujo con 8 flujos 1080p (**medido**, sección 9.4). 96–642 FPS del fabricante son otra GPU y otro modelo [24] |
+| Throughput central | Limitado por la inferencia, ≈ 10 cuadros/s por CPU de portátil (**medido**) | 25 msg/s con p95 de 152 ms; máximo ≈ 83 msg/s (**medido**) | ~570–595 FPS agregados hasta 16 flujos 1080p (**medido**, sección 9.4) |
+| Latencia | Red de video más cola de inferencia (no medido) | p95 de 146–217 ms hasta 25 msg/s; consulta p95 de 1,0 s con 10 operadores (**medido**) | Con 16 flujos, cada uno sigue a ~36 FPS (**medido**, sección 9.4) |
+| Saturación | Al superar la inferencia disponible (derivado) | Latencia desde 50 msg/s; colapso a 200 msg/s sin recuperación automática (**medido**) | El agregado se estanca cerca de 580 FPS; el FPS por flujo baja al repartir la GPU (**medido**, sección 9.4) |
 | Fallo del centro | Se pierde la captura durante la caída (análisis) | 0 eventos perdidos; cola drenada en 2,2 s (**medido**) | Depende de la orquestación (no medido) |
 | Costo para el MVP | Servidor con mucha CPU o GPU, más almacenamiento de video | VM de 2 vCPU y 1 GB dentro del crédito académico (**operando**) | GPU NVIDIA, fuera del crédito |
 | Privacidad | Todo el video sale de cada sitio | Solo salen metadatos | Igual que A si es central |
 
-## 9.4 Lo que no pudo medirse y por qué
+## 9.4 DeepStream en local, y lo que sigue sin medirse
 
-- **Alternativa C (DeepStream).** Requiere una GPU NVIDIA con TensorRT; el proyecto no dispone de una, y la VM del piloto no la tiene. Sus cifras son las publicadas por NVIDIA [24], no comparables directamente con B porque miden inferencia en GPU y no ingestión de metadatos. Para medirla haría falta una instancia con GPU (por ejemplo, Azure NC T4), cuyo costo excede el crédito académico.
+- **Alternativa C (DeepStream), medida en local el 12/10/2026.** La VM del piloto no tiene GPU, así que la corrida se hizo en el portátil del proyecto: NVIDIA GeForce RTX 5050 Laptop (8 GB), controlador 610.74, CUDA 13.3. DeepStream 8.0.0 en Docker Desktop sobre WSL2, con TensorRT 10.9, CUDA runtime 12.9 y cuDNN 9.8. El pipeline es el de referencia del SDK, no el RT-DETR de la nota de NVIDIA [24]: decodificación del video de muestra 1080p H.264 incluido en el SDK, detector TrafficCamNet (ResNet18 podado) en FP16 con motor TensorRT construido en esta GPU, y rastreador NvDCF en modo rendimiento. Sin clasificadores secundarios y sin pantalla. El sumidero no espera al reloj del archivo (`sync=0`), así que el número es el caudal máximo del pipeline, no una reproducción a 30 FPS. Cada escalón repite el mismo archivo; no son cámaras físicas distintas. NVIDIA advierte que el multiflujo en WSL rinde por debajo de un Ubuntu nativo; esta corrida está en ese caso.
+
+**Tabla 9.6.** DeepStream 8.0 en la RTX 5050 Laptop. FPS por flujo es la media que imprime `deepstream-app` al cierre de la ventana; el agregado es esa media por el número de flujos.
+
+| Flujos 1080p | FPS por flujo | FPS agregados |
+|---:|---:|---:|
+| 1 | 344 | 344 |
+| 4 | 145 | 580 |
+| 8 | 74 | 595 |
+| 16 | 36 | 570 |
+
+Un solo flujo no llena la GPU (344 FPS). A partir de 4 flujos el agregado se queda entre 570 y 595 FPS y el ritmo por flujo baja al repartirse. Con 16 flujos cada uno sigue por encima de 30 FPS. Estas cifras miden cuadros procesados en la GPU, no la ingestión de metadatos de la alternativa B, así que no se restan de los msg/s de la sección 9.3. Las 642 FPS de RT-DETR en una L40s [24] siguen siendo de otro modelo y de otra GPU. El procedimiento reproducible está en `docs/evidence/deepstream-local-bench.sh`.
 - **Alternativa A completa.** No se montó un servidor central que decodifique e infiera los flujos de varias cámaras: la VM de 1 GB no puede ejecutar PyTorch de forma útil. Se midieron sus dos costos dominantes (red e inferencia por flujo) y se derivó la capacidad necesaria.
 - **Carga de 25 cámaras físicas.** El escalón de carga se hizo con nodos simulados que generan el mismo contrato. La inferencia real solo se midió en dos nodos físicos: el teléfono, con unos 6 análisis/s, y la Tapo con el nodo PC, con 6 a 10 análisis/s.
 - **Red entre sedes.** Las mediciones usan Internet residencial; la VPN WireGuard entre sedes está preparada pero no activada.
