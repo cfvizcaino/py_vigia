@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { backendResponse } from "../src/lib/backend-api";
 import { DEMO_DEVICES, DEMO_QUERY, isDemoRoute, runDemoQuery } from "../src/lib/demo-monitoring";
-import { observationDate, observationTime, validateQuery } from "../src/lib/monitoring";
+import { observationDate, observationTime, unknownColorNote, validateQuery } from "../src/lib/monitoring";
 import { resolveRoadGeometry, validateRoadPoints } from "../src/lib/road-routing";
 
 test("Colombian timestamps match UTC, including naive SQLite values", () => {
@@ -117,4 +117,14 @@ test("anonymous demo routing is limited to the demo cameras", () => {
   assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }, { lat: 4.6, lng: -74.08 }]), false);
   assert.equal(isDemoRoute([{ lat: a.lat, lng: a.lng }, null]), false);
   assert.equal(isDemoRoute("CAM-01;CAM-02"), false);
+});
+
+test("la ruta avisa cuántos pasos no tienen el color confirmado", () => {
+  const route = (known: number, unknown: number) => ({
+    explanation: { model: "m", calibrated_probability: false, weights: {}, geometric_mean: 0, coverage_bonus: 0, search_pruned: false, segments: [], color_evidence: { known, unknown } },
+  });
+  assert.equal(unknownColorNote(route(3, 0)), "");
+  assert.equal(unknownColorNote(route(2, 1)), " · 1 paso sin color confirmado");
+  assert.equal(unknownColorNote(route(1, 2)), " · 2 pasos sin color confirmado");
+  assert.equal(unknownColorNote({}), "");
 });

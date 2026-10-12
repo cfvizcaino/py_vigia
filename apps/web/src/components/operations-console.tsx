@@ -8,7 +8,7 @@ import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
-import { COLORS, REPORTED_COLORS, STATUS_LABELS, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
+import { COLORS, REPORTED_COLORS, STATUS_LABELS, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Trayectorias" | "Administración";
@@ -267,7 +267,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     {result && <div className="result-context">{observationDate(result.query.time_from)} · {observationTime(result.query.time_from)}–{observationTime(result.query.time_to)} · UTC−5 · Radio {result.query.radius_m} m</div>}
     {activeRoute ? <>
       <div className="route-options" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={16}/>Ruta {route.rank}<span>{Math.round(route.confidence * 100)}/100</span></button>)}</div>
-      <div className="route-summary"><span className="vehicle-illustration"><Icon name={activeRoute.vehicle_type === "car" ? "car" : "route"} size={30}/></span><div><b>{vehicleLabel(activeRoute.vehicle_type)} · {COLORS[activeRoute.color ?? ""] ?? activeRoute.color ?? "Color desconocido"}</b><small>{activeRoute.camera_ids.length} pasos por cámaras</small></div><span className="confidence">{Math.round(activeRoute.confidence * 100)}<small>puntaje / 100</small></span></div>
+      <div className="route-summary"><span className="vehicle-illustration"><Icon name={activeRoute.vehicle_type === "car" ? "car" : "route"} size={30}/></span><div><b>{vehicleLabel(activeRoute.vehicle_type)} · {COLORS[activeRoute.color ?? ""] ?? activeRoute.color ?? "Color desconocido"}</b><small>{activeRoute.camera_ids.length} pasos por cámaras{unknownColorNote(activeRoute)}</small></div><span className="confidence">{Math.round(activeRoute.confidence * 100)}<small>puntaje / 100</small></span></div>
       {activeRoute.explanation?.segments && <details className="route-evidence" key={activeRoute.id}>
         <summary>¿Por qué aparece esta ruta?</summary>
         <p>Es un puntaje de compatibilidad, no una probabilidad de identificación. Compara tiempos, detecciones y alternativas viales.</p>

@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .geo import haversine_m
@@ -99,7 +99,8 @@ def fetch_candidate_detections(
     if vehicle_type is not None:
         statement = statement.where(Detection.vehicle_type == vehicle_type)
     if color is not None:
-        statement = statement.where(Detection.color == color)
+        # Unknown colour stays in: see reconstruct_routes.
+        statement = statement.where(or_(Detection.color == color, Detection.color.is_(None)))
     return list(db.scalars(statement).all())
 
 

@@ -209,6 +209,12 @@ class CandidateRoute {
   final Map<String, dynamic> explanation;
   final Map<String, dynamic>? roadGeometry;
 
+  /// Steps whose colour the edge could not confirm (the backend keeps them in
+  /// colour queries, joined only by time and road).
+  int get unknownColorSteps =>
+      ((explanation['color_evidence'] as Map?)?['unknown'] as num?)?.toInt() ??
+      0;
+
   List<RoadPoint> get roadPoints {
     final points = roadGeometry?['points'];
     if (points is! List) return const [];

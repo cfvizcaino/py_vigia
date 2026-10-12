@@ -143,6 +143,8 @@ def _candidate(path: list[DetectionPoint], segments: list[dict], cfg: RoutingCon
                     "appearance": cfg.appearance_weight, "road": cfg.road_weight},
         "parameters": asdict(cfg), "geometric_mean": geometric_mean, "coverage_bonus": bonus,
         "direction_used": False,
+        # How many steps carry a colour; unknown ones only joined through time and road.
+        "color_evidence": {"known": sum(1 for p in path if p.color), "unknown": sum(1 for p in path if not p.color)},
         "segments": [{k: v for k, v in s.items() if k != "geometry"} for s in segments],
     }
     return RouteCandidate(tuple(p.id for p in path), tuple(p.camera_id for p in path), path[0].vehicle_type,
@@ -159,8 +161,13 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
                        vehicle_type: str | None = None, color: str | None = None,
                        config: RoutingConfig | None = None) -> list[RouteCandidate]:
     cfg = config or RoutingConfig()
+    # A colour filter keeps detections whose colour is unknown: the edge leaves it
+    # null when the vote is not clear (night, short tracks), and dropping them would
+    # cut the vehicle's path. Unknown colour already scores as weak appearance
+    # evidence, and every route must still show the requested colour at least once.
     ordered = sorted((d for d in detections if (vehicle_type is None or d.vehicle_type == vehicle_type)
-                      and (color is None or d.color == color)), key=lambda p: (p.observed_at, p.id))
+                      and (color is None or d.color in (color, None))), key=lambda p: (p.observed_at, p.id))
+    by_id = {d.id: d for d in ordered}
     if len(ordered) > cfg.max_detections:
         raise ValueError(f"Máximo {cfg.max_detections} detecciones por búsqueda; reduce ventana o radio")
     edges = {(a.id, b.id): score_segments(a, b, road_links_m, cfg)
@@ -195,6 +202,8 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
     found.sort(key=lambda c: (-c.confidence, -len(c.detection_ids), c.detection_ids))
     kept = []
     for candidate in found:
+        if color is not None and not any(by_id[i].color == color for i in candidate.detection_ids):
+            continue
         if any(_is_subsequence(candidate.detection_ids, other.detection_ids) for other in kept):
             continue
         candidate.explanation["search_pruned"] = pruned
