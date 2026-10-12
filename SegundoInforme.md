@@ -8,7 +8,7 @@ VIGIA aborda la dificultad de reconstruir el recorrido probable de un vehículo 
 
 Al 12 de octubre de 2026, el flujo vertical opera de extremo a extremo sobre un servidor central en Azure. Los nodos edge (un computador con una cámara Tapo C110 y teléfonos Android que detectan con YOLO26n en el propio dispositivo) siguen vehículos, estiman su color y publican un contrato versionado (`Detection Envelope 1.1`) por HTTPS con un token por cámara, una cola persistente y reintentos. El backend FastAPI sobre PostgreSQL ingiere de forma idempotente, autentica personas y roles, audita el uso y reconstruye rutas candidatas sobre la red vial de OSRM. Una consola web y una aplicación móvil consultan y explican los resultados. La plataforma central se actualiza sola desde integración continua y revierte a la versión anterior si la nueva no queda sana.
 
-La validación ya es cuantitativa. En un benchmark controlado contra el servidor real, la alternativa seleccionada sostuvo 25 mensajes por segundo (50 nodos; 2,5 veces la carga exigida) con p95 de ingestión de 152 ms, sin eventos perdidos ni duplicados lógicos, y saturó en dos puntos: la latencia superó el umbral a 50 msg/s y el throughput máximo fue de unos 83 msg/s. A 200 msg/s el backend colapsó y necesitó un reinicio manual, un defecto que se documenta y se corregirá. Un reinicio del backend bajo carga no perdió eventos (12,8 s fuera de servicio y la cola drenada en 2,2 s). La alternativa C (DeepStream) se midió en una GPU de portátil: unos 580 cuadros por segundo, del orden de 50 veces lo que procesa la CPU. Eso muestra que centralizar con GPU es viable, y que lo que favorece a B es la red, la privacidad, el costo y la tolerancia a fallos; además, un edge con GPU cabe dentro de B. Las pruebas de resiliencia entregaron 248 de 248 eventos exactamente una vez tras un corte de red de 5 minutos. El clasificador de color alcanzó 91,6 % de exactitud en la prueba de sitio, y el nuevo seguimiento redujo la fragmentación de 106 a 35 tracks en un mismo video. Sobre un dataset sintético con verdad de terreno, el ranking obtiene recall@3 de 0,429; un análisis de sensibilidad sustenta los umbrales elegidos. Quedan pendientes la evaluación independiente con recorridos de campo, la lectura de placas, el agente de actualización de los nodos y la mensajería MQTT.
+La validación ya es cuantitativa. En un benchmark controlado contra el servidor real, la alternativa seleccionada sostuvo 25 mensajes por segundo (50 nodos; 2,5 veces la carga exigida) con p95 de ingestión de 152 ms, sin eventos perdidos ni duplicados lógicos, y saturó en dos puntos: la latencia superó el umbral a 50 msg/s y el throughput máximo fue de unos 83 msg/s. A 200 msg/s el backend colapsó y necesitó un reinicio manual. El defecto se corrigió (descarte de carga con 503, pool que falla rápido, dos procesos y un vigilante) y la repetición lo verificó: 184 msg/s aceptados a 200 ofrecidos, sin bloqueo ni intervención, y el umbral de latencia cumplido hasta 50 msg/s. Un reinicio del backend bajo carga no perdió eventos (12,8 s fuera de servicio y la cola drenada en 2,2 s). La alternativa C (DeepStream) se midió en una GPU de portátil: unos 580 cuadros por segundo, del orden de 50 veces lo que procesa la CPU. Eso muestra que centralizar con GPU es viable, y que lo que favorece a B es la red, la privacidad, el costo y la tolerancia a fallos; además, un edge con GPU cabe dentro de B. Las pruebas de resiliencia entregaron 248 de 248 eventos exactamente una vez tras un corte de red de 5 minutos. El clasificador de color alcanzó 91,6 % de exactitud en la prueba de sitio, y el nuevo seguimiento redujo la fragmentación de 106 a 35 tracks en un mismo video. Sobre un dataset sintético con verdad de terreno, el ranking obtiene recall@3 de 0,429; un análisis de sensibilidad sustenta los umbrales elegidos. Quedan pendientes la evaluación independiente con recorridos de campo, la lectura de placas, el agente de actualización de los nodos y la mensajería MQTT.
 
 ## Abstract
 
@@ -16,7 +16,7 @@ VIGIA addresses the difficulty of reconstructing a vehicle's likely path when re
 
 As of October 12, 2026, the vertical flow runs end to end on a central server in Azure. Edge nodes (a computer with a Tapo C110 camera and Android phones running YOLO26n on the device) track vehicles, estimate their color, and publish a versioned contract (`Detection Envelope 1.1`) over HTTPS with per-camera tokens, a persistent queue, and retries. A FastAPI backend on PostgreSQL ingests idempotently, authenticates users and roles, audits usage, and reconstructs candidate routes over the OSRM road network. A web console and a mobile app query and explain the results. The central platform deploys itself from continuous integration and rolls back when a new version is unhealthy.
 
-Validation is now quantitative. In a controlled benchmark against the real server, the selected alternative sustained 25 messages per second (50 nodes, 2.5 times the required load) with a p95 ingestion latency of 152 ms, no lost events and no logical duplicates, saturating at two points: latency exceeded the threshold at 50 msg/s and throughput peaked at about 83 msg/s. At 200 msg/s the backend collapsed and needed a manual restart, a defect that is documented and will be fixed. A backend restart under load lost no events. Alternative C (DeepStream) was measured on a laptop GPU at about 580 frames per second, roughly 50 times the CPU; this shows that centralizing with a GPU is feasible, and that what favors B is bandwidth, privacy, cost and fault tolerance, while a GPU edge still fits inside B. Resilience tests delivered 248 of 248 events exactly once after a 5-minute network outage. The color classifier reached 91.6 % accuracy on the site test, and the new tracker reduced fragmentation from 106 to 35 tracks on the same video. On a synthetic dataset with ground truth, the ranking reaches recall@3 of 0.429, and a sensitivity analysis supports the chosen thresholds. Independent field evaluation, plate reading, the edge update agent, and MQTT messaging remain pending.
+Validation is now quantitative. In a controlled benchmark against the real server, the selected alternative sustained 25 messages per second (50 nodes, 2.5 times the required load) with a p95 ingestion latency of 152 ms, no lost events and no logical duplicates, saturating at two points: latency exceeded the threshold at 50 msg/s and throughput peaked at about 83 msg/s. At 200 msg/s the backend collapsed and needed a manual restart; the defect was fixed (load shedding with 503, fail-fast pool, two workers, a watchdog) and a rerun verified it: 184 msg/s accepted out of 200 offered, with no lockup and the latency threshold met up to 50 msg/s. A backend restart under load lost no events. Alternative C (DeepStream) was measured on a laptop GPU at about 580 frames per second, roughly 50 times the CPU; this shows that centralizing with a GPU is feasible, and that what favors B is bandwidth, privacy, cost and fault tolerance, while a GPU edge still fits inside B. Resilience tests delivered 248 of 248 events exactly once after a 5-minute network outage. The color classifier reached 91.6 % accuracy on the site test, and the new tracker reduced fragmentation from 106 to 35 tracks on the same video. On a synthetic dataset with ground truth, the ranking reaches recall@3 of 0.429, and a sensitivity analysis supports the chosen thresholds. Independent field evaluation, plate reading, the edge update agent, and MQTT messaging remain pending.
 
 ---
 
@@ -286,7 +286,35 @@ Se muestreó el uso de CPU y memoria de cada contenedor cada 5 s.
 
 La carga esperada del MVP (4 a 10 nodos, entre 2 y 5 msg/s) cumple todos los umbrales, y el margen llega hasta 50 nodos (25 msg/s, 2,5 veces el mínimo exigido) con p95 de 152 ms. En todos los escalones, la base guardó cada evento exactamente una vez: 15 255 eventos únicos y 5 405 detecciones lógicas para 5 405 tracks. Los "pendientes al cierre" son sobres que seguían en la cola del nodo al terminar la ventana de drenaje; no se perdieron, y un edge real los enviaría después.
 
-**Hallazgo negativo.** A 200 msg/s, unas 20 veces la carga esperada, se agotó el pool de conexiones del backend. Las peticiones esperaban hasta 30 s por una conexión, el cliente cortaba a los 10 s y reintentaba, y los reintentos mantenían el pool agotado. El backend no se recuperó al retirar la carga y hubo que reiniciarlo a mano: la API estuvo unos 10 minutos sin servicio, sin pérdida de datos. La corrección (fallar rápido con 503, limitar la concurrencia al pool, varios procesos y reinicio automático ante un chequeo de salud fallido) se agrega como P0 en la sección 15.
+**Hallazgo negativo.** A 200 msg/s, unas 20 veces la carga esperada, se agotó el pool de conexiones del backend. Las peticiones esperaban hasta 30 s por una conexión, el cliente cortaba a los 10 s y reintentaba, y los reintentos mantenían el pool agotado. El backend no se recuperó al retirar la carga y hubo que reiniciarlo a mano: la API estuvo unos 10 minutos sin servicio, sin pérdida de datos.
+
+**Corrección y repetición.** El mismo 12/10 se corrigió el defecto (`vigia_backend/overload.py`):
+
+- cada proceso atiende a lo sumo 20 peticiones y responde **503 con `Retry-After`** a las demás, sin encolarlas;
+- el pool espera como máximo 5 s, y si se agota responde 503;
+- el backend corre en **dos procesos**;
+- un **vigilante** reinicia cada minuto los servicios que Docker marque `unhealthy`.
+
+Los nodos ya reintentan los 503 con su cola en disco, así que un rechazo no pierde eventos. La tabla 9.2b repite la escalada con la misma herramienta [37].
+
+**Tabla 9.2b.** Escalada repetida tras la corrección.
+
+| Nodos × intervalo | Ofrecido → aceptado (msg/s) | p50 / p95 | 503 / 502 | Pendientes al cierre | Antes de la corrección |
+|---|---:|---:|---:|---:|---|
+| 25 × 2 s | 12,5 → 12,5 | 125 / 171 ms | 0 / 0 | 0 | 125 / 146 ms |
+| 50 × 2 s | 25 → 25 | 126 / 160 ms | 0 / 0 | 0 | 127 / 152 ms |
+| 100 × 2 s | 50 → 50 | 131 / **377 ms** | 0 / 0 | 0 | 1 336 ms (no cumplía) |
+| 100 × 1 s | 100 → **99,8** | 253 / 970 ms | 1 476 / 22 | **0** | 82,8 msg/s y 1 025 pendientes |
+| 100 × 0,5 s | 200 → **184,3** | 329 / 531 ms | 4 311 / 0 | 870 | **colapso: 0 msg/s** |
+
+**Lo que muestra la repetición:**
+
+- **Ya no hay bloqueo.** `/health` respondió en las 129 sondas de la corrida, sin reinicios manuales ni del vigilante. El umbral de latencia se cumple hasta 50 msg/s, el doble que antes.
+- **Sobrecarga:** entran 184 de 200 msg/s y el resto se reintenta, a costa de un retraso de entrega de decenas de segundos en la cola de los nodos.
+- **Integridad:** la base guardó exactamente los 25 028 eventos aceptados, todos únicos.
+- **Los 22 errores 502** fueron reinicios de un proceso por el chequeo interno de Uvicorn (5 s) con la CPU saturada; ese plazo se amplió a 30 s.
+
+**Consultas sobre datos densos.** Las consultas de la repetición empezaron justo después del escalón de 200 msg/s, y cada una procesó entre 30 y 220 detecciones candidatas (5,6 en la corrida anterior). Su p95 subió a 2,5–8,4 s. El costo de la reconstrucción crece con fuerza con el número de candidatas, porque hoy evalúa todos los pares. Acotar esa búsqueda pasa a ser un pendiente P0 (sección 15). La carga del piloto, con pocas detecciones por consulta, sigue dentro del umbral (tabla 9.3).
 
 **Tabla 9.3.** Consultas con reconstrucción de rutas mientras 25 nodos publican (radio de 600 m, ventana de 3 minutos; 60 s por escalón).
 
@@ -393,7 +421,7 @@ El procedimiento reproducible está en `docs/evidence/deepstream-local-bench.sh`
 
 La alternativa B se mantiene. Ahora la respaldan mediciones de las tres alternativas:
 
-- **Cumple todos los umbrales** de la sección 9.1 con la carga esperada (4 a 10 nodos) y hasta 50 nodos (sección 9.3). Por encima de 50 msg/s se degrada, y a 200 msg/s mostró un defecto de recuperación que debe corregirse antes de crecer.
+- **Cumple todos los umbrales** de la sección 9.1 con la carga esperada (4 a 10 nodos) y hasta 50 nodos (sección 9.3). Tras la corrección del 12/10, cumple el umbral de latencia hasta 50 msg/s y a 200 msg/s descarta el exceso con 503 sin bloquearse (sección 9.3).
 - **Red:** transmite unas 100 veces menos datos por cámara que centralizar el video, sea en CPU (A) o en GPU (C).
 - **Privacidad:** el video nunca sale del sitio; al centro solo llegan metadatos.
 - **Resiliencia:** un fallo del centro no pierde eventos, porque cada nodo los encola.
@@ -674,7 +702,7 @@ La prueba propuesta es con al menos cinco participantes y tres tareas: encontrar
 El proyecto pasó de factibilidad técnica a un piloto operable y medido. Los resultados más relevantes son:
 
 - **El flujo vertical opera en la nube**, de la cámara a la consulta, con idempotencia demostrada (0 duplicados en P1.2 y en el benchmark) y sin pérdidas ante fallos.
-- **La alternativa B cumple sus umbrales** con la carga esperada y hasta 50 nodos (sección 9.3) en una VM de 1 GB. Con eso, la decisión arquitectónica deja de ser solo analítica. El benchmark también expuso un defecto real: bajo una sobrecarga de 20 veces, el backend no se recupera solo.
+- **La alternativa B cumple sus umbrales** con la carga esperada y hasta 50 nodos (sección 9.3) en una VM de 1 GB. Con eso, la decisión arquitectónica deja de ser solo analítica. El benchmark también expuso un defecto real: bajo una sobrecarga de 20 veces, el backend no se recuperaba solo. Se corrigió y se verificó el mismo día (tabla 9.2b), lo que muestra el valor de medir antes de afirmar capacidad.
 - **La alternativa C, medida en GPU (unos 580 cuadros/s en una RTX 5050 de portátil), cambió el argumento de la selección:** con una GPU, el rendimiento bruto deja de ser un límite. B se justifica por red, privacidad, costo y resiliencia, y admite un edge con GPU para sitios con muchas cámaras (sección 9.4).
 - **La visión en el borde mejoró con datos del sitio:** el color pasó del 63 % al 92 % en la prueba de sitio y la fragmentación del seguimiento bajó a la tercera parte. Las métricas públicas o de laboratorio no bastan: el ajuste con datos de las cámaras reales fue lo que más mejoró los resultados.
 - **El ranking es explicable y sus umbrales están sustentados,** pero su calidad sigue limitada: recall@3 de 0,429 en un dataset sintético, y un top-k que no se diversifica en hora pico. Es el principal frente técnico para el cierre.
@@ -695,7 +723,7 @@ La evidencia permite afirmar que la arquitectura, la comunicación y la visión 
 
 | Prioridad | Entregable | Evidencia de aceptación |
 |---|---|---|
-| P0 | Robustez del backend ante sobrecarga | Pool que falla rápido con 503, concurrencia acotada, varios procesos y reinicio automático ante un chequeo de salud fallido; repetir la escalada de la sección 9.3 sin colapso a 200 msg/s |
+| P0 | Consultas acotadas en zonas densas | Generar solo los pares con enlace vial y ventana temporal compatible; p95 < 2 s con 200 detecciones candidatas (hoy, 8,4 s). La robustez ante sobrecarga ya se corrigió (tabla 9.2b) |
 | P0 | Evaluación independiente del ranking (P1.1) | Recorridos de campo con verdad de terreno, separados de la calibración; top-k, secuencia y enlaces falsos |
 | P0 | Diversificación del top-k | Recall en el escenario de hora pico sin empeorar los controles |
 | P0 | Licencia y datos personales | Licencia del repositorio compatible con AGPL-3.0 (Ultralytics) o licencia comercial; política de tratamiento, retención y avisos; autorización de los tutores |
@@ -748,7 +776,7 @@ Los riesgos principales son el tiempo para obtener recorridos de campo con verda
 34. VIGIA. (2026). [Cómo se ordenan las rutas candidatas](./docs/architecture/weighted-routes.md).
 35. VIGIA. (2026). [Dataset sintético de puntajes y rutas](./docs/operations/scoring-dataset.md).
 36. VIGIA. (2026). [Evidencia P1.2: resiliencia edge → centro](./docs/evidence/p12-resiliencia-20261008.md).
-37. VIGIA. (2026). [Evidencia: benchmark de carga en Azure](./docs/evidence/benchmark-azure-20261012.md).
+37. VIGIA. (2026). [Evidencia: benchmark de carga en Azure, con su repetición tras la corrección](./docs/evidence/benchmark-azure-20261012.md).
 38. VIGIA. (2026). [Evidencia: sensibilidad del puntaje](./docs/evidence/sensibilidad-puntaje-20261012.md).
 39. VIGIA. (2026). [Color del vehículo](./docs/modeling/vehicle-color.md).
 40. VIGIA. (2026). [Seguimiento sin fragmentar](./docs/modeling/tracking.md).
