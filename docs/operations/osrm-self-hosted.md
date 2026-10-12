@@ -114,6 +114,52 @@ ss -ltn '( sport = :5000 )'
 
 El último comando debe mostrar **127.0.0.1:5000**, no 0.0.0.0. La combinación inicial `pasta/implicit` abrió todas las interfaces pese al puerto loopback de Compose; se detuvo y corrigió usando `slirp4netns 1.3.5/builtin`, comprobando el socket real. Los scripts locales no descargan binarios ni registran arranque automático. Tras reiniciar el equipo hay que iniciar el daemon. Para procesar con este cliente, exportar `PATH="$HOME/.local/share/vigia-docker/bin:$PATH"` y `DOCKER_HOST=unix:///run/user/1000/vigia-docker.sock` (ajustar UID en otros equipos).
 
+## Grafo metropolitano en producción: 12/10/2026
+
+El extracto del 30/09 cubría solo unos 3 × 2,5 km del centro de Barranquilla: las cámaras reales del piloto quedaban fuera y nunca se sincronizaron enlaces. Desde el 12/10, Azure usa la release `metro-20261012`.
+
+**Área.** Recuadro 10,82–11,08° N, 75,00–74,70° O. Incluye Barranquilla, Soledad, Puerto Colombia (Villa Campestre, Pradomar, Salgar), Galapa, Malambo y el aeropuerto Ernesto Cortissoz, con margen.
+
+**Fuente.** OpenStreetMap vía Overpass API, el 12/10/2026, con la consulta versionada en [`infra/osrm/releases/metro-20261012/query.overpassql`](../../infra/osrm/releases/metro-20261012/query.overpassql). La consulta trae las vías transitables por automóviles y las restricciones de giro; las vías que cruzan el borde se descargan completas.
+
+- `region.osm`: 16 MB, 27 072 vías, 621 restricciones.
+- SHA-256: `275cdc108a7c70d789b3ee03d789a791ac5d3a932b532a63022e8d78f43ff5da`.
+- Datos © OpenStreetMap contributors (ODbL).
+
+**Procesamiento.** `CONTAINER_ENGINE=podman OSRM_DATA_DIR=infra/osrm/releases/metro-20261012 bash infra/osrm/prepare.sh`, con perfil `car` y MLD.
+
+- Resultado: 105 220 nodos y 442 710 aristas.
+- Pico de 72 MB de RAM y unos 2 minutos.
+- 52 MB de archivos.
+
+**Servicio.** `osrm-routed --mmap 1` lee el grafo a través de la caché de páginas del sistema operativo, en lugar de copiarlo a la memoria del proceso: ocupa unos 10 MB de RAM y no compite con el backend en la VM de 1 GB.
+
+**Validación** (distancia del primer camino a flujo libre; los puntos son aproximados):
+
+| Recorrido | Distancia | Tiempo | Alternativas |
+|---|---:|---:|---:|
+| Villa Campestre → Soledad (centro) | 22,2 km | 25 min | 3 |
+| Soledad (centro) → Villa Campestre | 21,4 km | 25 min | 3 |
+| Puerto Colombia → Malambo | 39,3 km | 35 min | 3 |
+| Galapa → Aeropuerto | 19,0 km | 21 min | 3 |
+| Barranquilla (Paseo Bolívar) → Pradomar | 19,5 km | 19 min | 1 |
+
+**Enlaces de las cámaras reales.** Tras el cambio se sincronizaron CAMERA-1 y CEL-01 a CEL-04: 20 pares dirigidos y 27 alternativas. CEL-03 y CEL-04 quedan a 5–7 km por calle del grupo CAMERA-1/CEL-01/CEL-02. Con el enlace máximo de 2 km del estimador, esas parejas no forman rutas: hace falta una cámara intermedia o recalibrar el umbral con recorridos de campo.
+
+### Publicar o revertir una release
+
+```bash
+H=vigia-5dfe.mexicocentral.cloudapp.azure.com
+bash infra/azure/deploy.sh $H osrm metro-20261012      # sube a /opt/vigia/osrm/metro-20261012
+# Activar: VIGIA_OSRM_RELEASE en /opt/vigia/.env (por defecto, la del compose) y:
+ssh -i ~/.ssh/vigia_azure vigia@$H 'cd /opt/vigia && docker compose up -d osrm'
+# Después, resincronizar los enlaces de las cámaras afectadas:
+ssh -i ~/.ssh/vigia_azure vigia@$H 'cd /opt/vigia && docker compose exec -T backend \
+  python -m vigia_backend.road_network --url http://osrm:5000 --camera CAM-A --camera CAM-B ...'
+```
+
+La release anterior queda en `/opt/vigia/osrm/centro-20260930`: `VIGIA_OSRM_RELEASE=centro-20260930` revierte el cambio. Los enlaces ya sincronizados no cambian hasta que se resincronizan.
+
 ## Actualización y crecimiento
 
 Procesar el siguiente extracto en un directorio de release separado, validar rutas conocidas, cambiar el montaje y recrear el servicio. Conservar el grafo anterior para rollback; no modificar archivos que `osrm-routed` esté utilizando. Medir RAM y p95 con 4/10/25 nodos/consultas antes de dimensionar; las réplicas de lectura pueden compartir la misma versión de datos. Caché por secuencia/región y actualización del grafo quedan como siguientes optimizaciones.
