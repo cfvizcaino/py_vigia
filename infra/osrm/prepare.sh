@@ -4,7 +4,8 @@ set -euo pipefail
 engine="${CONTAINER_ENGINE:-docker}"
 image="ghcr.io/project-osrm/osrm-backend:v6.0.0"
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-data_dir="$root_dir/infra/osrm/data"
+# OSRM_DATA_DIR: a release folder (infra/osrm/releases/<nombre>) keeps the running graph intact.
+data_dir="${OSRM_DATA_DIR:-$root_dir/infra/osrm/data}"
 input="$data_dir/region.osm.pbf"
 [[ -s "$input" ]] || input="$data_dir/region.osm"
 command -v "$engine" >/dev/null || { echo "Falta $engine (o define CONTAINER_ENGINE=podman)." >&2; exit 1; }

@@ -128,7 +128,7 @@ Misma herramienta y mismos escalones. Esta vez el cliente estaba en otra red res
 - **Retraso de entrega:** bajo sobrecarga sube a decenas de segundos, porque los sobres esperan en la cola del nodo con retroceso. Es el comportamiento buscado: el centro se protege y los eventos llegan después.
 - **Integridad:** 25 028 eventos aceptados por el cliente y 25 028 en la base, todos únicos; 8 784 detecciones para 8 784 tracks. Algunos reenvíos deliberados no volvieron como `duplicate` (248/292 y 395/535) porque recibieron un 503, no porque se duplicaran: la base no tiene ningún evento repetido.
 - **Los 22 errores 502** se deben a que el supervisor de Uvicorn reinició un proceso que no respondió su chequeo interno en 5 s mientras la CPU estaba saturada (4 reinicios en toda la corrida). Se amplió ese plazo a 30 s (`UVICORN_TIMEOUT_WORKER_HEALTHCHECK`); un bloqueo real lo sigue cubriendo el vigilante.
-- **Memoria justa:** OSRM ocupa ~530 MB de los 892 MB de la VM y quedó en swap durante la prueba; los dos procesos del backend llegaron a 230 MB.
+- **Memoria:** la VM usó hasta ~700 de sus 892 MB y recurrió al swap. Los dos procesos del backend llegaron a 230 MB, PostgreSQL a 89 MB y la web a 87 MB; OSRM, con el extracto actual de 1,3 MB, nunca pasó de 1 MB.
 
 **Consultas con datos densos.** Esta vez las consultas empezaron justo después del escalón de 200 msg/s. Con una ventana de 3 minutos, cada consulta procesó en promedio 220 detecciones candidatas (antes, 5,6):
 

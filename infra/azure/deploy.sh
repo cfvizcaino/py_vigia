@@ -3,7 +3,8 @@
 # Uso: deploy.sh HOST COMANDO
 #   bootstrap   instala Docker y swap (una vez)
 #   push        emergencia: sube imágenes compiladas en este PC (pausa antes el autodeploy)
-#   sync        copia compose, Caddyfile, grafo OSRM, autodeploy y scripts de respaldo
+#   sync        copia compose, Caddyfile, autodeploy, vigilante y scripts de respaldo
+#   osrm REL    sube la release de grafo infra/osrm/releases/REL a $app/osrm/REL
 #   autodeploy  instala el timer que despliega lo que CI publica en GHCR desde main
 #               y el vigilante que reinicia backend/web si quedan unhealthy
 #   pause|resume  detiene o reanuda el autodeploy (p. ej. durante un push manual)
@@ -51,9 +52,19 @@ case "$command" in
     ;;
   sync)
     scp "${ssh_opts[@]}" "$root_dir/infra/azure/compose.yaml" "$root_dir/infra/azure/Caddyfile" "vigia@$host:$app/"
-    scp "${ssh_opts[@]}" "$root_dir"/infra/osrm/data/region.osrm* "vigia@$host:$app/osrm/"
     scp "${ssh_opts[@]}" "$root_dir/infra/postgres/backup.sh" "$root_dir/infra/postgres/restore-check.sh" \
       "$root_dir/infra/azure/autodeploy.sh" "$root_dir/infra/azure/watchdog.sh" "vigia@$host:$app/"
+    ;;
+  osrm)
+    # Sube una release de infra/osrm/releases/<nombre> a $app/osrm/<nombre> sin tocar la activa.
+    release="${3:?Falta la release, p. ej. metro-20261012}"
+    src="$root_dir/infra/osrm/releases/$release"
+    [[ -e "$src/region.osrm.mldgr" ]] || { echo "Falta el grafo procesado en $src (prepare.sh)" >&2; exit 1; }
+    remote "mkdir -p $app/osrm/$release"
+    scp "${ssh_opts[@]}" "$src"/region.osrm.* "vigia@$host:$app/osrm/$release/"
+    # osrm-routed runs without capabilities: the files must be world-readable.
+    remote "chmod 755 $app/osrm $app/osrm/$release && chmod 644 $app/osrm/$release/region.osrm.*"
+    echo "Subida. Actívala con VIGIA_OSRM_RELEASE=$release en $app/.env (o el valor por defecto del compose) y: deploy.sh $host up"
     ;;
   autodeploy)
     scp "${ssh_opts[@]}" "$root_dir/infra/azure/autodeploy.sh" "$root_dir/infra/azure/watchdog.sh" \

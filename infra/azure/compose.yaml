@@ -73,9 +73,13 @@ services:
 
   osrm:
     image: ghcr.io/project-osrm/osrm-backend:v6.0.0
-    command: ["osrm-routed", "--algorithm", "mld", "/data/region.osrm"]
+    # --mmap 1: the graph is read through the OS page cache instead of being copied
+    # into process memory (~10 MB RSS for the metropolitan graph), so it never
+    # competes with the backend for the VM's 1 GB.
+    command: ["osrm-routed", "--algorithm", "mld", "--mmap", "1", "/data/region.osrm"]
     volumes:
-      - ./osrm:/data:ro
+      # One folder per graph release (deploy.sh osrm); switch back for rollback.
+      - ./osrm/${VIGIA_OSRM_RELEASE:-metro-20261012}:/data:ro
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
