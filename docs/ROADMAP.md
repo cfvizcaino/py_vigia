@@ -19,7 +19,7 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 5 | P0.5 Actualización y rollback | **Cumplido (11/10).** CI en GitHub Actions; imágenes en GHCR; el servidor despliega solo, migra, verifica salud y vuelve a la versión anterior si falla | Versión válida activa; versión defectuosa revierte automáticamente |
 | 6 | P1.1 Evaluación independiente | Pendiente; existe el dataset sintético de puntajes como base | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Aprobado con nodo simulado (08/10: 248/248 eventos, 0 duplicados); la Tapo real ya corrió 8 h contra Azure. Falta repetir el corte de 5 min con la cámara real | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
-| 8 | P1.3 Carga y observabilidad | Pendiente | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
+| 8 | P1.3 Carga y observabilidad | **Carga medida (12/10)** hasta 100 nodos simulados en Azure: cumple con 4–50 nodos y satura desde 50 msg/s; falta la observabilidad (métricas agregadas) | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
 | 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color del vehículo y seguimiento sin fragmentar. Siguiente: placas (detector + OCR) | Cada etapa medida con prueba de sitio y documentada |
 
 ## Hitos cumplidos
@@ -42,9 +42,12 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 12/10 | Color del vehículo en teléfono y nodo PC: 91,6 % en la prueba de sitio, votado entre cuadros ([detalle](./modeling/vehicle-color.md)) | #22 |
 | 12/10 | Seguimiento sin fragmentar: el teléfono baja de 74 a 23 tracks/min y el color llega al 86 % de los vehículos ([detalle](./modeling/tracking.md)) | #23 |
 | 12/10 | APK 1.2.0 publicado en `/descargar` | — |
+| 12/10 | Benchmark de carga en Azure: 25 msg/s (50 nodos) con p95 de 152 ms, 0 pérdidas y 0 duplicados; consultas con p95 de 1,0 s con 10 operadores; reinicio bajo carga sin pérdidas. Hallazgo: a 200 msg/s el backend se bloquea y no se recupera solo ([evidencia](./evidence/benchmark-azure-20261012.md)) | — |
+| 12/10 | Análisis de sensibilidad de umbrales y pesos del puntaje ([evidencia](./evidence/sensibilidad-puntaje-20261012.md)); segundo informe actualizado | — |
 
 ## Orden de ejecución siguiente
 
+1. **Robustez del backend ante sobrecarga** (hallazgo del benchmark): pool que falla rápido con 503, concurrencia acotada, varios procesos y reinicio automático si el chequeo de salud falla; repetir la escalada.
 1. **Consulta por color tolerante a desconocidos.** Que una búsqueda por color no descarte las detecciones sin color (la reconstrucción ya las trata como coincidencia débil).
 2. **Placas.** Detector de placas medido con datos del sitio, OCR para placas colombianas y votación del texto por track; primero en el nodo PC y luego en el teléfono.
 3. **Retención de eventos crudos** y heartbeat más espaciado sin vehículos, antes de sumar muchas cámaras (≈160 MB/día con 10 cámaras).
