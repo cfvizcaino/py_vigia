@@ -76,4 +76,5 @@ az network nsg rule update -g vigia-rg --nsg-name vigia-centralNSG -n ssh-solo-a
 
 - Aprobación de los tutores sobre el alojamiento de datos fuera de Colombia (Ley 1581).
 - Límite de peticiones por IP en Caddy; hoy existe el bloqueo por cuenta del login.
+- Tras un cambio en `compose.yaml` (por ejemplo `WEB_CONCURRENCY`): `deploy.sh $H sync` y `deploy.sh $H up`; no es automático.
 - Si crece el uso, cambiar el tamaño de la VM (por ejemplo, B2als v2 con 4 GB) sin perder el disco.

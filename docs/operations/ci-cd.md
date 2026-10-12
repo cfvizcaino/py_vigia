@@ -36,6 +36,20 @@ Cada despliegue queda en `/opt/vigia/deploy.log` con el commit (`org.opencontain
 
 Probado en local contra un registro propio: primer despliegue, sin cambios, versión sana, versión que no queda sana, migración rota, salto de la versión fallida y recuperación con una versión nueva.
 
+### Vigilante de salud
+
+Docker marca un servicio `unhealthy` cuando su HEALTHCHECK falla tres veces seguidas, pero Compose no lo reinicia. `infra/azure/watchdog.sh` (`vigia-watchdog.timer`, cada minuto) reinicia backend o web si los ve `unhealthy` y lo anota en `deploy.log`. Comparte el candado del autodeploy, así que nunca actúa durante un despliegue, y no toca el estado `starting`. Se instala junto con el autodeploy (`deploy.sh $H autodeploy`).
+
+### Sobrecarga
+
+En el [benchmark del 12/10/2026](../evidence/benchmark-azure-20261012.md), a 200 msg/s el backend aceptaba todas las peticiones; cada una esperaba hasta 30 s por una conexión del pool y la cola nunca se vaciaba, ni siquiera sin carga. Ahora (`vigia_backend/overload.py`):
+
+- cada proceso atiende a lo sumo `MAX_IN_FLIGHT` peticiones (20) y responde **503 con `Retry-After`** a las demás, sin encolarlas (`/health` está exento);
+- el pool espera como máximo `DB_POOL_TIMEOUT` (5 s; antes 30) y, si se agota, responde 503 en lugar de 500;
+- en Azure corren dos procesos (`WEB_CONCURRENCY=2`), cada uno con `DB_POOL_SIZE=5` + `DB_MAX_OVERFLOW=5` conexiones (20 en total, frente a `max_connections=40` de PostgreSQL).
+
+Los edges reintentan los 5xx con retroceso y su cola en disco, así que un 503 no pierde eventos.
+
 ### Regla para migraciones: solo expandir
 
 Al volver atrás se restaura el código, no la base. Por eso cada migración debe ser compatible con el código anterior: agregar tablas, columnas que admitan nulos o índices. Para borrar o renombrar se hace en dos versiones: primero el código deja de usar la columna y en un despliegue posterior la migración la borra.
