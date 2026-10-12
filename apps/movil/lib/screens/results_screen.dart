@@ -178,7 +178,12 @@ class _RouteDetails extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${vehicleLabel(route.vehicleType)} · ${colorLabel(route.color)} · ${route.cameraIds.join(' → ')}',
+              '${vehicleLabel(route.vehicleType)} · ${colorLabel(route.color)} · ${route.cameraIds.join(' → ')}'
+              '${switch (route.unknownColorSteps) {
+                0 => '',
+                1 => ' · 1 paso sin color confirmado',
+                final n => ' · $n pasos sin color confirmado',
+              }}',
               style: const TextStyle(color: Color(0xFFB7C2BA)),
             ),
             if (route.hasDistantGaps) ...[
@@ -293,7 +298,7 @@ class _TimelineItem extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 Text(
-                  '${formatBogota(detection.observedAt)} · ${colorLabel(detection.color)} · confianza de detección ${(detection.confidence * 100).round()}%',
+                  '${formatBogota(detection.observedAt)} · ${detection.color == null ? 'color sin confirmar' : colorLabel(detection.color)} · confianza de detección ${(detection.confidence * 100).round()}%',
                   style: const TextStyle(
                     color: Color(0xFFB7C2BA),
                     fontSize: 12,

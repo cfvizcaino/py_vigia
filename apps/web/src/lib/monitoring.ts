@@ -48,6 +48,8 @@ export type CandidateRoute = {
     geometric_mean: number;
     coverage_bonus: number;
     search_pruned: boolean;
+    /** Steps with a voted colour vs unknown ones (joined only by time and road). */
+    color_evidence?: { known: number; unknown: number };
     segments: {
       from_camera: string; to_camera: string; option_index: number;
       distance_m: number; observed_seconds: number; expected_seconds: number;
@@ -110,3 +112,9 @@ export type Scenario = {
   vehicle_type: "car" | "motorcycle" | null;
   color: string | null;
 };
+
+/** "· 1 paso sin color confirmado", or "" when every step has a colour. */
+export function unknownColorNote(route: Pick<CandidateRoute, "explanation">): string {
+  const unknown = route.explanation?.color_evidence?.unknown ?? 0;
+  return unknown ? ` · ${unknown} ${unknown === 1 ? "paso" : "pasos"} sin color confirmado` : "";
+}

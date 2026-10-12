@@ -191,3 +191,46 @@ def test_bounded_search_discloses_pruning_and_is_deterministic():
     routes = reconstruct_routes(points, links, config=config)
     assert routes[0].explanation["search_pruned"] is True
     assert routes == reconstruct_routes(list(reversed(points)), links, config=config)
+
+
+def test_color_query_keeps_steps_whose_color_is_unknown() -> None:
+    """El edge deja el color en null si no es claro: ese paso no debe cortar la ruta."""
+    detections = [
+        _det("w1", "CAM-01", "car", "white", "izquierda-a-derecha", 0.0),
+        _det("w2", "CAM-02", "car", None, "izquierda-a-derecha", 0.9),
+        _det("w3", "CAM-03", "car", "white", "izquierda-a-derecha", 3.6),
+    ]
+
+    routes = {r.detection_ids: r for r in reconstruct_routes(detections, LINKS, vehicle_type="car", color="white")}
+
+    full = routes[("w1", "w2", "w3")]
+    assert full.color == "white"
+    assert full.explanation["color_evidence"] == {"known": 2, "unknown": 1}
+
+
+def test_color_query_needs_the_color_at_least_once_and_rejects_other_colors() -> None:
+    unknown_only = [
+        _det("u1", "CAM-01", "car", None, "izquierda-a-derecha", 0.0),
+        _det("u2", "CAM-02", "car", None, "izquierda-a-derecha", 0.9),
+    ]
+    red_then_unknown = [
+        _det("r1", "CAM-01", "car", "red", "izquierda-a-derecha", 0.0),
+        _det("r2", "CAM-02", "car", None, "izquierda-a-derecha", 0.9),
+    ]
+
+    assert reconstruct_routes(unknown_only, LINKS, color="white") == []
+    assert reconstruct_routes(red_then_unknown, LINKS, color="white") == []
+    assert reconstruct_routes(unknown_only, LINKS)  # "Todos los colores" sigue igual.
+
+
+def test_known_color_outranks_an_unknown_step() -> None:
+    detections = [
+        _det("a", "CAM-01", "car", "white", "izquierda-a-derecha", 0.0),
+        _det("known", "CAM-02", "car", "white", "izquierda-a-derecha", 0.9),
+        _det("unknown", "CAM-02", "car", None, "izquierda-a-derecha", 0.9),
+    ]
+
+    routes = reconstruct_routes(detections, LINKS, color="white")
+
+    assert [r.detection_ids for r in routes[:2]] == [("a", "known"), ("a", "unknown")]
+    assert routes[0].confidence > routes[1].confidence
