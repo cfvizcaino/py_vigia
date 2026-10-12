@@ -46,6 +46,9 @@ services:
       INGEST_AUTH_MODE: device
       CORS_ORIGINS: https://${VIGIA_DOMAIN}
       USER_SESSION_HOURS: "8"
+      # Two Uvicorn processes for the 2 vCPU. Per process: up to 20 requests at a time
+      # (the rest get 503 at once) and 5+5 connections that wait at most 5 s (overload.py).
+      WEB_CONCURRENCY: "2"
     volumes:
       - backend-data:/app/data
     restart: unless-stopped

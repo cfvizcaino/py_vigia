@@ -1,0 +1,9 @@
+[Unit]
+Description=VIGIA: revisa la salud de backend y web cada minuto
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1min
+
+[Install]
+WantedBy=timers.target

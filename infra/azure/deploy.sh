@@ -5,6 +5,7 @@
 #   push        emergencia: sube imágenes compiladas en este PC (pausa antes el autodeploy)
 #   sync        copia compose, Caddyfile, grafo OSRM, autodeploy y scripts de respaldo
 #   autodeploy  instala el timer que despliega lo que CI publica en GHCR desde main
+#               y el vigilante que reinicia backend/web si quedan unhealthy
 #   pause|resume  detiene o reanuda el autodeploy (p. ej. durante un push manual)
 #   deploys     últimos despliegues automáticos
 #   up          crea .env si falta (contraseña generada en el servidor), arranca y migra
@@ -52,15 +53,17 @@ case "$command" in
     scp "${ssh_opts[@]}" "$root_dir/infra/azure/compose.yaml" "$root_dir/infra/azure/Caddyfile" "vigia@$host:$app/"
     scp "${ssh_opts[@]}" "$root_dir"/infra/osrm/data/region.osrm* "vigia@$host:$app/osrm/"
     scp "${ssh_opts[@]}" "$root_dir/infra/postgres/backup.sh" "$root_dir/infra/postgres/restore-check.sh" \
-      "$root_dir/infra/azure/autodeploy.sh" "vigia@$host:$app/"
+      "$root_dir/infra/azure/autodeploy.sh" "$root_dir/infra/azure/watchdog.sh" "vigia@$host:$app/"
     ;;
   autodeploy)
-    scp "${ssh_opts[@]}" "$root_dir/infra/azure/autodeploy.sh" "$root_dir"/infra/azure/systemd/vigia-autodeploy.* "vigia@$host:$app/"
-    remote "set -e; chmod 755 $app/autodeploy.sh
-      sudo install -m 644 $app/vigia-autodeploy.service $app/vigia-autodeploy.timer /etc/systemd/system/
-      rm $app/vigia-autodeploy.service $app/vigia-autodeploy.timer
-      sudo systemctl daemon-reload && sudo systemctl enable --now vigia-autodeploy.timer
-      systemctl list-timers vigia-autodeploy.timer --no-pager | sed -n 1,2p"
+    scp "${ssh_opts[@]}" "$root_dir/infra/azure/autodeploy.sh" "$root_dir/infra/azure/watchdog.sh" \
+      "$root_dir"/infra/azure/systemd/vigia-autodeploy.* "$root_dir"/infra/azure/systemd/vigia-watchdog.* "vigia@$host:$app/"
+    remote "set -e; chmod 755 $app/autodeploy.sh $app/watchdog.sh
+      sudo install -m 644 $app/vigia-autodeploy.service $app/vigia-autodeploy.timer \
+        $app/vigia-watchdog.service $app/vigia-watchdog.timer /etc/systemd/system/
+      rm $app/vigia-autodeploy.service $app/vigia-autodeploy.timer $app/vigia-watchdog.service $app/vigia-watchdog.timer
+      sudo systemctl daemon-reload && sudo systemctl enable --now vigia-autodeploy.timer vigia-watchdog.timer
+      systemctl list-timers 'vigia-*' --no-pager | sed -n 1,3p"
     ;;
   pause)
     remote "sudo systemctl stop vigia-autodeploy.timer && echo 'Autodeploy en pausa'"
