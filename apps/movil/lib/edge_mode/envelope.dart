@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'tracker.dart';
 
-const edgeNodeVersion = 'movil-1.2.0';
+const edgeNodeVersion = 'movil-1.3.0';
 
 /// RFC 4122 version 4 identifier from a secure random source.
 String uuidV4([Random? random]) {
