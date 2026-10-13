@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../app_update.dart';
+import '../app_update_prompt.dart';
 import '../camera_mode/frame_encoder.dart';
 import '../session.dart';
 import 'colors.dart';
@@ -331,6 +333,8 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
             stats: stats,
             cameraFrames: _cameraFrames,
             colorsEnabled: _colors != null,
+            updateLevel: ref.watch(appUpdateProvider).level,
+            onUpdate: () => showAppUpdateDialog(context, ref),
           ),
         if (_error != null) ...[
           const SizedBox(height: 10),
@@ -479,11 +483,15 @@ class _EdgeStatusCard extends StatelessWidget {
     required this.stats,
     required this.cameraFrames,
     required this.colorsEnabled,
+    required this.updateLevel,
+    required this.onUpdate,
   });
 
   final EdgeStats stats;
   final int cameraFrames;
   final bool colorsEnabled;
+  final UpdateLevel updateLevel;
+  final VoidCallback onUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -552,6 +560,10 @@ class _EdgeStatusCard extends StatelessWidget {
               style: const TextStyle(color: Color(0xFFFFE1B0), fontSize: 12),
             ),
           ],
+          EdgeUpdateNotice(
+            level: updateLevel,
+            onUpdate: updateLevel == UpdateLevel.none ? null : onUpdate,
+          ),
         ],
       ),
     );

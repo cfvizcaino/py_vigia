@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'app_update_prompt.dart';
 import 'screens/cameras_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/login_screen.dart';
@@ -62,7 +63,7 @@ class VigiaApp extends StatelessWidget {
         behavior: SnackBarBehavior.floating,
       ),
     ),
-    home: const ApplicationRoot(),
+    home: const AppUpdateHost(child: ApplicationRoot()),
   );
 }
 

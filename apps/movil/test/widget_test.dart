@@ -5,9 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:movil/api_client.dart';
 import 'package:movil/app.dart';
+import 'package:movil/app_update_prompt.dart';
 import 'package:movil/models.dart';
 import 'package:movil/screens/cameras_screen.dart';
 import 'package:movil/session.dart';
+
+class _QuietUpdates extends AppUpdateController {
+  @override
+  Future<void> check({bool opened = false}) async {}
+}
 
 class _MemoryTokenStore implements TokenStore {
   @override
@@ -35,6 +41,7 @@ void main() {
         overrides: [
           preferencesProvider.overrideWithValue(preferences),
           tokenStoreProvider.overrideWithValue(_MemoryTokenStore()),
+          appUpdateProvider.overrideWith(_QuietUpdates.new),
         ],
         child: const VigiaApp(),
       ),
