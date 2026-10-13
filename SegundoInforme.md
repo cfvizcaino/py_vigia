@@ -1,7 +1,5 @@
 # Segundo informe - VIGIA
 
-**Versión revisada: 12 de octubre de 2026.** Actualiza el corte del 23 de septiembre con lo implementado y medido hasta esta fecha, y atiende las observaciones de la revisión: citas internas para el contrato, el algoritmo y los componentes; justificación de los umbrales de 500 m, 2 km y 8–70 km/h; evidencia por fila en la tabla del estado del arte; y un benchmark bajo carga controlada de la alternativa seleccionada, con umbrales de aceptación. Lo que todavía no puede medirse se declara como tal en la sección 9.5.
-
 ## Resumen
 
 VIGIA aborda la dificultad de reconstruir el recorrido probable de un vehículo cuando las cámaras residenciales o comunitarias funcionan como sistemas aislados. La consulta manual de múltiples grabaciones consume tiempo, mientras que la centralización permanente de video aumenta el uso de red, almacenamiento y exposición de datos personales. La propuesta adopta una arquitectura híbrida: cada nodo remoto procesa el video cerca de la cámara y la plataforma central recibe solo metadatos normalizados para consultar detecciones y estimar trayectorias, sin presentar el resultado como una identificación infalible.
@@ -185,8 +183,6 @@ La deuda de entorno del corte anterior —pruebas HTTP del backend bloqueadas co
 Cada experimento declara su escenario, su métrica, su umbral y un artefacto reproducible en `docs/evidence`. Los resultados negativos se conservan, como la falta de diversidad del top-k en hora pico (sección 13.3). Antes de usar video real se trabajó con cámaras propias y sin publicar imágenes; los datasets de terceros se usan solo para investigación y no se redistribuyen [39].
 
 # 8. Requerimientos
-
-Los requerimientos se derivan del problema, los objetivos actualizados y la implementación existente. Se redactan de forma verificable, con un criterio de aceptación cada uno. Su estado al 12/10 se marca entre corchetes.
 
 Los requerimientos no funcionales se aplican de manera proporcional a un prototipo académico. No se exige disponibilidad de producción, pero sí recuperación observable; no se exige una auditoría de seguridad, pero sí secretos fuera del repositorio y control de acceso; no se exige carga masiva, pero sí medir la carga esperada y documentar el punto de saturación (sección 9.3).
 
