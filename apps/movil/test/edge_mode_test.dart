@@ -600,6 +600,54 @@ void main() {
     expect(engine.stats.inferenceMs, 30);
   });
 
+  test('sin vehículos el latido espera y con vehículos vuelve a los 2 s', () async {
+    final directory = await Directory.systemTemp.createTemp('vigia-idle');
+    addTearDown(() => directory.delete(recursive: true));
+    var now = DateTime.utc(2026, 10, 12, 12);
+    List<Map<String, dynamic>> queued() {
+      final events = [
+        for (final entity in directory.listSync())
+          if (entity.path.endsWith('.json'))
+            jsonDecode(File(entity.path).readAsStringSync()) as Map<String, dynamic>,
+      ]..sort(
+        (a, b) => (a['sequenceNumber'] as int).compareTo(b['sequenceNumber'] as int),
+      );
+      return events;
+    }
+    final engine = EdgeEngine(
+      cameraId: 'CEL-02',
+      modelName: 'm',
+      modelDigest: null,
+      snapshotInterval: const Duration(seconds: 2),
+      idleSnapshotInterval: const Duration(seconds: 30),
+      clock: () => now,
+      detect: (_) async => (
+        detections: [_car(10, 20)],
+        elapsed: Duration.zero,
+      ),
+      outbox: Outbox(
+        directory: directory,
+        serverUrl: 'https://central.example',
+        token: 't',
+      ),
+    );
+    await engine.snapshot();
+    now = now.add(const Duration(seconds: 2));
+    await engine.snapshot();
+    expect(queued(), hasLength(1));
+    now = now.add(const Duration(seconds: 28));
+    await engine.snapshot();
+    expect(queued(), hasLength(2));
+    expect(queued().last['detections'], isEmpty);
+
+    await engine.process(_bgraFrame(2, 2));
+    await engine.process(_bgraFrame(2, 2));
+    now = now.add(const Duration(seconds: 2));
+    await engine.snapshot();
+    expect(queued(), hasLength(3));
+    expect((queued().last['detections'] as List), isNotEmpty);
+  });
+
   test('un fallo o una detección colgada no bloquean el motor', () async {
     final directory = await Directory.systemTemp.createTemp('vigia-engine');
     addTearDown(() => directory.delete(recursive: true));

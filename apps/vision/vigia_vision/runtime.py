@@ -14,6 +14,7 @@ from .events import (
     TrackState,
     build_snapshot,
     publishable,
+    snapshot_due,
     update_tracks,
     utc_now,
     write_snapshot_payload,
@@ -314,7 +315,13 @@ class VisionRuntime:
                         if save_plate_capture(frame, detection, self.settings.plate_output, self.settings.camera_id, cv2):
                             self._captured_plate_tracks.add(detection.track_id)
 
-                    if now_monotonic - last_write >= 2:
+                    visible = publishable(tracks_copy, self.settings.confidence)
+                    if snapshot_due(
+                        now_monotonic - last_write,
+                        has_vehicles=bool(visible),
+                        active_s=self.settings.snapshot_interval_s,
+                        idle_s=self.settings.idle_snapshot_interval_s,
+                    ):
                         self._emit_snapshot(frame_number, tracks_copy)
                         last_write = now_monotonic
             except Exception:

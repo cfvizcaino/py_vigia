@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -9,7 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import Detection, Device, EdgeObservation, IngestedEvent
+from .retention import purge_raw_events
 from .schemas import DetectionEnvelopeV11
+
+_purge_lock = threading.Lock()
+_next_purge = 0.0
 
 
 class DeviceNotFoundError(ValueError):
@@ -28,8 +34,25 @@ class IngestionResult:
     updated_detections: int
 
 
+def maybe_purge_raw_events(db: Session) -> None:
+    """Como mucho una vez por hora y por proceso. Un fallo aquí no rechaza el evento."""
+    global _next_purge
+    now = time.monotonic()
+    if now < _next_purge:
+        return
+    with _purge_lock:
+        if time.monotonic() < _next_purge:
+            return
+        _next_purge = time.monotonic() + 3600
+    try:
+        purge_raw_events(db)
+    except Exception:
+        db.rollback()
+
+
 def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> IngestionResult:
     """Inserta un evento una vez y actualiza tracks repetidos sin duplicarlos."""
+    maybe_purge_raw_events(db)
     device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
     if device is None:
         raise DeviceNotFoundError(f"Unknown cameraId: {payload.camera_id}")
