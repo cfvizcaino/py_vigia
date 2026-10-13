@@ -104,7 +104,7 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 ```bash
 flutter build apk --release --target-platform android-arm,android-arm64 \
     --dart-define=VIGIA_DEFAULT_API=https://vigia-5dfe.mexicocentral.cloudapp.azure.com
-bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.2.0
+bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.3.0
 # Obligar a quien quedó por debajo de un cambio de contrato:
 #   deploy.sh HOST apk ARCHIVO 1.3.0 1.3.0
 # Notas del aviso: VIGIA_APK_NOTES="…"
