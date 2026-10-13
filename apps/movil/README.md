@@ -90,7 +90,7 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 
 ## Comportamiento
 
-- Endpoints usados: `/api/v1/auth/login`, `/auth/me`, `/auth/logout`, `/devices` (lectura; creación solo admin), `/queries`, `/scenarios`, `POST /queries/{id}/export` y, para admin, `/admin/credentials` y `/admin/devices/{id}/credentials`.
+- Endpoints usados: `/api/v1/auth/login`, `/auth/me`, `/auth/logout`, `/app/version` (público, al abrir y una vez al día), `/devices` (lectura; creación solo admin), `/queries`, `/scenarios`, `POST /queries/{id}/export` y, para admin, `/admin/credentials` y `/admin/devices/{id}/credentials`.
 - Cada petición tiene un límite de 15 s. Un 401 borra el token y vuelve al inicio de sesión; 403, 404, 422, 429 y 5xx muestran mensajes en español.
 - Los horarios se eligen y se muestran en hora de Colombia (UTC−5, sin horario de verano) y viajan al backend en UTC, sin importar la zona horaria del teléfono.
 - La exportación se comparte solo después de pedir al backend el JSON auditado.
@@ -105,7 +105,12 @@ Las pruebas cubren el cliente HTTP (login, Bearer, 401, *timeouts*, mensajes de 
 flutter build apk --release --target-platform android-arm,android-arm64 \
     --dart-define=VIGIA_DEFAULT_API=https://vigia-5dfe.mexicocentral.cloudapp.azure.com
 bash infra/azure/deploy.sh vigia-5dfe.mexicocentral.cloudapp.azure.com apk build/app/outputs/flutter-apk/app-release.apk 1.2.0
+# Obligar a quien quedó por debajo de un cambio de contrato:
+#   deploy.sh HOST apk ARCHIVO 1.3.0 1.3.0
+# Notas del aviso: VIGIA_APK_NOTES="…"
 ```
+
+Al abrir, la app compara su versión con `GET /api/v1/app/version`. Si hay una más nueva, avisa y se puede posponer; si la instalada es menor que `minimum`, el aviso no se puede cerrar. "Actualizar" descarga el APK, comprueba el SHA-256 y abre el instalador de Android. La misma llave de firma (`applicationId` `co.vigia.movil`) lo instala encima y conserva los datos. El edge del teléfono muestra el mismo aviso en su tarjeta de estado. No hay notificaciones push.
 
 - Solo ARM (arm64 y armv7, todos los teléfonos reales): quitar x86_64, que sirve solo a emuladores, baja el APK unos 21 MB (hoy 76 MB con los modelos de vehículos, 10 MB, y de color, 6 MB).
 - Ícono: `assets/icon/` y `dart run flutter_launcher_icons`.

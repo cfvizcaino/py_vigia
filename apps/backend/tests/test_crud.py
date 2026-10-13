@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import unittest
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -106,6 +108,24 @@ class DevicesDetectionsCrudTests(unittest.TestCase):
             },
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_creating_or_moving_a_camera_syncs_its_road_links(self) -> None:
+        synced = {"directed_pairs": 2, "alternatives": 2, "beyond_max_link_m": []}
+        with patch.dict(os.environ, {"ROAD_ROUTER_URL": "http://osrm:5000"}), patch(
+            "vigia_backend.routers.devices.sync_registered_device", return_value=synced
+        ) as sync:
+            created = self.client.post("/api/v1/devices", json={
+                "external_id": "CEL-05", "name": "Nueva", "kind": "physical", "status": "offline",
+                "lat": 11.01, "lng": -74.82,
+            })
+            self.assertEqual(created.status_code, 201)
+            self.assertEqual(sync.call_count, 1)
+            renamed = self.client.patch(f"/api/v1/devices/{created.json()['id']}", json={"name": "Otro nombre"})
+            self.assertEqual(renamed.status_code, 200)
+            self.assertEqual(sync.call_count, 1)
+            moved = self.client.patch(f"/api/v1/devices/{created.json()['id']}", json={"lat": 11.02})
+            self.assertEqual(moved.status_code, 200)
+            self.assertEqual(sync.call_count, 2)
 
 
 if __name__ == "__main__":

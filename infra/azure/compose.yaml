@@ -46,6 +46,9 @@ services:
       INGEST_AUTH_MODE: device
       CORS_ORIGINS: https://${VIGIA_DOMAIN}
       USER_SESSION_HOURS: "8"
+      ROAD_ROUTER_URL: http://osrm:5000
+      APP_VERSION_FILE: /app/app-version.json
+      RAW_EVENT_RETENTION_DAYS: "7"
       # Two Uvicorn processes for the 2 vCPU. Per process: up to 20 requests at a time
       # (the rest get 503 at once) and 5+5 connections that wait at most 5 s (overload.py).
       WEB_CONCURRENCY: "2"
@@ -56,6 +59,8 @@ services:
       UVICORN_TIMEOUT_WORKER_HEALTHCHECK: "30"
     volumes:
       - backend-data:/app/data
+      # Written by deploy.sh apk; read on each GET /api/v1/app/version (no image rebuild).
+      - ./descargas/app-version.json:/app/app-version.json:ro
     restart: unless-stopped
     depends_on:
       db:

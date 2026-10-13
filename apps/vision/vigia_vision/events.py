@@ -58,6 +58,11 @@ def publishable(tracks: dict[int, TrackState], min_confidence: float) -> dict[in
     return {key: track for key, track in tracks.items() if track.confidence >= min_confidence}
 
 
+def snapshot_due(elapsed_s: float, *, has_vehicles: bool, active_s: float = 2.0, idle_s: float = 30.0) -> bool:
+    """Con vehículos el latido sigue cada 2 s. Sin ellos se espacia, para no llenar la base."""
+    return elapsed_s >= (active_s if has_vehicles else idle_s)
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 

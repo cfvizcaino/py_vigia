@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..auth import Principal, audit, require_admin, require_operator
 from ..db import get_db
 from ..models import Device
+from ..road_network import sync_registered_device
 from ..schemas import DeviceCreate, DeviceRead, DeviceUpdate
 
 router = APIRouter(prefix="/api/v1/devices", tags=["devices"], dependencies=[Depends(require_operator)])
@@ -41,6 +43,7 @@ def create_device(payload: DeviceCreate, principal: Principal = Depends(require_
     audit(db, principal, "device.created", detail={"camera": payload.external_id})
     db.commit()
     db.refresh(device)
+    _sync_links(db, principal, device)
     return device
 
 
@@ -58,6 +61,8 @@ def update_device(
     audit(db, principal, "device.updated", detail={"camera": device.external_id, "fields": sorted(changes)})
     db.commit()
     db.refresh(device)
+    if "lat" in changes or "lng" in changes:
+        _sync_links(db, principal, device)
     return device
 
 
@@ -68,4 +73,19 @@ def delete_device(device_id: uuid.UUID, principal: Principal = Depends(require_a
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
     db.delete(device)
     audit(db, principal, "device.deleted", detail={"camera": device.external_id})
+    db.commit()
+
+
+def _sync_links(db: Session, principal: Principal, device: Device) -> None:
+    """El alta o el traslado no fallan si OSRM no responde: la cámara ya quedó guardada."""
+    try:
+        result = sync_registered_device(db, device)
+    except (httpx.HTTPError, ValueError) as exc:
+        db.rollback()
+        audit(db, principal, "device.links_sync_failed", detail={"camera": device.external_id, "error": str(exc)})
+        db.commit()
+        return
+    if result is None:
+        return
+    audit(db, principal, "device.links_synced", detail={"camera": device.external_id, **result})
     db.commit()

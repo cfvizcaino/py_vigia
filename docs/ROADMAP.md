@@ -14,7 +14,7 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 |---:|---|---|---|
 | 1 | P0.1 Ingestión edge→centro | **Cumplido.** Tapo C110 y teléfonos publican a Azure con token por cámara; sesión continua de 8 h (12/10) sin pérdidas ni duplicados | Un evento real aparece una vez en backend aunque se reenvíe |
 | 2 | P0.2 VPN por nodo edge | WireGuard autogestionado preparado y probado en generador; **no activado**. Los edges publican por HTTPS con token propio, y las cámaras quedan en su red local | Handshake entre redes, cámara privada y aislamiento entre nodos |
-| 3 | P0.3 Ruta ajustada a calles | OSRM v6 en producción (Azure) con el grafo del área metropolitana (12/10) y alternativas ponderadas; falta la sincronización automática de enlaces y la evaluación independiente | La línea sigue la red vial y declara cuándo no pudo hacerlo |
+| 3 | P0.3 Ruta ajustada a calles | OSRM v6 en producción (Azure) con el grafo del área metropolitana (12/10) y alternativas ponderadas. Al registrar o mover una cámara los enlaces de esa cámara se sincronizan solos. Sigue pendiente la evaluación independiente y decidir, con recorridos de campo, el enlace máximo de 2 km (CEL-03 y CEL-04 quedan a 5–7 km) | La línea sigue la red vial y declara cuándo no pudo hacerlo |
 | 4 | P0.4 Autenticación y auditoría | **Cumplido en código y en operación.** Usuarios con `scrypt`, sesiones con bloqueo, roles en backend, auditoría, pantalla de administración y HTTPS público. Faltan las cuentas de operador reales y el límite de peticiones por IP | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | **Cumplido (11/10).** CI en GitHub Actions; imágenes en GHCR; el servidor despliega solo, migra, verifica salud y vuelve a la versión anterior si falla | Versión válida activa; versión defectuosa revierte automáticamente |
 | 6 | P1.1 Evaluación independiente | Pendiente; existe el dataset sintético de puntajes como base | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
@@ -46,23 +46,18 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 12/10 | Robustez ante sobrecarga: descarte de carga con 503, pool que falla rápido, dos procesos y vigilante. La repetición acepta 184 de 200 msg/s sin bloquearse y cumple la latencia hasta 50 msg/s ([evidencia](./evidence/benchmark-azure-20261012.md)) | #27 |
 | 12/10 | Grafo OSRM del área metropolitana (Barranquilla, Soledad, Puerto Colombia con Villa Campestre, Galapa, Malambo), servido con `--mmap` (~1 MB de RAM) y releases versionadas; enlaces de las 5 cámaras reales sincronizados ([detalle](./operations/osrm-self-hosted.md)) | #29 |
 | 12/10 | Análisis de sensibilidad de umbrales y pesos del puntaje ([evidencia](./evidence/sensibilidad-puntaje-20261012.md)); segundo informe actualizado | — |
+| 12/10 | Aviso de actualización de la app (`GET /api/v1/app/version`, escrito por `deploy.sh apk`), sincronización de enlaces al registrar o mover una cámara, retención de eventos crudos (7 días) y latido de 30 s sin vehículos | — |
 
 ## Orden de ejecución siguiente
 
 1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tarda de 6 a 8 s (p95). Generar solo los pares con enlace vial y ventana temporal compatible.
 2. **Placas.** Detector de placas medido con datos del sitio, OCR para placas colombianas y votación del texto por track; primero en el nodo PC y luego en el teléfono.
-3. **Aviso de actualización de la app** (sin MQTT ni push):
-    - `GET /api/v1/app/version` público, con `latest`, `minimum`, URL del APK, SHA-256 y notas; lo actualiza el mismo paso que publica el APK (`deploy.sh apk`).
-    - Al abrir la app (y una vez al día si sigue abierta), compara versiones: aviso opcional si hay una más nueva y obligatorio si la instalada es menor que `minimum` (por ejemplo, tras un cambio de contrato).
-    - "Actualizar" abre la descarga o el instalador, verificando el SHA-256; la firma con la misma llave instala encima sin perder datos.
-    - Es la base del **agente de actualización de los nodos** (objetivo 1): el edge en el teléfono avisa en su tarjeta de estado y, más adelante, se actualiza y verifica su salud como ya lo hace la central.
-    - Las notificaciones push con la app cerrada (Firebase Cloud Messaging / APNs) quedan descartadas por ahora: exigen Google Services y tokens de dispositivo para un aviso que no es urgente.
-4. **Sincronización automática de enlaces viales** al registrar o mover una cámara (hoy `road_network` se ejecuta a mano), y decidir con recorridos de campo el enlace máximo de 2 km: CEL-03 y CEL-04 quedan a 5–7 km del resto.
-5. **Retención de eventos crudos** y heartbeat más espaciado sin vehículos, antes de sumar muchas cámaras (≈160 MB/día con 10 cámaras).
-6. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
-7. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), límite por IP y CSP en Caddy, respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
-8. **Evaluación y escala:** P1.1 con recorridos independientes, diversificación del top-k, corte de 5 min con la cámara real y observabilidad (P1.3).
-9. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
+3. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
+4. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.
+5. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
+6. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), límite por IP y CSP en Caddy, respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
+7. **Evaluación y escala:** P1.1 con recorridos independientes, diversificación del top-k, corte de 5 min con la cámara real y observabilidad (P1.3).
+8. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
 
 ## Detalle de incrementos anteriores
 
@@ -117,4 +112,4 @@ Corte de red de 5 minutos con reinicio del nodo, acuses perdidos y caídas de 15
 
 El algoritmo de correlación decide qué secuencia de cámaras es plausible; OSRM calcula una geometría conducible entre esas cámaras usando la red de OpenStreetMap. Esa línea no demuestra la calle realmente recorrida: representa el camino vial más plausible para visualizar la hipótesis. Cuando OSRM no está disponible, la consola muestra una unión directa discontinua y la etiqueta como estimación.
 
-El backend ya sincroniza `device_links` desde OSRM Route con alternativas, distancias, tiempos y geometría. Se usa Route en lugar de Table para conservar las opciones completas; Table se valida como matriz de referencia. La consola consume la geometría puntuada, no recalcula siempre el camino rápido. Si existen trazas GPS intermedias se evaluará Match. La dirección de imagen se excluye hasta calibrar cámara→vía.
+El backend ya sincroniza `device_links` desde OSRM Route con alternativas, distancias, tiempos y geometría, y lo hace solo al registrar o mover una cámara cuando `ROAD_ROUTER_URL` está definido. Se usa Route en lugar de Table para conservar las opciones completas; Table se valida como matriz de referencia. Los enlaces de más de 2 km se guardan y se anotan, pero el estimador no los usa: CEL-03 y CEL-04 siguen fuera de las rutas hasta un recorrido de campo. La consola consume la geometría puntuada, no recalcula siempre el camino rápido. Si existen trazas GPS intermedias se evaluará Match. La dirección de imagen se excluye hasta calibrar cámara→vía.

@@ -7,6 +7,7 @@ import os
 import httpx
 from sqlalchemy import select
 from .models import Device, DeviceLink, utc_now
+from .routing import RoutingConfig
 
 def fetch_options(client: httpx.Client, origin: Device, destination: Device) -> list[dict]:
     points = [[origin.lng, origin.lat], [destination.lng, destination.lat]]
@@ -37,11 +38,8 @@ def fetch_options(client: httpx.Client, origin: Device, destination: Device) -> 
                         "endpoints": points, "weight_name": route.get("weight_name")})
     return options
 
-def sync_links(db, client, devices):
-    if not 2 <= len(devices) <= 25:
-        raise ValueError("Sincroniza entre 2 y 25 cámaras por lote explícito")
+def _apply(db, staged):
     # Stage all network results first; any failure leaves the database unchanged.
-    staged = [(a, b, fetch_options(client, a, b)) for a in devices for b in devices if a.id != b.id]
     for a, b, options in staged:
         link = db.scalar(select(DeviceLink).where(DeviceLink.from_device_id == a.id, DeviceLink.to_device_id == b.id))
         if link is None:
@@ -52,7 +50,55 @@ def sync_links(db, client, devices):
         link.road_source = "osrm"
         link.road_updated_at = utc_now()
     db.commit()
-    return {"directed_pairs": len(staged), "alternatives": sum(len(options) for _, _, options in staged)}
+
+
+def _summary(staged):
+    # Pairs farther than the estimator's cap are stored and reported. The 2 km
+    # limit stays until a field trip decides (CEL-03 and CEL-04 sit 5–7 km out).
+    cap = RoutingConfig().max_road_m
+    beyond = []
+    for origin, destination, options in staged:
+        if not options:
+            continue
+        nearest = min(option["distance_m"] for option in options)
+        if nearest > cap:
+            beyond.append({"from": origin.external_id, "to": destination.external_id, "distance_m": nearest})
+    return {
+        "directed_pairs": len(staged),
+        "alternatives": sum(len(options) for _, _, options in staged),
+        "beyond_max_link_m": beyond,
+    }
+
+
+def sync_links(db, client, devices):
+    if not 2 <= len(devices) <= 25:
+        raise ValueError("Sincroniza entre 2 y 25 cámaras por lote explícito")
+    staged = [(a, b, fetch_options(client, a, b)) for a in devices for b in devices if a.id != b.id]
+    _apply(db, staged)
+    return _summary(staged)
+
+
+def sync_device(db, client, device, others):
+    """Refresca solo los pares de una cámara registrada o movida."""
+    others = [other for other in others if other.id != device.id]
+    staged = []
+    for other in others:
+        staged.append((device, other, fetch_options(client, device, other)))
+        staged.append((other, device, fetch_options(client, other, device)))
+    _apply(db, staged)
+    return _summary(staged)
+
+
+def sync_registered_device(db, device):
+    """Sincroniza si hay enrutador. Sin URL (pruebas, entorno local) no hace nada."""
+    url = os.getenv("ROAD_ROUTER_URL", "").strip()
+    if not url:
+        return None
+    others = list(db.scalars(select(Device).where(Device.id != device.id)))
+    if not others:
+        return {"directed_pairs": 0, "alternatives": 0, "beyond_max_link_m": []}
+    with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
+        return sync_device(db, client, device, others)
 
 def main():
     from .db import SessionLocal, init_db

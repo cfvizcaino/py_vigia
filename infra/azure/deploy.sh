@@ -11,7 +11,9 @@
 #   deploys     últimos despliegues automáticos
 #   up          crea .env si falta (contraseña generada en el servidor), arranca y migra
 #   restore F   restaura un respaldo pg_dump (-Fc) en el servidor (base vacía)
-#   apk F VER   publica el APK firmado y la página https://HOST/descargar
+#   apk F VER [MIN]  publica el APK firmado, la página https://HOST/descargar y
+#               GET /api/v1/app/version (MIN obliga a quien tenga una versión menor;
+#               si se omite, se conserva el mínimo ya publicado). Notas: VIGIA_APK_NOTES.
 #   status      estado de los servicios
 # Variables: VIGIA_SSH_KEY (por defecto ~/.ssh/vigia_azure), VIGIA_COMPOSE (Docker local).
 set -euo pipefail
@@ -92,6 +94,10 @@ case "$command" in
         printf 'VIGIA_DOMAIN=%s\nVIGIA_DB_PASSWORD=%s\n' '$host' \"\$(openssl rand -hex 24)\" > .env
         echo '.env creado en el servidor (la contraseña no sale de aquí)'
       fi
+      mkdir -p descargas
+      if [ ! -f descargas/app-version.json ]; then
+        printf '%s\n' '{"latest":null,"minimum":null,"apk_url":null,"sha256":null,"notes":"","published_at":null}' > descargas/app-version.json
+      fi
       docker compose up -d db
       docker compose run --rm backend python -m vigia_backend.migrate upgrade
       docker compose up -d
@@ -103,7 +109,7 @@ case "$command" in
     remote "cd $app && docker compose run --rm backend python -m vigia_backend.migrate check && docker compose restart backend >/dev/null && echo 'Base restaurada'"
     ;;
   apk)
-    file="${3:?Falta el APK}"; version="${4:?Falta la versión, p. ej. 1.0.0}"
+    file="${3:?Falta el APK}"; version="${4:?Falta la versión, p. ej. 1.0.0}"; minimum="${5:-}"
     name="vigia-$version.apk"
     sha="$(sha256sum "$file" | cut -d' ' -f1)"; size="$(du -h "$file" | cut -f1)"
     page="$(sed -e "s/{{VERSION}}/$version/g" -e "s/{{SHA256}}/$sha/g" -e "s/{{SIZE}}/$size/g" -e "s/{{FILE}}/$name/g" "$root_dir/infra/azure/descargas/index.html")"
@@ -111,9 +117,21 @@ case "$command" in
     scp "${ssh_opts[@]}" "$file" "vigia@$host:$app/descargas/$name"
     scp "${ssh_opts[@]}" "$root_dir/apps/movil/assets/icon/icon.png" "vigia@$host:$app/descargas/icono.png"
     printf '%s\n' "$page" | remote "cat > $app/descargas/index.html"
+    work="$(mktemp -d)"
+    remote "cat $app/descargas/app-version.json 2>/dev/null || true" > "$work/previous.json"
+    if command -v python3 >/dev/null 2>&1; then py=(python3)
+    elif command -v py >/dev/null 2>&1; then py=(py -3)
+    else echo "Se necesita Python 3 para publicar la versión de la app" >&2; exit 1
+    fi
+    release_args=(--version "$version" --sha256 "$sha" --url "https://$host/descargas/$name" --output "$work/app-version.json" --previous "$work/previous.json")
+    if [ -n "$minimum" ]; then release_args+=(--minimum "$minimum"); fi
+    PYTHONPATH="$root_dir/apps/backend" "${py[@]}" -m vigia_backend.app_release write "${release_args[@]}" >/dev/null
+    scp "${ssh_opts[@]}" "$work/app-version.json" "vigia@$host:$app/descargas/app-version.json"
+    rm -rf "$work"
     # Keep every version; vigia.apk always points to the latest.
     remote "cd $app/descargas && ln -sfn $name vigia.apk && echo '$sha  $name' > $name.sha256 && chmod a+r *"
     echo "Publicado: https://$host/descargar  ($name, SHA-256 $sha)"
+    echo "Aviso: GET https://$host/api/v1/app/version  (hace falta el compose con APP_VERSION_FILE montado)"
     ;;
   status)
     remote "cd $app && docker compose ps --format '{{.Service}}\t{{.Status}}' && free -h | sed -n 2,3p"

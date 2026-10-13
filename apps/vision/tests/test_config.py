@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from vigia_vision.config import Settings
-from vigia_vision.events import TrackState, build_snapshot
+from vigia_vision.events import TrackState, build_snapshot, snapshot_due
 from vigia_vision.plates import plate_class_ids
 from vigia_vision.runtime import VisionRuntime
 from vigia_vision.publisher import SnapshotPublisher
@@ -59,6 +59,11 @@ class SettingsTests(unittest.TestCase):
                 settings = Settings.from_environment()
         self.assertEqual((settings.camera_id, settings.camera_model), ("CEL-01", "OPPO CPH2599"))
         self.assertEqual(settings.source_url(), "http://127.0.0.1:8081/video")
+
+    def test_idle_heartbeat_waits_longer_than_one_with_vehicles(self):
+        self.assertFalse(snapshot_due(2, has_vehicles=False))
+        self.assertTrue(snapshot_due(30, has_vehicles=False))
+        self.assertTrue(snapshot_due(2, has_vehicles=True))
 
     def test_direction_uses_largest_displacement(self):
         track = TrackState(1, "car", 0.9, "start", "end", (10, 10), (90, 20), [0, 0, 10, 10])

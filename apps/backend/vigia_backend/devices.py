@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -57,7 +58,7 @@ def main() -> None:
     create.add_argument("--lng", type=float, required=True)
     create.add_argument("--model", help="Equipo, p. ej. 'OPPO CPH2599'")
     create.add_argument("--kind", choices=("physical", "simulated"), default="physical")
-    move = commands.add_parser("relocate", help="Corrige la ubicación (las rutas viales deben resincronizarse)")
+    move = commands.add_parser("relocate", help="Corrige la ubicación y, si hay OSRM, resincroniza sus enlaces")
     move.add_argument("--camera", required=True)
     move.add_argument("--lat", type=float, required=True)
     move.add_argument("--lng", type=float, required=True)
@@ -74,7 +75,13 @@ def main() -> None:
             device = register(db, args.camera, args.name, args.lat, args.lng, args.model, args.kind) if args.command == "register" \
                 else relocate(db, args.camera, args.lat, args.lng)
             db.commit()
-            print(json.dumps({"camera": device.external_id, "lat": device.lat, "lng": device.lng}))
+            from .road_network import sync_registered_device
+            try:
+                links = sync_registered_device(db, device)
+            except Exception as exc:
+                print(f"Cámara guardada; no se sincronizaron los enlaces: {exc}", file=sys.stderr)
+                links = None
+            print(json.dumps({"camera": device.external_id, "lat": device.lat, "lng": device.lng, "links": links}, ensure_ascii=False))
     except ValueError as exc:
         parser.exit(1, f"No se completó la operación: {exc}\n")
 

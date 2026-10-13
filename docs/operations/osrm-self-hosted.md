@@ -144,7 +144,9 @@ El extracto del 30/09 cubría solo unos 3 × 2,5 km del centro de Barranquilla: 
 | Galapa → Aeropuerto | 19,0 km | 21 min | 3 |
 | Barranquilla (Paseo Bolívar) → Pradomar | 19,5 km | 19 min | 1 |
 
-**Enlaces de las cámaras reales.** Tras el cambio se sincronizaron CAMERA-1 y CEL-01 a CEL-04: 20 pares dirigidos y 27 alternativas. CEL-03 y CEL-04 quedan a 5–7 km por calle del grupo CAMERA-1/CEL-01/CEL-02. Con el enlace máximo de 2 km del estimador, esas parejas no forman rutas: hace falta una cámara intermedia o recalibrar el umbral con recorridos de campo.
+**Enlaces de las cámaras reales.** Tras el cambio se sincronizaron CAMERA-1 y CEL-01 a CEL-04: 20 pares dirigidos y 27 alternativas. CEL-03 y CEL-04 quedan a 5–7 km por calle del grupo CAMERA-1/CEL-01/CEL-02. Con el enlace máximo de 2 km del estimador, esas parejas no forman rutas: hace falta una cámara intermedia o recalibrar el umbral con recorridos de campo. Ese máximo no se cambia hasta tener ese recorrido.
+
+Registrar o mover una cámara (`POST`/`PATCH /api/v1/devices`, o `python -m vigia_backend.devices`) sincroniza solo los pares de esa cámara si `ROAD_ROUTER_URL` está definido (en Azure, `http://osrm:5000`). Si OSRM no responde, la cámara queda guardada y la auditoría anota `device.links_sync_failed`. El lote manual `python -m vigia_backend.road_network` sigue disponible para rehacer un grupo.
 
 ### Publicar o revertir una release
 

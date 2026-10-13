@@ -44,9 +44,19 @@ class EdgeStats {
   final String? lastError;
 }
 
+/// True when the next envelope should be sent. Vehicles keep the short
+/// interval; an empty scene waits for the idle one.
+bool snapshotDue({
+  required Duration elapsed,
+  required bool hasVehicles,
+  required Duration activeEvery,
+  required Duration idleEvery,
+}) => elapsed >= (hasVehicles ? activeEvery : idleEvery);
+
 /// The PC node's loop, on the phone: frame → detect → track, and a snapshot to
-/// the outbox every two seconds (empty ones too, as a heartbeat), exactly like
-/// apps/vision/vigia_vision/runtime.py.
+/// the outbox every two seconds while vehicles are in view. With an empty
+/// scene the heartbeat waits [idleSnapshotInterval] (30 s), same rule as the
+/// PC node, so idle cameras do not fill the central database.
 class EdgeEngine {
   EdgeEngine({
     required this.cameraId,
@@ -57,6 +67,7 @@ class EdgeEngine {
     this.classifyColors,
     IouTracker? tracker,
     this.snapshotInterval = const Duration(seconds: 2),
+    this.idleSnapshotInterval = const Duration(seconds: 30),
     this.detectTimeout = const Duration(seconds: 10),
     DateTime Function()? clock,
   }) : tracker = tracker ?? IouTracker(),
@@ -72,6 +83,7 @@ class EdgeEngine {
   final ClassifyColors? classifyColors;
   final IouTracker tracker;
   final Duration snapshotInterval;
+  final Duration idleSnapshotInterval;
   final Duration detectTimeout;
   final DateTime Function() _clock;
 
@@ -86,6 +98,7 @@ class EdgeEngine {
   int _colorFailures = 0;
   String? _lastError;
   Timer? _timer;
+  DateTime? _lastSnapshotAt;
   List<Detection> latestDetections = const [];
 
   /// Tracks matched in the latest frame, with their voted colour (overlay).
@@ -116,7 +129,7 @@ class EdgeEngine {
     _timer?.cancel();
     _timer = null;
     if (_frames > 0) {
-      await snapshot(); // Final state, as the PC node does on shutdown.
+      await snapshot(force: true); // Final state, as the PC node does on shutdown.
     }
     outbox.stop();
   }
@@ -193,8 +206,21 @@ class EdgeEngine {
     }
   }
 
-  Future<void> snapshot() async {
+  Future<void> snapshot({bool force = false}) async {
     final now = _clock();
+    final active = tracker.active(now);
+    final last = _lastSnapshotAt;
+    if (!force &&
+        last != null &&
+        !snapshotDue(
+          elapsed: now.difference(last),
+          hasVehicles: active.isNotEmpty,
+          activeEvery: snapshotInterval,
+          idleEvery: idleSnapshotInterval,
+        )) {
+      return;
+    }
+    _lastSnapshotAt = now;
     _sequence++;
     await outbox.enqueue(
       buildEnvelope(

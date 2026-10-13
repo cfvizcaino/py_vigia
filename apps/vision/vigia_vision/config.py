@@ -37,6 +37,8 @@ class Settings:
     event_outbox: Path
     event_queue_max: int
     publish_timeout_seconds: float
+    snapshot_interval_s: float = 2.0
+    idle_snapshot_interval_s: float = 30.0
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -65,6 +67,11 @@ class Settings:
         publish_timeout_seconds = float(os.getenv("PUBLISH_TIMEOUT_SECONDS", "10"))
         if publish_timeout_seconds <= 0:
             raise ValueError("PUBLISH_TIMEOUT_SECONDS debe ser mayor que 0")
+
+        snapshot_interval_s = float(os.getenv("SNAPSHOT_INTERVAL_SECONDS", "2"))
+        idle_snapshot_interval_s = float(os.getenv("IDLE_SNAPSHOT_INTERVAL_SECONDS", "30"))
+        if snapshot_interval_s <= 0 or idle_snapshot_interval_s < snapshot_interval_s:
+            raise ValueError("IDLE_SNAPSHOT_INTERVAL_SECONDS debe ser mayor o igual que SNAPSHOT_INTERVAL_SECONDS, y este mayor que 0")
 
         model = os.getenv("YOLO_MODEL", "yolo26n.pt")
 
@@ -98,6 +105,8 @@ class Settings:
             event_outbox=Path(os.getenv("EVENT_OUTBOX", "outputs/outbox")),
             event_queue_max=event_queue_max,
             publish_timeout_seconds=publish_timeout_seconds,
+            snapshot_interval_s=snapshot_interval_s,
+            idle_snapshot_interval_s=idle_snapshot_interval_s,
         )
 
     def source_url(self) -> str:
