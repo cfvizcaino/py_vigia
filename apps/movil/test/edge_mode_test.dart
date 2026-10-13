@@ -640,8 +640,11 @@ void main() {
     expect(queued(), hasLength(2));
     expect(queued().last['detections'], isEmpty);
 
-    await engine.process(_bgraFrame(2, 2));
-    await engine.process(_bgraFrame(2, 2));
+    // process() drops the frame until start(), and start() would deliver the
+    // outbox (these files) and arm a real timer. The snapshot reads the
+    // tracker, so the vehicle is registered here on the fake clock.
+    engine.tracker.update([_car(10, 20)], now);
+    engine.tracker.update([_car(10, 20)], now);
     now = now.add(const Duration(seconds: 2));
     await engine.snapshot();
     expect(queued(), hasLength(3));
