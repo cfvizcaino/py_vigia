@@ -59,3 +59,90 @@ Documentación: <https://www.paddleocr.ai/main/en/version3.x/pipeline_usage/OCR.
 ## Criterio para avanzar
 
 Primero se recolectarán recortes reales sin texto OCR y se revisará visualmente si las placas son legibles. Si la placa no tiene suficiente resolución, ningún cambio de modelo recuperará de forma confiable caracteres que la cámara no capturó; será necesario acercar la cámara, usar `stream1`, reducir el ángulo o mejorar la iluminación.
+
+## Avance del 13/10/2026: detector entrenado con recortes de vehículos
+
+### Por qué fallaba el detector anterior
+
+El nodo busca la placa **dentro del recorte de cada vehículo** (`vigia_vision/plates.py`: margen del 4 % e `imgsz=640`). Los modelos anteriores se entrenaron con **fotogramas completos** a 768–960 px. Una placa de un 4K quedaba de 3 a 10 px y a una escala distinta de la de inferencia. Evaluado sobre recortes de vehículos, el mejor modelo anterior (`pilot-phone-01-30e`) obtuvo **mAP50 0,000**.
+
+### Datos
+
+- **Video propio** `captures/placas.mp4`: 2 min en 4K de una calle residencial de Barranquilla, de día y con la cámara a la altura del peatón. Queda fuera de Git, como todos los datos con placas.
+- **Fotogramas:** `training/prepare_video_frames.py` extrae uno cada 0,5 s (224 en total) y los separa por tiempo, con **4 s de hueco entre tramos** para que un vehículo no quede en dos splits:
+  - entrenamiento: 0–82 s;
+  - validación: 86–100 s;
+  - prueba: 104–120 s.
+- **Pre-etiquetado** con `training/prelabel_plates.py`:
+  - vehículos con YOLO26n;
+  - placas dentro de cada vehículo con el detector público `yolo-v9-s-608-license-plate-end2end` (paquete `fast-alpr`, MIT, solo ONNX, que no ejecuta código al cargarse);
+  - lectura con `fast-plate-ocr`.
+- **Revisión visual** en hojas de contacto:
+  - se rechazaron **41 falsos positivos**: números de puerta de taxi, el número interno de un bus, adhesivos en el frente de motos, luces y fondo;
+  - una segunda pasada con umbral bajo sobre los vehículos sin placa **recuperó 20 placas** omitidas;
+  - resultado: **474 placas revisadas**. La traza de cada decisión queda en `review.json` de la fuente.
+- **Dataset de recortes** con `training/build_plate_crops.py` (`vigia-plate-crops-v1`, junto con los 61 fotogramas 4K de `source_phone_01`):
+  - cada muestra es un vehículo con el mismo margen que en inferencia;
+  - se descartan los vehículos de menos de 150 px, los que tocan el borde del fotograma y los recortes que cortarían una placa;
+  - los vehículos sin placa visible quedan como negativos.
+
+| Split | Recortes | Placas |
+|---|---:|---:|
+| Entrenamiento | 996 | 820 |
+| Validación | 43 | 31 |
+| Prueba | 77 | 48 |
+
+### Entrenamiento y resultado
+
+`training/train_plate_detector.py`: YOLO26n desde los pesos COCO, `imgsz=640`, 30 épocas sin parada temprana (la validación es pequeña y ruidosa) y lote de 8. Tomó unas 4 h en CPU. Se usan los pesos finales, fijados de antemano. Quedan en `apps/vision/models/plate-detector.pt` y se activan con `PLATE_MODEL`.
+
+| Modelo, conjunto de prueba | Precisión | Recall | mAP50 | mAP50-95 |
+|---|---:|---:|---:|---:|
+| Anterior (fotogramas completos) | 0,000 | 0,167 | 0,000 | 0,000 |
+| **Nuevo (recortes de vehículos)** | **0,959** | **0,973** | **0,985** | **0,755** |
+
+**Límite:** la prueba son otros vehículos de la misma escena y la misma cámara. Falta medirlo con otra cámara y otro ángulo (por ejemplo, la Tapo) antes de afirmar que generaliza.
+
+### OCR: cuántos píxeles hacen falta
+
+Se leyeron a mano 30 placas del tramo de prueba, todas con texto verificable por continuidad del vehículo. Se compararon cuatro modelos de `fast-plate-ocr` (lectura exacta de las 6 posiciones):
+
+| Modelo | Total | ≥ 60 px | 45–59 px | 30–44 px |
+|---|---:|---:|---:|---:|
+| `cct-xs-v2-global-model` | 20/30 | **13/14** | **6/7** | 1/8 |
+| `cct-s-v1-global-model` | **21/30** | 12/14 | **6/7** | 3/8 |
+| `global-plates-mobile-vit-v2-model` | 16/30 | 7/14 | 6/7 | 3/8 |
+| `cct-s-v2-global-model` | 15/30 | 8/14 | 5/7 | 2/8 |
+
+(Ancho de la placa en píxeles del fotograma 4K.)
+
+- **Con 45 px o más, el mejor modelo lee la placa completa en el 90 % de los casos** (19/21). Por debajo de 45 px cae a menos del 40 %.
+- **La resolución sobre la placa pesa más que el modelo.** La cámara debe instalarse para que la placa mida al menos ~45 px: en este video, eso corresponde a vehículos a pocos metros.
+- Por eso el nodo usa `cct-xs-v2-global-model`: es el mejor desde 45 px y el más liviano.
+
+### Lectura en el nodo PC (14/10/2026)
+
+`vigia_vision/plate_ocr.py` lee la placa que encuentra `PLATE_MODEL` y llena `licensePlate` del Detection Envelope 1.1:
+
+- **Modelo:** `models/plate-ocr.onnx` (`cct-xs-v2-global` de fast-plate-ocr, MIT, 3,3 MB; licencia en `models/plate-ocr.LICENSE`). Corre con `onnxruntime`. No se instala el paquete `fast-plate-ocr`, que arrastra `opencv-python-headless` y choca con el `opencv-python` del nodo: el pre y posproceso se replican y dan el mismo texto en las 35 placas de prueba (35/35).
+- **Qué se lee:** solo placas de 45 px o más, a lo sumo 3 por cuadro y 6 lecturas por vehículo. Una placa que cae en dos vehículos solapados no se lee.
+- **Qué se acepta:** lecturas con formato colombiano (`ABC123`; motos `ABC12` o `ABC12D`) y todos los caracteres con probabilidad de 0,5 o más.
+- **Voto por track:** la placa se reporta cuando un mismo texto aparece al menos dos veces y no empata con otro. Si no, `licensePlate` queda en `null`: es mejor desconocida que equivocada.
+- **Activación:** `PLATE_OCR_MODEL` (por defecto `models/plate-ocr.onnx`) solo actúa si `PLATE_MODEL` está configurado, y este sigue vacío por defecto. `/status` informa `plateOcrEnabled`.
+
+**Prueba de punta a punta** sobre el tramo de video no usado para entrenar (86–120 s, 1 017 cuadros 4K, mismo flujo que el nodo):
+
+| Medida | Valor |
+|---|---:|
+| Vehículos con placa de 45 px o más | 6 |
+| Vehículos con placa votada | 6 |
+| Placas votadas correctas (verificación visual) | 5 seguras + 1 con la primera letra ambigua (O/Q) |
+| Vehículos con lecturas discrepantes resueltas por el voto | 2 |
+| Costo del OCR por pasada | 1,1 ms |
+| Costo del detector de placas por pasada | 179 ms |
+
+El OCR no pesa; lo que cuesta es el detector de placas sobre cada vehículo (cada `PLATE_EVERY_N_FRAMES` cuadros). La cobertura la limita el tamaño de la placa en la imagen, no el OCR.
+
+**Pendiente en la central:** el backend valida `licensePlate`, pero hoy no lo guarda (`Detection` no tiene la columna). Guardarlo y buscar por placa es una decisión de tratamiento de datos (Ley 1581: finalidad, retención y acceso) que debe tomarse con los asesores antes de implementarse.
+
+Las placas son datos personales (Ley 1581): este documento reporta exactitudes y tamaños, nunca números de placa. Los fotogramas, las etiquetas y las lecturas quedan en `apps/vision/datasets/`, fuera de Git.
