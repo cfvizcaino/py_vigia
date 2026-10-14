@@ -118,6 +118,31 @@ Se leyeron a mano 30 placas del tramo de prueba, todas con texto verificable por
 
 - **Con 45 px o más, el mejor modelo lee la placa completa en el 90 % de los casos** (19/21). Por debajo de 45 px cae a menos del 40 %.
 - **La resolución sobre la placa pesa más que el modelo.** La cámara debe instalarse para que la placa mida al menos ~45 px: en este video, eso corresponde a vehículos a pocos metros.
-- **Siguiente paso:** integrar `cct-xs-v2-global-model` en el nodo, leer solo las placas de 45 px o más y **votar la lectura por track** entre fotogramas, como el color. El texto viaja en `licensePlate` del Detection Envelope 1.1, que ya lo contempla.
+- Por eso el nodo usa `cct-xs-v2-global-model`: es el mejor desde 45 px y el más liviano.
+
+### Lectura en el nodo PC (14/10/2026)
+
+`vigia_vision/plate_ocr.py` lee la placa que encuentra `PLATE_MODEL` y llena `licensePlate` del Detection Envelope 1.1:
+
+- **Modelo:** `models/plate-ocr.onnx` (`cct-xs-v2-global` de fast-plate-ocr, MIT, 3,3 MB; licencia en `models/plate-ocr.LICENSE`). Corre con `onnxruntime`. No se instala el paquete `fast-plate-ocr`, que arrastra `opencv-python-headless` y choca con el `opencv-python` del nodo: el pre y posproceso se replican y dan el mismo texto en las 35 placas de prueba (35/35).
+- **Qué se lee:** solo placas de 45 px o más, a lo sumo 3 por cuadro y 6 lecturas por vehículo. Una placa que cae en dos vehículos solapados no se lee.
+- **Qué se acepta:** lecturas con formato colombiano (`ABC123`; motos `ABC12` o `ABC12D`) y todos los caracteres con probabilidad de 0,5 o más.
+- **Voto por track:** la placa se reporta cuando un mismo texto aparece al menos dos veces y no empata con otro. Si no, `licensePlate` queda en `null`: es mejor desconocida que equivocada.
+- **Activación:** `PLATE_OCR_MODEL` (por defecto `models/plate-ocr.onnx`) solo actúa si `PLATE_MODEL` está configurado, y este sigue vacío por defecto. `/status` informa `plateOcrEnabled`.
+
+**Prueba de punta a punta** sobre el tramo de video no usado para entrenar (86–120 s, 1 017 cuadros 4K, mismo flujo que el nodo):
+
+| Medida | Valor |
+|---|---:|
+| Vehículos con placa de 45 px o más | 6 |
+| Vehículos con placa votada | 6 |
+| Placas votadas correctas (verificación visual) | 5 seguras + 1 con la primera letra ambigua (O/Q) |
+| Vehículos con lecturas discrepantes resueltas por el voto | 2 |
+| Costo del OCR por pasada | 1,1 ms |
+| Costo del detector de placas por pasada | 179 ms |
+
+El OCR no pesa; lo que cuesta es el detector de placas sobre cada vehículo (cada `PLATE_EVERY_N_FRAMES` cuadros). La cobertura la limita el tamaño de la placa en la imagen, no el OCR.
+
+**Pendiente en la central:** el backend valida `licensePlate`, pero hoy no lo guarda (`Detection` no tiene la columna). Guardarlo y buscar por placa es una decisión de tratamiento de datos (Ley 1581: finalidad, retención y acceso) que debe tomarse con los asesores antes de implementarse.
 
 Las placas son datos personales (Ley 1581): este documento reporta exactitudes y tamaños, nunca números de placa. Los fotogramas, las etiquetas y las lecturas quedan en `apps/vision/datasets/`, fuera de Git.

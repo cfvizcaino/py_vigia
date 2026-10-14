@@ -91,13 +91,14 @@ El detector vehicular predeterminado es `yolo26n.pt`. Si ya existe un `.env`, ac
 La detección de placas es una segunda etapa opcional. Entrena o suministra un peso cuya clase se llame `plate`, `license_plate` o `placa`, y configúralo así:
 
 ```dotenv
-PLATE_MODEL=/ruta/al/best.pt
+PLATE_MODEL=models/plate-detector.pt
 PLATE_CONFIDENCE=0.45
 PLATE_EVERY_N_FRAMES=5
 PLATE_OUTPUT=outputs/plates
+PLATE_OCR_MODEL=models/plate-ocr.onnx
 ```
 
-Cuando está habilitado, el nodo busca placas dentro de los vehículos, dibuja una caja amarilla y conserva una captura por track en `outputs/plates`. Estos archivos están excluidos de Git. El OCR todavía no se ejecuta: debe incorporarse después de validar la calidad de los recortes.
+Cuando está habilitado, el nodo busca placas dentro de los vehículos, dibuja una caja amarilla y conserva una captura por track en `outputs/plates`. Estos archivos están excluidos de Git. Las placas de 45 px o más se leen con `PLATE_OCR_MODEL`, y el texto votado entre cuadros llena `licensePlate` (ver `docs/modeling/license-plates.md`). Son datos personales: actívalo solo con autorización.
 
 Para entrenar un peso propio:
 

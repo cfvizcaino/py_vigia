@@ -39,6 +39,8 @@ class Settings:
     publish_timeout_seconds: float
     snapshot_interval_s: float = 2.0
     idle_snapshot_interval_s: float = 30.0
+    # OCR over the plates PLATE_MODEL finds; without PLATE_MODEL it never runs.
+    plate_ocr_model: str | None = None
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -107,6 +109,7 @@ class Settings:
             publish_timeout_seconds=publish_timeout_seconds,
             snapshot_interval_s=snapshot_interval_s,
             idle_snapshot_interval_s=idle_snapshot_interval_s,
+            plate_ocr_model=os.getenv("PLATE_OCR_MODEL", "models/plate-ocr.onnx").strip() or None,
         )
 
     def source_url(self) -> str:
