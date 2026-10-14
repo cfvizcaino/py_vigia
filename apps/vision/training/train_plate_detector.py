@@ -13,6 +13,9 @@ def main() -> None:
     parser.add_argument("--imgsz", type=int, default=960, help="Resolución alta para placas pequeñas.")
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--device", default="cpu")
+    parser.add_argument("--workers", type=int, default=2)
+    parser.add_argument("--patience", type=int, default=0, help="0 = sin parada temprana (validación pequeña y ruidosa)")
+    parser.add_argument("--name", default="yolo26n-plates")
     args = parser.parse_args()
 
     model = YOLO(args.model)
@@ -22,8 +25,10 @@ def main() -> None:
         imgsz=args.imgsz,
         batch=args.batch,
         device=args.device,
+        workers=args.workers,
+        patience=args.patience,
         project="runs/vigia-plates",
-        name="yolo26n-plates",
+        name=args.name,
     )
 
 

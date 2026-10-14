@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from training.build_color_dataset import build_dataset as build_color_dataset
+from training.build_plate_crops import build as build_plate_crops
 from training.build_plate_dataset import build_dataset
 from training.import_roboflow_yolo import import_dataset
 from training.prepare_video_frames import parse_range, timestamps
@@ -116,6 +117,41 @@ class TrainingToolsTests(unittest.TestCase):
             self.assertEqual(
                 [summary["counts"][split]["gray"] for split in ("train", "val", "test")], [1 + 1, 1, 1 + 1]
             )
+
+    def test_plate_crops_follow_inference_and_skip_ambiguous_vehicles(self):
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            (source / "images" / "raw").mkdir(parents=True)
+            (source / "labels" / "raw").mkdir(parents=True)
+            frames, vehicles = [], {}
+            for index, split in enumerate(("train", "val", "test"), start=1):
+                name = f"frame-{index:06d}.jpg"
+                Image.new("RGB", (1000, 600), "gray").save(source / "images" / "raw" / name)
+                # Plate 40×20 px at (500, 300) in frame coordinates; a second one at (900, 300).
+                (source / "labels" / "raw" / f"frame-{index:06d}.txt").write_text(
+                    "0 0.5 0.5 0.04 0.0333333\n0 0.9 0.5 0.04 0.0333333\n", encoding="utf-8")
+                vehicles[name] = [
+                    {"box": [400, 200, 600, 400]},  # Contains the first plate: kept with a label.
+                    {"box": [0, 200, 200, 400]},  # Touches the frame edge: skipped.
+                    {"box": [700, 200, 890, 400]},  # Would cut the second plate in half: skipped.
+                    {"box": [200, 450, 380, 580]},  # No plate: kept as a negative.
+                ]
+                frames.append({"file": name, "timestamp_seconds": index, "split": split})
+            (source / "vehicles.json").write_text(json.dumps(vehicles), encoding="utf-8")
+            (source / "manifest.json").write_text(json.dumps({"version": 1, "frames": frames}), encoding="utf-8")
+
+            summary = build_plate_crops([source], root / "crops", min_vehicle=150, edge=4)
+
+            self.assertEqual(summary["crops"], {"train": 2, "val": 2, "test": 2})
+            self.assertEqual(summary["skipped"], {"toca el borde": 3, "cortaría una placa": 3})
+            label = (root / "crops" / "labels" / "train" / "source-frame-000001-v00.txt").read_text().split()
+            # Crop: 400±8, 200±8 → plate centre (500, 300) is the crop centre; 40 px of a 216 px crop.
+            self.assertAlmostEqual(float(label[1]), 0.5, places=3)
+            self.assertAlmostEqual(float(label[3]), 40 / 216, places=3)
+            self.assertEqual((root / "crops" / "labels" / "train" / "source-frame-000001-v03.txt").read_text(), "")
 
 
 if __name__ == "__main__":
