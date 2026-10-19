@@ -15,5 +15,5 @@ sequenceDiagram
       B-->>Q: 202 accepted | duplicate
       Q->>Q: retirar el sobre de la cola
     end
-    Note over Q,B: sin acuse (sin red, timeout, 5xx): reintento con retroceso exponencial, el sobre no se pierde
+    Note over Q,B: sin acuse (red, timeout o 5xx)<br/>reintento con retroceso exponencial<br/>el sobre sigue en disco
   end
