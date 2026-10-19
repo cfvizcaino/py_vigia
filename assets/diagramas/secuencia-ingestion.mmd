@@ -1,0 +1,19 @@
+sequenceDiagram
+  autonumber
+  participant N as Nodo edge
+  participant Q as Cola en disco
+  participant B as Backend (ingest)
+  participant DB as PostgreSQL
+  N->>Q: encolar Envelope 1.1 (cada 2 s, 30 s sin vehículos)
+  loop mientras queden sobres, en orden
+    Q->>B: POST /api/v1/ingest/detections + token de cámara
+    alt más de 20 peticiones en curso en el proceso
+      B-->>Q: 503 + Retry-After (no se encola en el servidor)
+    else capacidad disponible
+      B->>DB: validar token (hash, caducidad, revocación, cámara)
+      B->>DB: ¿existe el eventId? / insertar evento y actualizar tracks
+      B-->>Q: 202 accepted | duplicate
+      Q->>Q: retirar el sobre de la cola
+    end
+    Note over Q,B: sin acuse (sin red, timeout, 5xx): reintento con retroceso exponencial, el sobre no se pierde
+  end

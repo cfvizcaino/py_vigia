@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  actor O as Operador
+  participant W as Consola web
+  participant H as Route Handler (Next.js)
+  participant B as Backend (queries)
+  participant DB as PostgreSQL
+  participant R as Motor de rutas
+  O->>W: punto o cámara, radio, ventana, tipo y color
+  W->>H: GET /api/monitoring/queries
+  H->>H: validar parámetros y pasar la hora de Colombia a UTC
+  H->>B: GET /api/v1/queries + token de sesión (cookie HttpOnly)
+  B->>DB: verificar sesión y rol operator
+  B->>DB: cámaras en el radio, detecciones en la ventana y enlaces viales
+  B->>R: detecciones candidatas + enlaces
+  R->>R: filtros duros por par y búsqueda por haces (200 estados, 6 pasos)
+  R-->>B: hasta 10 rutas con su explicación
+  B->>DB: guardar consulta, rutas y auditoría en una transacción
+  B-->>H: rutas, geometría vial y contribución de cada señal
+  H-->>W: respuesta normalizada (errores sin trazas)
+  W-->>O: rutas en el mapa y explicación del puntaje

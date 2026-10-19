@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  actor A as Administrador
+  participant App as App móvil
+  participant B as Backend
+  participant DB as PostgreSQL
+  participant O as OSRM
+  A->>App: correo y contraseña
+  App->>B: POST /api/v1/auth/login
+  B->>DB: verificar scrypt y bloqueo por intentos, crear sesión
+  B-->>App: token de sesión (rol admin)
+  A->>App: Cámaras → Agregar edge (ubicación y fuente)
+  App->>B: POST /api/v1/devices
+  B->>DB: crear el dispositivo y auditar
+  B->>O: alternativas viales con las demás cámaras
+  O-->>B: distancia, duración, costo y geometría
+  B->>DB: guardar enlaces dirigidos (si OSRM falla, la cámara queda creada)
+  App->>B: POST /api/v1/admin/devices/{camera_id}/credentials
+  B->>DB: guardar hash y caducidad del token
+  B-->>App: token (se muestra una sola vez)
+  App->>B: POST /api/v1/ingest/detections (sobre vacío con el token)
+  B-->>App: 202 → token guardado en el almacenamiento seguro

@@ -181,9 +181,11 @@ def summarize(stats: Stats, nodes: list[Node], interval: float, duration: float)
         "offered_msg_s": round(len(nodes) / interval, 1),
         "delivered_msg_s": round(stats.accepted / duration, 1),
         "generated": stats.generated, "accepted": stats.accepted, "lost": backlog,
+        "http_mean_ms": round(statistics.mean(stats.latencies_ms), 1) if stats.latencies_ms else 0,
         "http_p50_ms": round(percentile(stats.latencies_ms, 50) or 0, 1),
         "http_p95_ms": round(percentile(stats.latencies_ms, 95) or 0, 1),
         "http_p99_ms": round(percentile(stats.latencies_ms, 99) or 0, 1),
+        "http_max_ms": round(max(stats.latencies_ms, default=0), 1),
         "delivery_p95_ms": round(percentile(stats.delays_ms, 95) or 0, 1),
         "delivery_max_ms": round(max(stats.delays_ms, default=0), 1),
         "errors": stats.errors, "error_rate": round(total_errors / max(1, len(stats.latencies_ms) + total_errors), 4),
@@ -240,8 +242,11 @@ async def phase_query(secrets: dict, base: str, concurrency: list[int], duration
 
         stop_at = time.monotonic() + duration
         await asyncio.gather(*(worker(stop_at) for _ in range(workers)))
-        row = {"operators": workers, "queries": len(latencies), "p50_ms": round(percentile(latencies, 50) or 0, 1),
+        row = {"operators": workers, "queries": len(latencies),
+               "mean_ms": round(statistics.mean(latencies), 1) if latencies else 0,
+               "p50_ms": round(percentile(latencies, 50) or 0, 1),
                "p95_ms": round(percentile(latencies, 95) or 0, 1), "p99_ms": round(percentile(latencies, 99) or 0, 1),
+               "max_ms": round(max(latencies, default=0), 1),
                "queries_s": round(len(latencies) / duration, 2), "statuses": {str(k): v for k, v in statuses.items()},
                "mean_candidates": round(statistics.mean(detections), 1) if detections else 0}
         results.append(row)
@@ -287,13 +292,15 @@ async def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--phases", default="ingest,query,fault")
     parser.add_argument("--step-seconds", type=float, default=60)
+    parser.add_argument("--steps", default="4x2,10x2,25x2,50x2,100x2,100x1,100x0.5,100x0.25",
+                        help="Escalones de ingestión NODOSxINTERVALO; por defecto, hasta la saturación")
     parser.add_argument("--ssh", default="ssh -i ~/.ssh/vigia_azure vigia@vigia-5dfe.mexicocentral.cloudapp.azure.com")
     args = parser.parse_args()
     secrets = json.loads(args.secrets.read_text(encoding="utf-8"))
     results = json.loads(args.output.read_text(encoding="utf-8")) if args.output.exists() else {}
     phases = args.phases.split(",")
     if "ingest" in phases:
-        steps = [(4, 2.0), (10, 2.0), (25, 2.0), (50, 2.0), (100, 2.0), (100, 1.0), (100, 0.5), (100, 0.25)]
+        steps = [(int(n), float(i)) for n, i in (step.split("x") for step in args.steps.split(","))]
         results["ingest"] = await phase_ingest(secrets, args.base, steps, args.step_seconds)
     if "query" in phases:
         # Operators query while 25 edges keep publishing, as in operation.

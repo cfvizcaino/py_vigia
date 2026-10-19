@@ -1,0 +1,35 @@
+flowchart LR
+  OP(["Operador"])
+  AD(["Administrador"])
+  subgraph BORDE["Borde: donde está el video"]
+    direction TB
+    CAM["Cámaras IP y webcams"]
+    PC["Nodo de visión PC<br/>detección, seguimiento y color"]
+    TEL["Teléfono edge<br/>detección en el dispositivo"]
+  end
+  subgraph CENTRO["Plataforma central"]
+    direction TB
+    API["Backend VIGIA<br/>ingestión, consultas, rutas,<br/>identidad y auditoría"]
+    DB[("Base de datos")]
+    OSRM["Motor de rutas viales<br/>OSRM"]
+  end
+  subgraph CLIENTES["Clientes"]
+    direction TB
+    WEB["Consola web"]
+    APP["App móvil"]
+  end
+  OSM[("OpenStreetMap<br/>mapa base y red vial")]
+  CAM -- "video local" --> PC
+  PC -- "metadatos de detección" --> API
+  TEL -- "metadatos de detección" --> API
+  API --- DB
+  API -- "distancias y alternativas" --> OSRM
+  WEB -- "consultas y administración" --> API
+  APP -- "consultas y alta de edges" --> API
+  OP --> WEB
+  OP --> APP
+  AD --> WEB
+  AD --> APP
+  OSRM -. "grafo vial" .- OSM
+  WEB -. "teselas" .-> OSM
+  APP -. "teselas" .-> OSM

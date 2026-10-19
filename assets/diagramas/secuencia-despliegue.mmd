@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  participant Dev as Desarrollador
+  participant CI as GitHub Actions
+  participant Reg as GHCR
+  participant Srv as Servidor (autodeploy)
+  Dev->>CI: merge a main
+  CI->>CI: pruebas de backend, visión, web y móvil
+  CI->>Reg: publicar imágenes (main y commit)
+  loop cada 2 minutos
+    Srv->>Reg: pull de las imágenes
+    alt hay imagen nueva
+      Srv->>Srv: etiquetar la actual como :previous
+      Srv->>Srv: migrar, levantar y esperar healthy (≤ 120 s)
+      alt queda sana
+        Srv->>Srv: registrar el commit desplegado
+      else falla
+        Srv->>Srv: volver a :previous y marcar la versión como fallida
+      end
+    end
+  end

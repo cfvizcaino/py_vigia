@@ -1,0 +1,219 @@
+{
+  "ingest": [
+    {
+      "nodes": 4,
+      "interval_s": 2.0,
+      "duration_s": 60.0,
+      "offered_msg_s": 2.0,
+      "delivered_msg_s": 2.0,
+      "generated": 120,
+      "accepted": 120,
+      "lost": 0,
+      "http_mean_ms": 172.9,
+      "http_p50_ms": 126.2,
+      "http_p95_ms": 511.5,
+      "http_p99_ms": 1006.7,
+      "http_max_ms": 1538.2,
+      "delivery_p95_ms": 532.8,
+      "delivery_max_ms": 1577.0,
+      "errors": {},
+      "error_rate": 0.0,
+      "duplicates_expected": 6,
+      "duplicates_ok": 6,
+      "duplicates_wrong": 0
+    },
+    {
+      "nodes": 10,
+      "interval_s": 2.0,
+      "duration_s": 60.0,
+      "offered_msg_s": 5.0,
+      "delivered_msg_s": 5.0,
+      "generated": 300,
+      "accepted": 300,
+      "lost": 0,
+      "http_mean_ms": 138.3,
+      "http_p50_ms": 124.3,
+      "http_p95_ms": 181.4,
+      "http_p99_ms": 379.1,
+      "http_max_ms": 1504.0,
+      "delivery_p95_ms": 207.0,
+      "delivery_max_ms": 1518.6,
+      "errors": {},
+      "error_rate": 0.0,
+      "duplicates_expected": 19,
+      "duplicates_ok": 19,
+      "duplicates_wrong": 0
+    },
+    {
+      "nodes": 25,
+      "interval_s": 2.0,
+      "duration_s": 60.0,
+      "offered_msg_s": 12.5,
+      "delivered_msg_s": 12.5,
+      "generated": 749,
+      "accepted": 749,
+      "lost": 0,
+      "http_mean_ms": 131.5,
+      "http_p50_ms": 122.8,
+      "http_p95_ms": 139.3,
+      "http_p99_ms": 371.0,
+      "http_max_ms": 463.4,
+      "delivery_p95_ms": 178.5,
+      "delivery_max_ms": 486.3,
+      "errors": {},
+      "error_rate": 0.0,
+      "duplicates_expected": 37,
+      "duplicates_ok": 37,
+      "duplicates_wrong": 0
+    },
+    {
+      "nodes": 50,
+      "interval_s": 2.0,
+      "duration_s": 60.0,
+      "offered_msg_s": 25.0,
+      "delivered_msg_s": 25.0,
+      "generated": 1500,
+      "accepted": 1500,
+      "lost": 0,
+      "http_mean_ms": 135.9,
+      "http_p50_ms": 123.4,
+      "http_p95_ms": 153.3,
+      "http_p99_ms": 435.6,
+      "http_max_ms": 741.5,
+      "delivery_p95_ms": 189.7,
+      "delivery_max_ms": 771.4,
+      "errors": {},
+      "error_rate": 0.0,
+      "duplicates_expected": 89,
+      "duplicates_ok": 89,
+      "duplicates_wrong": 0
+    },
+    {
+      "nodes": 100,
+      "interval_s": 2.0,
+      "duration_s": 60.0,
+      "offered_msg_s": 50.0,
+      "delivered_msg_s": 50.0,
+      "generated": 2998,
+      "accepted": 2998,
+      "lost": 0,
+      "http_mean_ms": 192.7,
+      "http_p50_ms": 128.4,
+      "http_p95_ms": 396.5,
+      "http_p99_ms": 2414.3,
+      "http_max_ms": 3511.7,
+      "delivery_p95_ms": 563.4,
+      "delivery_max_ms": 3516.3,
+      "errors": {
+        "http-503": 75
+      },
+      "error_rate": 0.0228,
+      "duplicates_expected": 145,
+      "duplicates_ok": 144,
+      "duplicates_wrong": 1
+    }
+  ],
+  "query": [
+    {
+      "operators": 1,
+      "queries": 237,
+      "mean_ms": 252.6,
+      "p50_ms": 176.7,
+      "p95_ms": 358.2,
+      "p99_ms": 1768.5,
+      "max_ms": 7479.2,
+      "queries_s": 3.95,
+      "statuses": {
+        "200": 237
+      },
+      "mean_candidates": 73.2
+    },
+    {
+      "operators": 5,
+      "queries": 471,
+      "mean_ms": 424.8,
+      "p50_ms": 430.9,
+      "p95_ms": 676.9,
+      "p99_ms": 817.9,
+      "max_ms": 951.0,
+      "queries_s": 7.85,
+      "statuses": {
+        "200": 471,
+        "ReadTimeout": 5
+      },
+      "mean_candidates": 61.6
+    },
+    {
+      "operators": 10,
+      "queries": 938,
+      "mean_ms": 639.8,
+      "p50_ms": 437.5,
+      "p95_ms": 1543.4,
+      "p99_ms": 4623.6,
+      "max_ms": 6469.4,
+      "queries_s": 15.63,
+      "statuses": {
+        "503": 87,
+        "200": 851
+      },
+      "mean_candidates": 35.9
+    }
+  ],
+  "query_background_ingest": {
+    "nodes": 25,
+    "interval_s": 2.0,
+    "duration_s": 185.0,
+    "offered_msg_s": 12.5,
+    "delivered_msg_s": 12.5,
+    "generated": 2316,
+    "accepted": 2316,
+    "lost": 0,
+    "http_mean_ms": 554.4,
+    "http_p50_ms": 230.0,
+    "http_p95_ms": 2456.7,
+    "http_p99_ms": 6298.2,
+    "http_max_ms": 9729.2,
+    "delivery_p95_ms": 26209.7,
+    "delivery_max_ms": 44795.9,
+    "errors": {
+      "ReadTimeout": 34,
+      "http-503": 213,
+      "http-502": 1
+    },
+    "error_rate": 0.0853,
+    "duplicates_expected": 131,
+    "duplicates_ok": 129,
+    "duplicates_wrong": 2
+  },
+  "date": "2026-10-19",
+  "run": {
+    "phases": "ingest,query",
+    "steps": "4x2,10x2,25x2,50x2,100x2",
+    "step_seconds": 60,
+    "purpose": "latencia media y máxima con la carga esperada (pregunta 1 de la sección 9 del informe)",
+    "server": "VM Standard_B2ats_v2, backend con 2 procesos, MAX_IN_FLIGHT=20, DB_POOL_TIMEOUT=5 s"
+  },
+  "database_check": {
+    "events_stored": 7983,
+    "distinct_event_id": 7983,
+    "client_accepted": 7983,
+    "detections": 2771,
+    "observations": 2771
+  },
+  "cleanup": {
+    "devices": 100,
+    "links": 1004,
+    "queries": 1564,
+    "routes": 10401,
+    "route_detections": 33374,
+    "audit": 1666,
+    "sessions": 1,
+    "users": 1,
+    "counts_after_equal_before": {
+      "devices": 5,
+      "detections": 1994,
+      "users": 2,
+      "queries": 15
+    }
+  }
+}

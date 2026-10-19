@@ -64,3 +64,6 @@ runs/
 # Releases del grafo OSRM: se versiona solo la consulta que produce el extracto.
 /infra/osrm/releases/*/*
 !/infra/osrm/releases/*/query.overpassql
+
+# Generador local del .docx/.pdf del informe: no se versiona.
+tools/informe/

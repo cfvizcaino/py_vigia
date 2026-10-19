@@ -1,0 +1,49 @@
+flowchart TB
+  subgraph EDGE["Nodo edge (PC y teléfono)"]
+    direction LR
+    CAP["Captura"] --> DET["Detector<br/>YOLO26n"] --> TRK["Seguimiento<br/>ByteTrack"] --> COL["Color votado<br/>colors"] --> ENV["Sobre 1.1<br/>events / envelope"] --> OUT[("Cola en disco<br/>outbox")] --> PUB["Publicador<br/>publisher"]
+  end
+  subgraph WEB["Consola web (Next.js)"]
+    direction LR
+    UI["Páginas y mapa"] --> RH["Route Handlers<br/>/api/monitoring, /api/admin, /api/auth"] --> BAPI["Cliente del backend<br/>backend-api, session"]
+  end
+  APPC["App móvil<br/>api_client, session"]
+  subgraph BACK["Backend central (FastAPI)"]
+    direction LR
+    MW["Descarte de carga<br/>overload"]
+    subgraph ROUT["Routers"]
+      direction TB
+      RI["ingest"]
+      RQ["queries"]
+      RA["auth"]
+      RD["devices, admin"]
+    end
+    subgraph SERV["Servicios"]
+      direction TB
+      CRED["Credenciales<br/>device_credentials"]
+      ING["Ingestión idempotente<br/>ingestion"]
+      QS["Consultas<br/>query_service"]
+      USR["Usuarios, sesiones y auditoría<br/>users, auth"]
+      RN["Red vial<br/>road_network"]
+    end
+    RT["Motor de rutas<br/>routing (función pura)"]
+    ORM["Modelos y sesión de BD<br/>models, db (SQLAlchemy)"]
+    MW --> ROUT
+    RI --> CRED
+    RI --> ING
+    RQ --> QS
+    RA --> USR
+    RD --> RN
+    RD --> CRED
+    QS --> RT
+    CRED --> ORM
+    ING --> ORM
+    QS --> ORM
+    USR --> ORM
+    RN --> ORM
+  end
+  PUB -- "POST /api/v1/ingest/detections<br/>token de cámara" --> MW
+  BAPI -- "REST, token de sesión" --> MW
+  APPC -- "REST, token de sesión" --> MW
+  ORM --> PG[("PostgreSQL")]
+  RN -- "GET /route, alternativas" --> OSRMX["OSRM"]

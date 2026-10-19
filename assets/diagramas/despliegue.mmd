@@ -1,0 +1,41 @@
+flowchart LR
+  subgraph SITIO["Sitio de captura (red local)"]
+    direction TB
+    TAPO["Cámara Tapo C110<br/>RTSP :554, solo red local"]
+    PCN["PC del nodo (Linux)<br/>vigia_vision en Python<br/>API local 127.0.0.1:8001"]
+    TEL["Teléfono Android<br/>App VIGIA 1.3<br/>Flutter + LiteRT"]
+  end
+  subgraph USR["Usuarios"]
+    direction TB
+    NAV["Navegador del operador"]
+    ADM["PC del administrador"]
+  end
+  subgraph VM["Azure, México Central: VM B2ats_v2 con Docker Compose"]
+    direction TB
+    CADDY["caddy<br/>TLS :80 y :443"]
+    WEBC["web<br/>Next.js :3000"]
+    BACK["backend<br/>FastAPI, 2 procesos :8000"]
+    PG[("db<br/>PostgreSQL 17<br/>127.0.0.1:5432")]
+    OSRMC["osrm<br/>grafo metropolitano"]
+    SYS["systemd y cron<br/>autodeploy, vigilante,<br/>respaldos"]
+  end
+  subgraph EXT["Servicios externos"]
+    direction TB
+    GH["GitHub Actions + GHCR"]
+    LE["Let's Encrypt"]
+    OSMT["Teselas OpenStreetMap"]
+  end
+  TAPO -- "RTSP/TCP" --> PCN
+  PCN -- "HTTPS + token de cámara" --> CADDY
+  TEL -- "HTTPS + token de cámara" --> CADDY
+  NAV -- "HTTPS" --> CADDY
+  ADM -- "SSH :22, IP autorizadas" --> SYS
+  CADDY -- "/api/v1/*" --> BACK
+  CADDY -- "resto" --> WEBC
+  WEBC -- "red interna" --> BACK
+  BACK --> PG
+  BACK --> OSRMC
+  SYS -. "pull de imágenes" .-> GH
+  CADDY -. "certificados" .-> LE
+  NAV -. "teselas" .-> OSMT
+  TEL -. "teselas" .-> OSMT
