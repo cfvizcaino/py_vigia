@@ -19,6 +19,8 @@ from .events import (
     utc_now,
     write_snapshot_payload,
 )
+from .plate_ocr import PlateReader, PlateReads, read_tracks
+from .plate_ocr import prune as prune_plate_reads
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
 from .publisher import SnapshotPublisher
 
@@ -51,6 +53,8 @@ class VisionRuntime:
         self._captured_plate_tracks: set[int] = set()
         self._plate_detection_enabled = False
         self._plate_error_code: str | None = None
+        self._plate_reads: dict[int, PlateReads] = {}
+        self._plate_ocr_enabled = False
         self._color_votes: dict[int, ColorVotes] = {}
         self._color_enabled = False
         self._color_error_code: str | None = None
@@ -100,6 +104,7 @@ class VisionRuntime:
                 "plateDetectionEnabled": self._plate_detection_enabled,
                 "plateModel": os.path.basename(self.settings.plate_model) if self.settings.plate_model else None,
                 "plateErrorCode": self._plate_error_code,
+                "plateOcrEnabled": self._plate_ocr_enabled,
                 "colorEnabled": self._color_enabled,
                 "colorModel": os.path.basename(self.settings.color_model) if self.settings.color_model else None,
                 "colorErrorCode": self._color_error_code,
@@ -210,6 +215,16 @@ class VisionRuntime:
             except Exception:
                 self._set_plate_state(False, "PLATE_MODEL_LOAD_ERROR")
 
+        plate_reader = None
+        if plate_model and self.settings.plate_ocr_model:
+            try:
+                plate_reader = PlateReader(self.settings.plate_ocr_model)
+                with self._lock:
+                    self._plate_ocr_enabled = True
+            except Exception:
+                # Plates are still detected; the text stays unknown.
+                self._set_plate_state(True, "PLATE_OCR_LOAD_ERROR")
+
         color_model = None
         if self.settings.color_model:
             try:
@@ -271,6 +286,11 @@ class VisionRuntime:
                             self._set_plate_state(True)
                         except Exception:
                             self._set_plate_state(True, "PLATE_PROCESSING_ERROR")
+                        if plate_reader and plate_detections:
+                            try:
+                                read_tracks(plate_reader, frame, plate_detections, self._plate_reads)
+                            except Exception:
+                                self._set_plate_state(True, "PLATE_OCR_ERROR")
 
                     if color_model:
                         try:
@@ -294,6 +314,10 @@ class VisionRuntime:
                         for track_id, votes in self._color_votes.items():
                             if votes.color:
                                 self._tracks[track_id].color = votes.color
+                        prune_plate_reads(self._plate_reads, set(self._tracks))
+                        for track_id, reads in self._plate_reads.items():
+                            if reads.plate:
+                                self._tracks[track_id].license_plate = reads.plate
                         annotated = result.plot()
                         if plate_model and next_frame_number % self.settings.plate_every_n_frames == 0:
                             self._plate_detections = plate_detections
