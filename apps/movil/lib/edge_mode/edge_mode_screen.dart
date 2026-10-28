@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -18,6 +18,7 @@ import 'detector.dart';
 import 'edge_config.dart';
 import 'edge_engine.dart';
 import 'outbox.dart';
+import 'preprocess.dart';
 import 'tracker.dart';
 
 final edgeConfigStoreProvider = Provider<EdgeConfigStore>(
@@ -144,6 +145,11 @@ class _EdgeModeScreenState extends ConsumerState<EdgeModeScreen>
           return (detections: result.detections, elapsed: result.elapsed);
         },
         classifyColors: colors?.classify,
+        // One recorte per vehicle for an admin to confirm routes by eye.
+        encodeThumbnail: (frame, box) => compute(
+          encodeThumbnailJpeg,
+          ThumbnailRequest(frame, (box.x1, box.y1, box.x2, box.y2)),
+        ),
         outbox: Outbox(
           directory: Directory(
             '${support.path}/edge_outbox/${config.cameraId}',
@@ -544,6 +550,14 @@ class _EdgeStatusCard extends StatelessWidget {
                 ? 'Color: activo'
                       '${stats.colorFailures == 0 ? '' : ' · ${stats.colorFailures} fallidos'}'
                 : 'Color: modelo no disponible (se reporta desconocido)',
+            style: muted,
+          ),
+          Text(
+            outbox.thumbnailsAccepted
+                ? 'Recortes: ${outbox.thumbnails} enviados'
+                      '${outbox.thumbnailsDropped == 0 ? '' : ' · ${outbox.thumbnailsDropped} descartados'}'
+                      '${stats.thumbnailFailures == 0 ? '' : ' · ${stats.thumbnailFailures} fallidos'}'
+                : 'Recortes: el centro no los guarda',
             style: muted,
           ),
           if (stats.lastError != null) ...[

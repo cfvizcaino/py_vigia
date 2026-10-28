@@ -50,7 +50,7 @@ services:
       APP_VERSION_FILE: /app/app-version.json
       RAW_EVENT_RETENTION_DAYS: "7"
       # Recortes de vehículos en un contenedor privado de Azure Blob (deploy.sh recortes
-      # escribe la cadena en .env). Vacía: el backend rechaza los recortes con 503.
+      # escribe la cadena en .env). Vacía: el backend rechaza los recortes con 501.
       THUMBNAIL_STORAGE_CONNECTION_STRING: ${THUMBNAIL_STORAGE_CONNECTION_STRING:-}
       THUMBNAIL_CONTAINER: recortes
       THUMBNAIL_RETENTION_DAYS: "7"

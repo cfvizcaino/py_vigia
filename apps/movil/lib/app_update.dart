@@ -8,7 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 /// Fallback when the build does not expose a version name. Release APKs read
 /// the version from the package itself.
-const installedAppVersionFallback = '1.3.0';
+const installedAppVersionFallback = '1.4.0';
 
 enum UpdateLevel { none, optional, required }
 

@@ -87,7 +87,7 @@ class DirectoryStore:
 
 @lru_cache(maxsize=1)
 def thumbnail_store() -> ThumbnailStore | None:
-    """None si no hay almacén configurado: el backend rechaza los recortes con 503."""
+    """None si no hay almacén configurado: el backend rechaza los recortes con 501."""
     connection = os.getenv("THUMBNAIL_STORAGE_CONNECTION_STRING", "").strip()
     if connection:
         return AzureBlobStore(connection, os.getenv("THUMBNAIL_CONTAINER", "recortes").strip() or "recortes")
