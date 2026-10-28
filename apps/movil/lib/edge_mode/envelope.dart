@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'tracker.dart';
 
-const edgeNodeVersion = 'movil-1.3.0';
+const edgeNodeVersion = 'movil-1.4.0';
 
 /// RFC 4122 version 4 identifier from a secure random source.
 String uuidV4([Random? random]) {
@@ -15,8 +15,9 @@ String uuidV4([Random? random]) {
       '${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
-/// UTC with millisecond precision, like the PC node's `utc_now()`.
-String _iso(DateTime value) => DateTime.fromMillisecondsSinceEpoch(
+/// UTC with millisecond precision, like the PC node's `utc_now()`. A recorte
+/// names its track with the same `firstSeen` string as the envelope.
+String isoUtc(DateTime value) => DateTime.fromMillisecondsSinceEpoch(
   value.millisecondsSinceEpoch,
   isUtc: true,
 ).toIso8601String();
@@ -39,7 +40,7 @@ Map<String, dynamic> buildEnvelope({
   'sessionId': sessionId,
   'sequenceNumber': sequenceNumber,
   'cameraId': cameraId,
-  'generatedAt': _iso(generatedAt ?? DateTime.now()),
+  'generatedAt': isoUtc(generatedAt ?? DateTime.now()),
   'nodeVersion': edgeNodeVersion,
   'model': modelName,
   'modelVersion': modelName,
@@ -51,8 +52,8 @@ Map<String, dynamic> buildEnvelope({
         'trackId': track.id,
         'vehicleType': track.label,
         'confidence': double.parse(track.bestScore.toStringAsFixed(4)),
-        'firstSeen': _iso(track.firstSeen),
-        'lastSeen': _iso(track.lastSeen),
+        'firstSeen': isoUtc(track.firstSeen),
+        'lastSeen': isoUtc(track.lastSeen),
         'direction': track.direction,
         'boundingBox': track.box.toList(),
         'color': track.color,

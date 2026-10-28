@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:image/image.dart' as img;
 import 'package:movil/camera_mode/frame_encoder.dart';
 import 'package:movil/edge_mode/colors.dart';
 import 'package:movil/edge_mode/detections.dart';
@@ -131,6 +132,42 @@ void main() {
       // Upright (0, 0) is sensor (0, 1) in both paths.
       expect(crop[0], input.pixels[(0 * 4 + 1) * 3]);
       expect((crop[0] * 255).round(), 1);
+    });
+
+    test(
+      'el recorte para confirmar es la caja con margen, derecha y en JPEG',
+      () {
+        // Box 20×10 at (10, 5) plus 10 % → x 8..32, y 4..16.
+        final jpeg = encodeThumbnailJpeg(
+          ThumbnailRequest(_bgraFrame(40, 20), (10, 5, 30, 15)),
+        );
+        expect(jpeg.sublist(0, 3), [0xff, 0xd8, 0xff]);
+        final image = img.decodeJpg(jpeg)!;
+        expect((image.width, image.height), (24, 12));
+        expect(image.getPixel(12, 6).g, closeTo(200, 12));
+
+        final turned = img.decodeJpg(
+          encodeThumbnailJpeg(
+            ThumbnailRequest(_bgraFrame(40, 20, rotation: 90), (
+              0,
+              0,
+              20,
+              40,
+            ), margin: 0),
+          ),
+        )!;
+        expect((turned.width, turned.height), (20, 40));
+      },
+    );
+
+    test('un recorte grande se reduce promediando hasta el lado máximo', () {
+      final jpeg = encodeThumbnailJpeg(
+        ThumbnailRequest(_bgraFrame(60, 30), (0, 0, 60, 30), maxSide: 20),
+      );
+      final image = img.decodeJpg(jpeg)!;
+      expect((image.width, image.height), (20, 10)); // 3×3 blocks.
+      // Block (0, 0) averages red x*10 + y over x, y in 0..2 → 11.
+      expect(image.getPixel(0, 0).r, closeTo(11, 6));
     });
 
     test('convierte YUV420 a RGB', () {
@@ -550,6 +587,107 @@ void main() {
       },
     );
 
+    Future<bool> thumbnail(Outbox outbox, int sequence, {int track = 7}) =>
+        outbox.enqueueThumbnail(
+          cameraId: 'CEL-02',
+          sessionId: '12345678-0000-4000-8000-000000000000',
+          sequenceNumber: sequence,
+          trackId: track,
+          firstSeen: '2026-10-28T17:28:00.096Z',
+          jpeg: Uint8List.fromList([0xff, 0xd8, 0xff, 1, 2, 0xff, 0xd9]),
+        );
+
+    test(
+      'envía el recorte en JPEG justo después del sobre de su track',
+      () async {
+        final sent = <String>[];
+        late http.Request thumbnailRequest;
+        final outbox = Outbox(
+          directory: directory,
+          serverUrl: 'https://central.example/',
+          token: 'token-del-edge',
+          client: MockClient((request) async {
+            if (request.url.path.endsWith('/thumbnails')) {
+              thumbnailRequest = request;
+              sent.add('recorte');
+              return http.Response('{}', 201);
+            }
+            sent.add('sobre ${jsonDecode(request.body)['sequenceNumber']}');
+            return http.Response('{}', 202);
+          }),
+        );
+        await outbox.enqueue(event(2));
+        await thumbnail(outbox, 1);
+        await outbox.enqueue(event(1));
+        outbox.start();
+        await _until(() => outbox.status.delivered == 2);
+        outbox.stop();
+        expect(sent, ['sobre 1', 'recorte', 'sobre 2']);
+        expect(thumbnailRequest.url.path, '/api/v1/ingest/thumbnails');
+        expect(thumbnailRequest.url.queryParameters, {
+          'cameraId': 'CEL-02',
+          'sessionId': '12345678-0000-4000-8000-000000000000',
+          'trackId': '7',
+          'firstSeen': '2026-10-28T17:28:00.096Z',
+        });
+        expect(thumbnailRequest.headers['Content-Type'], 'image/jpeg');
+        expect(
+          thumbnailRequest.headers['X-Vigia-Device-Token'],
+          'token-del-edge',
+        );
+        expect(thumbnailRequest.bodyBytes, [
+          0xff,
+          0xd8,
+          0xff,
+          1,
+          2,
+          0xff,
+          0xd9,
+        ]);
+        expect(outbox.status.thumbnails, 1);
+      },
+    );
+
+    test('descarta recortes rechazados y deja de enviarlos si el centro no los guarda', () async {
+      final answers = [404, 503, 501];
+      var calls = 0;
+      final outbox = Outbox(
+        directory: directory,
+        serverUrl: 'https://central.example',
+        token: 't',
+        initialBackoff: const Duration(milliseconds: 5),
+        client: MockClient((request) async {
+          calls++;
+          return http.Response('{}', answers.removeAt(0));
+        }),
+      );
+      await thumbnail(outbox, 1, track: 1);
+      await thumbnail(outbox, 2, track: 2);
+      outbox.start();
+      await _until(() => outbox.status.thumbnailsDropped == 2);
+      outbox.stop();
+      expect(calls, 3, reason: '503 is overload: retried, not dropped');
+      expect(outbox.status.thumbnailsDropped, 2);
+      expect(outbox.status.rejected, 0);
+      expect(outbox.status.thumbnailsAccepted, isFalse);
+      expect(await thumbnail(outbox, 3), isFalse);
+    });
+
+    test(
+      'los recortes ceden el paso a los sobres cuando la cola crece',
+      () async {
+        final outbox = Outbox(
+          directory: directory,
+          serverUrl: 'x',
+          token: 't',
+          maxThumbnailBacklog: 1,
+        );
+        expect(await outbox.enqueue(event(1)), isTrue);
+        expect(await thumbnail(outbox, 1), isFalse);
+        expect(await outbox.enqueue(event(2)), isTrue);
+      },
+    );
+
     test('no acepta más eventos con la cola llena', () async {
       final outbox = Outbox(
         directory: directory,
@@ -598,6 +736,83 @@ void main() {
     expect(first['modelDigest'], 'sha256:abc');
     expect((first['detections'] as List).single['vehicleType'], 'car');
     expect(engine.stats.inferenceMs, 30);
+  });
+
+  test('el motor envía un recorte por vehículo, tras su sobre y una sola vez', () async {
+    final directory = await Directory.systemTemp.createTemp('vigia-engine');
+    addTearDown(() => directory.delete(recursive: true));
+    var now = DateTime.utc(2026, 10, 28, 17, 28);
+    final requests = <http.Request>[];
+    final encoded = <double>[];
+    var width = 100.0;
+    final engine = EdgeEngine(
+      cameraId: 'CEL-04',
+      modelName: 'm',
+      modelDigest: null,
+      snapshotInterval: const Duration(seconds: 2),
+      clock: () => now,
+      detect: (_) async => (
+        detections: [
+          Detection(box: Box(10, 20, 10 + width, 80), score: 0.9, label: 'car'),
+        ],
+        elapsed: Duration.zero,
+      ),
+      encodeThumbnail: (frame, box) async {
+        encoded.add(box.width);
+        return Uint8List.fromList([
+          0xff,
+          0xd8,
+          0xff,
+          box.width.round(),
+          0xff,
+          0xd9,
+        ]);
+      },
+      outbox: Outbox(
+        directory: directory,
+        serverUrl: 'https://central.example',
+        token: 't',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            '{}',
+            request.url.path.endsWith('thumbnails') ? 201 : 202,
+          );
+        }),
+      ),
+    )..start();
+    // The car approaches: 100 → 110 px is under the 20 % growth, 130 px is not.
+    for (final w in [100.0, 100.0, 110.0, 130.0]) {
+      width = w;
+      now = now.add(const Duration(milliseconds: 500));
+      await engine.process(_bgraFrame(2, 2));
+    }
+    expect(encoded, [
+      100,
+      130,
+    ], reason: 'tentative on frame 1, then only when it grows');
+    // Still in view: the recorte waits for a better one.
+    await engine.snapshot();
+    // Gone for 2 s: the view stopped improving, so it follows this envelope.
+    now = now.add(const Duration(seconds: 2));
+    await engine.snapshot();
+    // Never twice for the same track.
+    now = now.add(const Duration(seconds: 2));
+    await engine.snapshot();
+    await _until(() => requests.length == 4);
+    await engine.stop();
+    // stop() may still flush a final envelope; the first four tell the order.
+    final paths = [
+      for (final r in requests.take(4)) r.url.path.split('/').last,
+    ];
+    expect(paths, ['detections', 'detections', 'thumbnails', 'detections']);
+    final envelope = jsonDecode(requests[1].body) as Map<String, dynamic>;
+    final track =
+        (envelope['detections'] as List).single as Map<String, dynamic>;
+    expect(requests[2].url.queryParameters['trackId'], '${track['trackId']}');
+    expect(requests[2].url.queryParameters['firstSeen'], track['firstSeen']);
+    expect(requests[2].url.queryParameters['sessionId'], envelope['sessionId']);
+    expect(requests[2].bodyBytes[3], 130, reason: 'the largest view');
   });
 
   test('sin vehículos el latido espera y con vehículos vuelve a los 2 s', () async {

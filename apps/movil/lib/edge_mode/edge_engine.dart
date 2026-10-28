@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import '../camera_mode/frame_encoder.dart';
 import 'colors.dart';
@@ -18,6 +19,9 @@ typedef ClassifyColors = Future<List<Map<String, double>>> Function(
   List<Box> boxes,
 );
 
+/// JPEG of one box of the frame (upright pixels), for manual confirmation.
+typedef EncodeThumbnail = Future<Uint8List> Function(FrameData frame, Box box);
+
 class EdgeStats {
   const EdgeStats({
     required this.framesProcessed,
@@ -28,6 +32,7 @@ class EdgeStats {
     required this.outbox,
     this.failures = 0,
     this.colorFailures = 0,
+    this.thumbnailFailures = 0,
     this.lastError,
   });
 
@@ -41,6 +46,7 @@ class EdgeStats {
   /// Frames whose detection failed or timed out, and the latest reason.
   final int failures;
   final int colorFailures;
+  final int thumbnailFailures;
   final String? lastError;
 }
 
@@ -65,6 +71,7 @@ class EdgeEngine {
     required this.detect,
     required this.outbox,
     this.classifyColors,
+    this.encodeThumbnail,
     IouTracker? tracker,
     this.snapshotInterval = const Duration(seconds: 2),
     this.idleSnapshotInterval = const Duration(seconds: 30),
@@ -81,6 +88,9 @@ class EdgeEngine {
 
   /// Null when the app ships no colour model: colours then stay unknown.
   final ClassifyColors? classifyColors;
+
+  /// Null: no recortes are taken (tests, or a build without them).
+  final EncodeThumbnail? encodeThumbnail;
   final IouTracker tracker;
   final Duration snapshotInterval;
   final Duration idleSnapshotInterval;
@@ -96,6 +106,7 @@ class EdgeEngine {
   bool _busy = false;
   int _failures = 0;
   int _colorFailures = 0;
+  int _thumbnailFailures = 0;
   String? _lastError;
   Timer? _timer;
   DateTime? _lastSnapshotAt;
@@ -116,8 +127,20 @@ class EdgeEngine {
     outbox: outbox.status,
     failures: _failures,
     colorFailures: _colorFailures,
+    thumbnailFailures: _thumbnailFailures,
     lastError: _lastError,
   );
+
+  /// A recorte is re-taken only when the box grows this much, at most
+  /// [maxThumbnailEncodes] times per track, never below [thumbnailMinSidePx].
+  static const thumbnailGrowth = 1.2;
+  static const maxThumbnailEncodes = 4;
+  static const thumbnailMinSidePx = 32.0;
+
+  /// The view stops improving once the vehicle has been gone this long, or
+  /// has been in view this long (a parked car would otherwise never send one).
+  static const thumbnailSettle = Duration(seconds: 1);
+  static const thumbnailMaxWait = Duration(seconds: 10);
 
   void start() {
     if (running) return;
@@ -129,7 +152,9 @@ class EdgeEngine {
     _timer?.cancel();
     _timer = null;
     if (_frames > 0) {
-      await snapshot(force: true); // Final state, as the PC node does on shutdown.
+      await snapshot(
+        force: true,
+      ); // Final state, as the PC node does on shutdown.
     }
     outbox.stop();
   }
@@ -157,6 +182,7 @@ class EdgeEngine {
       _lastProcessed = now;
       _lastError = null;
       await _sampleColors(frame, now);
+      await _sampleThumbnail(frame, now);
       latestTracks = [
         for (final track in tracker.active(now))
           if (track.lastSeen == now) track,
@@ -206,6 +232,63 @@ class EdgeEngine {
     }
   }
 
+  /// Keeps each track's largest view as a JPEG: one encode per frame at most
+  /// (the biggest box that grew), so detection keeps its pace.
+  Future<void> _sampleThumbnail(FrameData frame, DateTime now) async {
+    final encode = encodeThumbnail;
+    if (encode == null || !outbox.acceptsThumbnails) return;
+    Track? best;
+    for (final track in tracker.active(now)) {
+      final box = track.box;
+      if (track.lastSeen != now ||
+          track.thumbnailQueued ||
+          track.thumbnailEncodes >= maxThumbnailEncodes ||
+          box.width < thumbnailMinSidePx ||
+          box.height < thumbnailMinSidePx ||
+          box.area < track.thumbnailArea * thumbnailGrowth) {
+        continue;
+      }
+      if (best == null || box.area > best.box.area) best = track;
+    }
+    if (best == null) return;
+    final box = best.box;
+    best.thumbnailEncodes++;
+    try {
+      best.thumbnail = await encode(frame, box).timeout(detectTimeout);
+      best.thumbnailArea = box.area;
+    } catch (error) {
+      // Without a recorte the vehicle is still reported; it just cannot be
+      // confirmed by eye.
+      _thumbnailFailures++;
+      _lastError = 'Recorte: $error';
+    }
+  }
+
+  /// Recortes go after the envelope that published their track, once the view
+  /// stopped improving, and only once per track.
+  Future<void> _queueThumbnails(DateTime now, {required bool force}) async {
+    for (final track in tracker.active(now)) {
+      final jpeg = track.thumbnail;
+      if (jpeg == null || track.thumbnailQueued) continue;
+      final settled =
+          force ||
+          track.thumbnailEncodes >= maxThumbnailEncodes ||
+          now.difference(track.lastSeen) >= thumbnailSettle ||
+          now.difference(track.firstSeen) >= thumbnailMaxWait;
+      if (!settled) continue;
+      track.thumbnailQueued = true;
+      track.thumbnail = null;
+      await outbox.enqueueThumbnail(
+        cameraId: cameraId,
+        sessionId: sessionId,
+        sequenceNumber: _sequence,
+        trackId: track.id,
+        firstSeen: isoUtc(track.firstSeen),
+        jpeg: jpeg,
+      );
+    }
+  }
+
   Future<void> snapshot({bool force = false}) async {
     final now = _clock();
     final active = tracker.active(now);
@@ -234,5 +317,6 @@ class EdgeEngine {
         generatedAt: now,
       ),
     );
+    if (encodeThumbnail != null) await _queueThumbnails(now, force: force);
   }
 }

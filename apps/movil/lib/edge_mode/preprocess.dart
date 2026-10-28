@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:image/image.dart' as img;
+
 import '../camera_mode/frame_encoder.dart';
 
 /// Where the upright frame landed inside the square model input.
@@ -213,6 +215,88 @@ Float32List prepareCrop(CropRequest request) {
     }
   }
   return out;
+}
+
+class ThumbnailRequest {
+  const ThumbnailRequest(
+    this.frame,
+    this.box, {
+    this.maxSide = 224,
+    this.margin = 0.1,
+    this.quality = 80,
+  });
+
+  final FrameData frame;
+
+  /// Upright-frame pixels: x1, y1, x2, y2.
+  final (double, double, double, double) box;
+  final int maxSide;
+
+  /// Extra context around the box, as a fraction of its size.
+  final double margin;
+  final int quality;
+}
+
+/// The recorte an admin sees to confirm a detection: the vehicle's box with a
+/// small margin, upright, longest side at most [ThumbnailRequest.maxSide], as
+/// JPEG (≈10 KB; the central accepts up to 64 KB). Never the whole scene.
+/// Each output pixel averages a block of the frame, so a large box stays sharp
+/// without aliasing. Top-level so it can run in an isolate.
+Uint8List encodeThumbnailJpeg(ThumbnailRequest request) {
+  final frame = request.frame;
+  final rotation = ((frame.rotationDegrees % 360) + 360) % 360;
+  final turned = rotation == 90 || rotation == 270;
+  final uprightWidth = turned ? frame.height : frame.width;
+  final uprightHeight = turned ? frame.width : frame.height;
+  final (x1, y1, x2, y2) = request.box;
+  final padX = (x2 - x1) * request.margin;
+  final padY = (y2 - y1) * request.margin;
+  final left = (x1 - padX).floor().clamp(0, uprightWidth - 1);
+  final top = (y1 - padY).floor().clamp(0, uprightHeight - 1);
+  final right = (x2 + padX).ceil().clamp(left + 1, uprightWidth);
+  final bottom = (y2 + padY).ceil().clamp(top + 1, uprightHeight);
+  final width = right - left;
+  final height = bottom - top;
+  final step = math.max(1, (math.max(width, height) / request.maxSide).ceil());
+  final outWidth = math.max(1, width ~/ step);
+  final outHeight = math.max(1, height ~/ step);
+
+  final sampler = _Sampler(frame);
+  final pixel = Float32List(3);
+  final rgb = Uint8List(outWidth * outHeight * 3);
+  for (var oy = 0; oy < outHeight; oy++) {
+    for (var ox = 0; ox < outWidth; ox++) {
+      var r = 0.0, g = 0.0, b = 0.0;
+      for (var dy = 0; dy < step; dy++) {
+        final uy = top + oy * step + dy;
+        for (var dx = 0; dx < step; dx++) {
+          final ux = left + ox * step + dx;
+          final (sx, sy) = switch (rotation) {
+            90 => (uy, frame.height - 1 - ux),
+            180 => (frame.width - 1 - ux, frame.height - 1 - uy),
+            270 => (frame.width - 1 - uy, ux),
+            _ => (ux, uy),
+          };
+          sampler.write(sx, sy, pixel, 0, 1);
+          r += pixel[0];
+          g += pixel[1];
+          b += pixel[2];
+        }
+      }
+      final scale = 255 / (step * step);
+      final o = (oy * outWidth + ox) * 3;
+      rgb[o] = (r * scale).round();
+      rgb[o + 1] = (g * scale).round();
+      rgb[o + 2] = (b * scale).round();
+    }
+  }
+  final image = img.Image.fromBytes(
+    width: outWidth,
+    height: outHeight,
+    bytes: rgb.buffer,
+    numChannels: 3,
+  );
+  return img.encodeJpg(image, quality: request.quality);
 }
 
 /// PIL's bilinear resampling weights: a triangle widened by the downscale

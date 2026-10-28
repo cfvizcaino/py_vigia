@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'colors.dart';
 import 'detections.dart';
@@ -39,6 +40,13 @@ class Track {
   double vx = 0;
   double vy = 0;
   final colorVotes = ColorVotes();
+
+  /// Largest view so far as JPEG, for an admin to confirm the detection. Sent
+  /// once, after the envelope that publishes the track (EdgeEngine).
+  Uint8List? thumbnail;
+  double thumbnailArea = 0;
+  int thumbnailEncodes = 0;
+  bool thumbnailQueued = false;
 
   /// Voted colour, or null while unknown.
   String? get color => colorVotes.color;

@@ -99,13 +99,13 @@ def test_rejects_unknown_tracks_other_cameras_and_non_jpeg(setup):
     assert db.scalars(select(Detection)).one().thumbnail_url is None
 
 
-def test_disabled_storage_answers_503(setup, monkeypatch):
+def test_disabled_storage_answers_501(setup, monkeypatch):
     _, secret, client, _ = setup
     session_id = uuid.uuid4()
     publish_track(client, secret, session_id)
     monkeypatch.delenv("THUMBNAIL_DIR")
     thumbnail_store.cache_clear()
-    assert upload(client, secret, session_id).status_code == 503
+    assert upload(client, secret, session_id).status_code == 501
 
 
 def test_only_admins_see_recortes_and_each_view_is_audited(setup):

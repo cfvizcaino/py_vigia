@@ -89,8 +89,8 @@ async def ingest_thumbnail(
 ) -> ThumbnailResponse:
     """Recorte JPEG de un track ya publicado. El edge lo envía después del sobre que lo crea.
 
-    404 si el track no existe: el edge no debe reintentarlo. 503 si el centro no guarda
-    recortes: el edge puede dejar de enviarlos.
+    404 si el track no existe: el edge no debe reintentarlo. 501 si el centro no guarda
+    recortes: el edge deja de enviarlos (503 queda para la sobrecarga, que sí se reintenta).
     """
     if request.headers.get("content-type", "").split(";")[0].strip() != "image/jpeg":
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Send image/jpeg")
@@ -117,7 +117,7 @@ def _store_thumbnail(
     _check_device(db, token, camera_id)
     store = thumbnail_store()
     if store is None:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Thumbnails are disabled")
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Thumbnails are disabled")
     if not looks_like_jpeg(data):
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Not a JPEG")
     detection = db.scalar(
