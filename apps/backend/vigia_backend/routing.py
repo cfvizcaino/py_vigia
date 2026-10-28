@@ -48,6 +48,10 @@ class RoutingConfig:
     min_speed_kmh: float = 8.0
     max_route_length: int = 6
     max_candidates: int = 10
+    # Results per trajectory (cameras plus road option of each step): on a busy
+    # street many vehicles of the queried colour pass the same cameras, and copies
+    # of one short trajectory would push longer ones out of the list.
+    max_per_trajectory: int = 1
     beam_width: int = 200
     max_detections: int = 500
     detection_weight: float = .35
@@ -61,7 +65,8 @@ class RoutingConfig:
         weights = (self.detection_weight, self.time_weight, self.appearance_weight, self.road_weight)
         if any(not math.isfinite(w) or w < 0 for w in weights) or not math.isclose(sum(weights), 1):
             raise ValueError("Los pesos no negativos deben sumar 1")
-        if self.time_factor <= 0 or self.time_sigma <= 0 or self.beam_width < 1 or self.max_route_length < 2:
+        if (self.time_factor <= 0 or self.time_sigma <= 0 or self.beam_width < 1 or self.max_route_length < 2
+                or self.max_per_trajectory < 1):
             raise ValueError("Configuración de búsqueda/tiempo inválida")
 
 RoadLinks = dict[tuple[str, str], float | list[RoadOption]]
@@ -201,11 +206,16 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
     # Longer chains only dominate subsequences if evidence score is >=.
     found.sort(key=lambda c: (-c.confidence, -len(c.detection_ids), c.detection_ids))
     kept = []
+    per_trajectory: dict[tuple, int] = {}
     for candidate in found:
         if color is not None and not any(by_id[i].color == color for i in candidate.detection_ids):
             continue
+        trajectory = (candidate.camera_ids, tuple(s["option_index"] for s in candidate.explanation["segments"]))
+        if per_trajectory.get(trajectory, 0) >= cfg.max_per_trajectory:
+            continue
         if any(_is_subsequence(candidate.detection_ids, other.detection_ids) for other in kept):
             continue
+        per_trajectory[trajectory] = per_trajectory.get(trajectory, 0) + 1
         candidate.explanation["search_pruned"] = pruned
         kept.append(candidate)
         if len(kept) == cfg.max_candidates:
