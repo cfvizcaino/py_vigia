@@ -49,7 +49,7 @@ No significa que B sea el recorrido real: A con una parada también podría expl
 
 ## Búsqueda, límites y configuración
 
-La búsqueda beam conserva hasta 200 estados por profundidad, seis observaciones por ruta y diez resultados. Se limita a 500 detecciones por consulta; excederlas produce un error para reducir ventana/radio. Si hay poda, `search_pruned=true`: el ranking no es una enumeración exhaustiva ni garantiza encontrar el óptimo global.
+La búsqueda beam conserva hasta 200 estados por profundidad, seis observaciones por ruta y diez resultados. Cada trayectoria (secuencia de cámaras y opción vial de cada tramo) aparece una sola vez, con su mejor combinación de detecciones (`max_per_trajectory`). En la prueba de campo del 28/10, con mucho tráfico blanco, diez copias de CEL-NICO → CEL-VENECO dejaban fuera CEL-02 → CEL-NICO → CEL-VENECO (puesto 16) y la ruta de las cuatro cámaras (puesto 222). Se limita a 500 detecciones por consulta; excederlas produce un error para reducir ventana/radio. Si hay poda, `search_pruned=true`: el ranking no es una enumeración exhaustiva ni garantiza encontrar el óptimo global.
 
 En el `.env` del backend, opcionalmente:
 

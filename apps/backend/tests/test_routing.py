@@ -230,7 +230,31 @@ def test_known_color_outranks_an_unknown_step() -> None:
         _det("unknown", "CAM-02", "car", None, "izquierda-a-derecha", 0.9),
     ]
 
-    routes = reconstruct_routes(detections, LINKS, color="white")
+    # Same cameras twice: allow two results per trajectory to compare them.
+    routes = reconstruct_routes(detections, LINKS, color="white", config=RoutingConfig(max_per_trajectory=2))
 
     assert [r.detection_ids for r in routes[:2]] == [("a", "known"), ("a", "unknown")]
     assert routes[0].confidence > routes[1].confidence
+
+
+def test_busy_short_sequence_does_not_hide_the_longer_trajectory() -> None:
+    """Prueba de campo del 28/10: diez copias de NICO → VENECO dejaban fuera a CEL-02 → NICO → VENECO."""
+    links = {("CEL-02", "CEL-NICO"): 1188.0, ("CEL-NICO", "CEL-VENECO"): 427.0}
+    trip = [
+        _det("t1", "CEL-02", "car", "white", "izquierda-a-derecha", 0.0),
+        _det("t2", "CEL-NICO", "car", "white", "derecha-a-izquierda", 2.8),
+        _det("t3", "CEL-VENECO", "car", "white", "derecha-a-izquierda", 3.8),
+    ]
+    traffic = [
+        _det(f"{camera}{i}", camera, "car", "white", "indeterminada", minute + i * 0.02, 0.95)
+        for i in range(12)
+        for camera, minute in (("CEL-NICO", 2.9), ("CEL-VENECO", 3.9))
+    ]
+
+    routes = reconstruct_routes(trip + traffic, links, vehicle_type="car", color="white")
+
+    sequences = [r.camera_ids for r in routes]
+    assert ("CEL-02", "CEL-NICO", "CEL-VENECO") in sequences
+    assert len(sequences) == len(set(sequences))
+    assert reconstruct_routes(trip + traffic, links, config=RoutingConfig(max_per_trajectory=3))[2].camera_ids \
+        == ("CEL-NICO", "CEL-VENECO")
