@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from .models import Detection, Device, EdgeObservation, IngestedEvent
 from .retention import purge_raw_events
 from .schemas import DetectionEnvelopeV11
+from .thumbnails import purge_thumbnails
 
 _purge_lock = threading.Lock()
 _next_purge = 0.0
@@ -35,7 +36,7 @@ class IngestionResult:
 
 
 def maybe_purge_raw_events(db: Session) -> None:
-    """Como mucho una vez por hora y por proceso. Un fallo aquí no rechaza el evento."""
+    """Eventos crudos y recortes vencidos. Como mucho una vez por hora y por proceso. Un fallo aquí no rechaza el evento."""
     global _next_purge
     now = time.monotonic()
     if now < _next_purge:
@@ -44,10 +45,11 @@ def maybe_purge_raw_events(db: Session) -> None:
         if time.monotonic() < _next_purge:
             return
         _next_purge = time.monotonic() + 3600
-    try:
-        purge_raw_events(db)
-    except Exception:
-        db.rollback()
+    for purge in (purge_raw_events, purge_thumbnails):
+        try:
+            purge(db)
+        except Exception:
+            db.rollback()
 
 
 def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> IngestionResult:

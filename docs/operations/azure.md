@@ -56,6 +56,10 @@ bash infra/edges/install-node-token.sh CEL-02 8082 https://vigia-5dfe.mexicocent
 
 En la app: ícono de enlace → `https://vigia-5dfe.mexicocentral.cloudapp.azure.com` → **Guardar**. Funciona con datos móviles o cualquier Wi-Fi, sin cable ni `adb reverse`.
 
+## Recortes de vehículos
+
+Contenedor privado de Azure Blob con borrado a los 7 días; solo los ve un admin. Puesta en marcha y decisiones en [recortes.md](recortes.md).
+
 ## Respaldos
 
 Cron del usuario `vigia` en el servidor:

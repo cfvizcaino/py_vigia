@@ -138,6 +138,10 @@ class IngestResponse(BaseModel):
     updated_detections: int
 
 
+class ThumbnailResponse(BaseModel):
+    detection_id: uuid.UUID
+
+
 class NearbyDeviceRead(BaseModel):
     id: uuid.UUID
     external_id: str
@@ -156,6 +160,8 @@ class RouteDetectionHop(BaseModel):
     direction: str
     confidence: float
     observed_at: datetime
+    # A recorte is stored and still within retention; admins fetch it by detection id.
+    has_thumbnail: bool = False
 
 
 class RouteCandidateRead(BaseModel):

@@ -142,8 +142,9 @@ class Detection(Base):
     direction: Mapped[str] = mapped_column(String(64), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
-    thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)  # opcional: aún no se decide si habrá imágenes
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    # Clave del recorte en el almacén privado (thumbnails.py), no una URL pública; 7 días.
+    thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
     device: Mapped[Device] = relationship(back_populates="detections")
 

@@ -14,6 +14,9 @@
 #   apk F VER [MIN]  publica el APK firmado, la página https://HOST/descargar y
 #               GET /api/v1/app/version (MIN obliga a quien tenga una versión menor;
 #               si se omite, se conserva el mínimo ya publicado). Notas: VIGIA_APK_NOTES.
+#   recortes    crea (o completa) el contenedor privado de recortes en Azure Blob con
+#               borrado a los 7 días y deja su cadena de conexión en $app/.env sin
+#               mostrarla. Requiere az login. Después: deploy.sh HOST sync y up.
 #   status      estado de los servicios
 # Variables: VIGIA_SSH_KEY (por defecto ~/.ssh/vigia_azure), VIGIA_COMPOSE (Docker local).
 set -euo pipefail
@@ -132,6 +135,23 @@ case "$command" in
     remote "cd $app/descargas && ln -sfn $name vigia.apk && echo '$sha  $name' > $name.sha256 && chmod a+r *"
     echo "Publicado: https://$host/descargar  ($name, SHA-256 $sha)"
     echo "Aviso: GET https://$host/api/v1/app/version  (hace falta el compose con APP_VERSION_FILE montado)"
+    ;;
+  recortes)
+    # Same resource group and region as the VM; private, HTTPS only, TLS 1.2.
+    account="${VIGIA_STORAGE_ACCOUNT:-$(printf '%s' "${host%%.*}" | tr -cd 'a-z0-9')recortes}"
+    az storage account create -g vigia-rg -n "$account" -l mexicocentral --sku Standard_LRS --kind StorageV2 \
+      --https-only true --min-tls-version TLS1_2 --allow-blob-public-access false -o none
+    az storage container create --account-name "$account" -n recortes --auth-mode key -o none
+    # Lifecycle runs once a day: a recorte disappears between day 7 and 8. The backend
+    # stops serving it at exactly 7 days (THUMBNAIL_RETENTION_DAYS).
+    az storage account management-policy create -g vigia-rg --account-name "$account" -o none --policy '{
+      "rules": [{"enabled": true, "name": "recortes-7-dias", "type": "Lifecycle",
+        "definition": {"filters": {"blobTypes": ["blockBlob"], "prefixMatch": ["recortes/"]},
+          "actions": {"baseBlob": {"delete": {"daysAfterCreationGreaterThan": 7}}}}}]}'
+    az storage account show-connection-string -g vigia-rg -n "$account" -o tsv \
+      | sed 's/^/THUMBNAIL_STORAGE_CONNECTION_STRING=/' \
+      | remote "set -e; cd $app; umask 077; grep -v '^THUMBNAIL_STORAGE_CONNECTION_STRING=' .env > .env.new || true; cat >> .env.new; mv .env.new .env"
+    echo "Contenedor recortes en $account; cadena guardada en $app/.env. Aplica con: deploy.sh $host sync && deploy.sh $host up"
     ;;
   status)
     remote "cd $app && docker compose ps --format '{{.Service}}\t{{.Status}}' && free -h | sed -n 2,3p"
