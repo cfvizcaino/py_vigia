@@ -31,6 +31,8 @@ services:
       DATABASE_URL: postgresql+psycopg://vigia:${VIGIA_DB_PASSWORD}@db:5432/vigia
       # Browsers only: the mobile app's web build calls the API directly (native apps ignore CORS).
       CORS_ORIGINS: ${VIGIA_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8095,http://127.0.0.1:8095}
+      # Local recortes; Azure uses a private Blob container (infra/azure/compose.yaml).
+      THUMBNAIL_DIR: /app/data/recortes
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

@@ -23,6 +23,7 @@ from ..schemas import (
     RouteCandidateRead,
     RouteDetectionHop,
 )
+from ..thumbnails import is_expired
 
 router = APIRouter(prefix="/api/v1/queries", tags=["queries"])
 
@@ -73,6 +74,7 @@ def run_query(
                     direction=det.direction,
                     confidence=det.confidence,
                     observed_at=det.observed_at,
+                    has_thumbnail=det.thumbnail_url is not None and not is_expired(det),
                 )
             )
         routes_out.append(

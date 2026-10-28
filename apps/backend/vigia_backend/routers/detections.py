@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from ..auth import Principal, audit, require_admin, require_operator
 from ..db import get_db
 from ..models import Detection, Device
 from ..schemas import DetectionCreate, DetectionRead, DetectionUpdate
+from ..thumbnails import is_expired, thumbnail_store
 
 router = APIRouter(prefix="/api/v1/detections", tags=["detections"], dependencies=[Depends(require_operator)])
 
@@ -41,6 +42,23 @@ def get_detection(detection_id: uuid.UUID, db: Session = Depends(get_db)) -> Det
     if detection is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection not found")
     return detection
+
+
+@router.get("/{detection_id}/thumbnail", response_class=Response)
+def get_thumbnail(
+    detection_id: uuid.UUID, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)
+) -> Response:
+    """Recorte del vehículo para confirmar la detección a mano. Solo admin; cada vista se audita."""
+    detection = db.get(Detection, detection_id)
+    store = thumbnail_store()
+    data = None
+    if detection is not None and detection.thumbnail_url and store is not None and not is_expired(detection):
+        data = store.get(detection.thumbnail_url)
+    if data is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No thumbnail")
+    audit(db, principal, "thumbnail.viewed", detail={"detection": str(detection_id)})
+    db.commit()
+    return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("", response_model=DetectionRead, status_code=status.HTTP_201_CREATED)
