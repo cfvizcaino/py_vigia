@@ -47,7 +47,9 @@ export async function loadModel(input: {
     throw new Error('La huella SHA-256 del modelo no coincide con su manifiesto.');
   }
 
-  const model = await loadTensorflowModel(input.assetId, input.delegates ?? []);
+  // Load the very file whose digest was just checked. Passing the module id
+  // breaks in release builds: it resolves to a resource name, not a URL.
+  const model = await loadTensorflowModel({ url: asset.localUri }, input.delegates ?? []);
   const tensorInput = model.inputs[0];
   const tensorOutput = model.outputs[0];
   if (!tensorInput || !tensorOutput
