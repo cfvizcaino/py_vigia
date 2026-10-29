@@ -8,6 +8,8 @@ import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
 import { loadColorModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
+import type { ThumbnailGate } from '../native/FrameProcessor';
+import { createThumbnailEncoder } from '../native/thumbnail';
 import type { EdgeConfiguration } from '../edge/config';
 import type { EdgeStats } from '../edge/engine';
 import type { LoadedModel } from '../edge/model';
@@ -28,6 +30,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const engineRef = useRef<EdgeEngine | null>(null);
+  const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
   const device = useCameraDevice('back');
 
   useEffect(() => {
@@ -50,6 +53,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           { name: detector.manifest.name, digest: detector.manifest.sha256 },
           outbox,
           setStats,
+          createThumbnailEncoder(),
+          (gates) => gatesRef.current(gates),
         );
         setModels({ detector, color });
       } catch (reason) {
@@ -90,7 +95,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
     }
   }, [foreground, models]);
 
-  const frameOutput = useVehicleFrameOutput({
+  const { output: frameOutput, setThumbnailGates } = useVehicleFrameOutput({
     detector: models?.detector.model ?? null,
     colorModel: models?.color.model ?? null,
     inputSize: 320,
@@ -102,6 +107,9 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
     onFrameResult: (result) => engineRef.current?.process(result),
     onFrameError: (message) => engineRef.current?.reportError(message),
   });
+  useEffect(() => {
+    gatesRef.current = setThumbnailGates;
+  }, [setThumbnailGates]);
 
   return (
     <Card title="Edge autónomo">
@@ -129,7 +137,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           </Text>
           <Text style={styles.metric}>
             {stats?.outbox
-              ? `Outbox: ${stats.outbox.pending} pendientes · ${stats.outbox.delivered} enviados · ${stats.outbox.rejected} rechazados · ${stats.outbox.retries} reintentos`
+              ? `Outbox: ${stats.outbox.pending} pendientes · ${stats.outbox.delivered} enviados · ${stats.outbox.rejected} rechazados · ${stats.outbox.retries} reintentos · ${stats.outbox.thumbnails} recortes`
               : 'Preparando outbox…'}
           </Text>
           {stats?.lastError ? <Text accessibilityRole="alert" style={styles.error}>{stats.lastError}</Text> : null}

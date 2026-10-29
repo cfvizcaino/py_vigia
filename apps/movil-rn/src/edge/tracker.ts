@@ -16,6 +16,11 @@ export class Track {
   vx = 0;
   vy = 0;
   readonly colorVotes = new ColorVotes();
+  /** Largest view so far as JPEG, waiting until it stops improving. */
+  thumbnail: Uint8Array | null = null;
+  thumbnailArea = 0;
+  thumbnailEncodes = 0;
+  thumbnailQueued = false;
 
   constructor(id: number, detection: Detection, now: number) {
     this.id = id;

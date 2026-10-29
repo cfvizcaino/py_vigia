@@ -72,7 +72,7 @@ export function CameraMap({ devices, height, center, point, onSelectPoint }: Cam
           <Layer
             id="vigia-camera-labels"
             type="symbol"
-            layout={{ 'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, 1.4], 'text-anchor': 'top' }}
+            layout={{ 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 1.4], 'text-anchor': 'top' }}
             paint={{ 'text-color': '#14221B', 'text-halo-color': '#F7F9F8', 'text-halo-width': 1 }}
           />
         </GeoJSONSource>

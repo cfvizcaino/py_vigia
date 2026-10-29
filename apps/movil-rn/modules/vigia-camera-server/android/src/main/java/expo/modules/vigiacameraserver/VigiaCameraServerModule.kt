@@ -1,41 +1,89 @@
 package expo.modules.vigiacameraserver
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.typedarray.Uint8Array
 
 class VigiaCameraServerModule : Module() {
-  @Volatile private var server: MjpegHttpServer? = null
+  private var server: MjpegHttpServer?
+    get() = CameraServerHolder.server
+    set(value) { CameraServerHolder.server = value }
 
   override fun definition() = ModuleDefinition {
     Name("VigiaCameraServer")
 
     AsyncFunction("start") { host: String, port: Int, accessKey: String? ->
-      val current = server
-      if (current?.isRunning == true) {
-        current.address
-      } else {
-        val next = MjpegHttpServer(host, port, accessKey)
-        next.start()
-        server = next
-        next.address
+      // Restart rather than reuse: the link (USB/LAN) or the key may have changed.
+      server?.stop()
+      val next = MjpegHttpServer(host, port, accessKey)
+      next.start()
+      server = next
+      next.address
+    }
+
+    // Recorte of a vehicle for an admin to confirm by eye: RGB pixels from the
+    // frame processor, encoded here because JPEG in JavaScript is too slow.
+    AsyncFunction("encodeRgbJpeg") { pixels: Uint8Array, width: Int, height: Int, quality: Int ->
+      require(width in 1..4096 && height in 1..4096) { "Tamaño de recorte inválido." }
+      require(pixels.byteLength == width * height * 3) { "El recorte no tiene width × height × 3 bytes." }
+      val rgb = ByteArray(pixels.byteLength)
+      pixels.read(rgb, 0, rgb.size)
+      val colors = IntArray(width * height) { index ->
+        val offset = index * 3
+        (0xFF shl 24) or
+          ((rgb[offset].toInt() and 0xFF) shl 16) or
+          ((rgb[offset + 1].toInt() and 0xFF) shl 8) or
+          (rgb[offset + 2].toInt() and 0xFF)
+      }
+      val bitmap = Bitmap.createBitmap(colors, width, height, Bitmap.Config.ARGB_8888)
+      try {
+        ByteArrayOutputStream().use { output ->
+          check(bitmap.compress(Bitmap.CompressFormat.JPEG, quality.coerceIn(1, 100), output)) {
+            "No se pudo codificar el recorte JPEG."
+          }
+          android.util.Base64.encodeToString(output.toByteArray(), android.util.Base64.NO_WRAP)
+        }
+      } finally {
+        bitmap.recycle()
       }
     }
 
-    AsyncFunction("publishJpegFile") { path: String, rotation: Int ->
-      val current = server
-      if (current == null) {
-        File(path).delete()
-        throw IllegalStateException("El servidor MJPEG no está iniciado.")
+    AsyncFunction("readFlutterData") {
+      val context = appContext.reactContext ?: return@AsyncFunction emptyMap<String, String>()
+      FlutterDataMigration.read(context)
+    }
+
+    AsyncFunction("clearFlutterData") {
+      appContext.reactContext?.let(FlutterDataMigration::clear)
+    }
+
+    View(CameraStreamView::class) {
+      Events("onCameraStarted", "onCameraError")
+      Prop("active") { view: CameraStreamView, active: Boolean ->
+        view.active = active
       }
-      current.publishJpegFile(path, rotation)
+      Prop("fps") { view: CameraStreamView, fps: Int ->
+        view.fps = fps
+      }
+      Prop("extraRotation") { view: CameraStreamView, rotation: Int ->
+        view.extraRotation = rotation
+      }
+      OnViewDidUpdateProps { view: CameraStreamView ->
+        view.refresh()
+      }
+      OnViewDestroys { view: CameraStreamView ->
+        view.destroy()
+      }
     }
 
     AsyncFunction("openApkInstaller") { fileUri: String, expectedSha256: String ->

@@ -4,10 +4,12 @@ import { describe, expect, jest, test } from '@jest/globals';
 import { CameraModeScreen } from './CameraModeScreen';
 
 jest.mock('react-native-vision-camera', () => ({
-  Camera: 'Camera',
   VisionCamera: { requestCameraPermission: jest.fn(async () => true) },
-  useCameraDevice: jest.fn(() => ({ id: 'back-camera' })),
-  usePhotoOutput: jest.fn(() => ({ capturePhoto: jest.fn() })),
+}));
+
+jest.mock('expo', () => ({
+  ...jest.requireActual<object>('expo'),
+  requireNativeView: jest.fn(() => 'CameraStreamView'),
 }));
 
 jest.mock('expo-keep-awake', () => ({

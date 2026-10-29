@@ -1,12 +1,25 @@
+import { useCallback } from 'react';
 import { useFrameOutput } from 'react-native-vision-camera';
 import type { CameraFrameOutput, Frame } from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
 import type { TfliteModel } from 'react-native-fast-tflite';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { decodeYolo } from '../edge/detections';
-import { prepareCrop, prepareInput } from '../edge/preprocess';
-import type { Detection, FrameData } from '../edge/types';
+import { decodeYolo, intersectionOverUnion } from '../edge/detections';
+import { prepareCrop, prepareInput, prepareThumbnail } from '../edge/preprocess';
+import type { ThumbnailPixels } from '../edge/preprocess';
+import type { Box, Detection, FrameData } from '../edge/types';
+
+// Module constants: VisionCamera memoizes the output on these values, so an
+// inline object would rebuild the camera session on every render.
+const frameResolution = { width: 640, height: 480 };
+const thumbnailMinSidePx = 32;
+
+/** Where a recorte is still wanted: a track's box and the area it must reach. */
+export interface ThumbnailGate {
+  box: Box;
+  minArea: number;
+}
 
 export interface FrameProcessingResult {
   detections: Detection[];
@@ -14,6 +27,8 @@ export interface FrameProcessingResult {
   colorFailureCount: number;
   elapsedMs: number;
   frameNumber: number;
+  /** Recorte of one detection (by index), when its view improved. */
+  thumbnail: (ThumbnailPixels & { detectionIndex: number }) | null;
 }
 
 export function useVehicleFrameOutput(input: {
@@ -27,10 +42,12 @@ export function useVehicleFrameOutput(input: {
   extraRotation: number;
   onFrameResult: (result: FrameProcessingResult) => void;
   onFrameError: (message: string) => void;
-}): CameraFrameOutput {
+}): { output: CameraFrameOutput; setThumbnailGates: (gates: ThumbnailGate[] | null) => void } {
   const lastFrameTimestamp = useSharedValue(0);
-  return useFrameOutput({
-    targetResolution: { width: 640, height: 480 },
+  // null: the central keeps no recortes (or none wanted yet), so none are made.
+  const thumbnailGates = useSharedValue<ThumbnailGate[] | null>(null);
+  const output = useFrameOutput({
+    targetResolution: frameResolution,
     pixelFormat: 'rgb',
     dropFramesWhileBusy: true,
     enablePreviewSizedOutputBuffers: true,
@@ -84,6 +101,8 @@ export function useVehicleFrameOutput(input: {
             }
           }
         }
+        const gates = thumbnailGates.value;
+        const thumbnail = gates ? pickThumbnail(frameData, detections, gates) : null;
         const elapsedMs = Date.now() - startedAt;
         if (elapsedMs > 10_000) {
           scheduleOnRN(input.onFrameError, 'La inferencia tardó más de 10 segundos; se descartó este frame.');
@@ -94,6 +113,7 @@ export function useVehicleFrameOutput(input: {
             colorFailureCount,
             elapsedMs,
             frameNumber: startedAt,
+            thumbnail,
           });
         }
       } catch (error) {
@@ -106,6 +126,43 @@ export function useVehicleFrameOutput(input: {
       }
     },
   });
+  const setThumbnailGates = useCallback((gates: ThumbnailGate[] | null) => {
+    thumbnailGates.set(gates);
+  }, [thumbnailGates]);
+  return { output, setThumbnailGates };
+}
+
+/**
+ * One recorte per frame at most, as in Flutter: the biggest detection whose
+ * track still wants a better view (a new vehicle, or one whose box grew).
+ */
+function pickThumbnail(
+  frame: FrameData,
+  detections: Detection[],
+  gates: ThumbnailGate[],
+): (ThumbnailPixels & { detectionIndex: number }) | null {
+  'worklet';
+  let bestIndex = -1;
+  let bestArea = 0;
+  for (let index = 0; index < detections.length; index++) {
+    const detection = detections[index];
+    if (!detection) continue;
+    const width = detection.box.x2 - detection.box.x1;
+    const height = detection.box.y2 - detection.box.y1;
+    if (width < thumbnailMinSidePx || height < thumbnailMinSidePx) continue;
+    const area = width * height;
+    let minArea = 0;
+    for (const gate of gates) {
+      if (intersectionOverUnion(gate.box, detection.box) > 0.3) minArea = Math.max(minArea, gate.minArea);
+    }
+    if (area >= minArea && area > bestArea) {
+      bestArea = area;
+      bestIndex = index;
+    }
+  }
+  const chosen = detections[bestIndex];
+  if (!chosen) return null;
+  return { ...prepareThumbnail(frame, chosen.box), detectionIndex: bestIndex };
 }
 
 function readFrame(frame: Frame, extraRotation: number): FrameData {

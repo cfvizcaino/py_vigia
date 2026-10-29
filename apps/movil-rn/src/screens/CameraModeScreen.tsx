@@ -2,10 +2,10 @@ import * as Crypto from 'expo-crypto';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
-import { Camera, useCameraDevice, usePhotoOutput, VisionCamera } from 'react-native-vision-camera';
+import { VisionCamera } from 'react-native-vision-camera';
 
 import { Card, ChoiceRow, ErrorMessage, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
-import { createMjpegService } from '../native/mjpeg';
+import { CameraStreamView, createMjpegService } from '../native/mjpeg';
 import type { CameraLink, MjpegService, MjpegStatus } from '../native/mjpeg';
 import { colors } from '../theme/colors';
 
@@ -27,14 +27,6 @@ export function CameraModeScreen() {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const [error, setError] = useState<string | null>(null);
   const serviceRef = useRef<MjpegService | null>(null);
-  const captureBusy = useRef(false);
-  const device = useCameraDevice('back');
-  const photoOutput = usePhotoOutput({
-    targetResolution: { width: 640, height: 480 },
-    containerFormat: 'jpeg',
-    quality: 0.72,
-    qualityPrioritization: 'speed',
-  });
 
   const stop = useCallback(async () => {
     const activeService = serviceRef.current;
@@ -54,10 +46,6 @@ export function CameraModeScreen() {
   const start = useCallback(async () => {
     if (Platform.OS !== 'android') {
       setError('El servidor MJPEG nativo está disponible en Android. iOS conserva la interfaz compartida.');
-      return;
-    }
-    if (!device) {
-      setError('No se encontró una cámara trasera disponible en este teléfono.');
       return;
     }
     setStarting(true);
@@ -87,24 +75,7 @@ export function CameraModeScreen() {
     } finally {
       setStarting(false);
     }
-  }, [accessKey, device, link]);
-
-  const captureFrame = useCallback(async () => {
-    const activeService = serviceRef.current;
-    if (!activeService || captureBusy.current) return;
-    captureBusy.current = true;
-    let photo: Awaited<ReturnType<typeof photoOutput.capturePhoto>> | null = null;
-    try {
-      photo = await photoOutput.capturePhoto({ enableShutterSound: false }, {});
-      const filePath = await photo.saveToTemporaryFileAsync();
-      await activeService.publishJpegFile(filePath, rotation);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudo codificar o publicar el frame JPEG.');
-    } finally {
-      photo?.dispose();
-      captureBusy.current = false;
-    }
-  }, [photoOutput, rotation]);
+  }, [accessKey, link]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -125,7 +96,6 @@ export function CameraModeScreen() {
 
   useEffect(() => {
     if (!streaming || !cameraReady || !service || !foreground) return;
-    const captureTimer = setInterval(() => void captureFrame(), 1000 / fps);
     const statusTimer = setInterval(() => {
       try {
         setStatus(service.getStatus());
@@ -133,11 +103,8 @@ export function CameraModeScreen() {
         setError(reason instanceof Error ? reason.message : 'No se pudo leer el estado del servidor MJPEG.');
       }
     }, 1000);
-    return () => {
-      clearInterval(captureTimer);
-      clearInterval(statusTimer);
-    };
-  }, [cameraReady, captureFrame, fps, foreground, service, streaming]);
+    return () => clearInterval(statusTimer);
+  }, [cameraReady, foreground, service, streaming]);
 
   return (
     <Screen>
@@ -162,21 +129,23 @@ export function CameraModeScreen() {
       </Card>
 
       <Card title="Vista previa">
-        {streaming && device ? (
-          <Camera
-            device={device}
-            isActive={streaming && foreground}
-            outputs={[photoOutput]}
-            onStarted={() => {
-              setCameraReady(true);
-              setStarting(false);
-            }}
-            onError={(cameraError) => {
-              setError(`No se pudo abrir la cámara: ${cameraError.message}`);
-              void stop();
-            }}
-            style={styles.preview}
-          />
+        {streaming && CameraStreamView ? (
+          <View style={styles.preview}>
+            <CameraStreamView
+              active={streaming && foreground}
+              fps={fps}
+              extraRotation={rotation}
+              onCameraStarted={() => {
+                setCameraReady(true);
+                setStarting(false);
+              }}
+              onCameraError={(event) => {
+                setError(`No se pudo abrir la cámara: ${firstLine(event.nativeEvent.message)}`);
+                void stop();
+              }}
+              style={StyleSheet.absoluteFill}
+            />
+          </View>
         ) : (
           <View style={styles.previewPlaceholder}>
             <Text style={styles.note}>{Platform.OS === 'android' ? 'La cámara está detenida.' : 'El servidor MJPEG se habilitará en Android.'}</Text>
@@ -210,7 +179,7 @@ export function CameraModeScreen() {
             if (!streaming) setRotation(Number(value));
           }}
         />
-        <Text style={styles.note}>Se solicita 640 × 480 a la cámara; los frames se limitan a 960 px de ancho y se vuelven a codificar como JPEG calidad 80. La cámara no captura audio.</Text>
+        <Text style={styles.note}>La cámara entrega 1280 × 720; cada frame se reduce a 640 × 360, se endereza y se codifica como JPEG calidad 70 en el teléfono. La cámara no captura audio.</Text>
       </Card>
 
       <Card title="Dirección local">
@@ -236,6 +205,11 @@ export function CameraModeScreen() {
   );
 }
 
+/** Native errors can carry a whole stack trace; the operator needs the first line. */
+function firstLine(message: string): string {
+  return message.split('\n')[0]?.trim() || 'error desconocido';
+}
+
 function createAccessKey(): string {
   const random = Crypto.getRandomBytes(12);
   return Array.from(random, (byte) => accessAlphabet[byte % accessAlphabet.length] ?? 'a').join('');
@@ -246,6 +220,6 @@ const styles = StyleSheet.create({
   note: { color: colors.subtle, fontSize: 12, lineHeight: 18 },
   metric: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   code: { color: colors.text, fontSize: 12, lineHeight: 18, fontFamily: Platform.select({ android: 'monospace', default: 'Courier' }) },
-  preview: { width: '100%', height: 240, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
+  preview: { width: '100%', aspectRatio: 9 / 16, maxHeight: 420, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
   previewPlaceholder: { height: 180, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised, borderRadius: 8, padding: 18 },
 });

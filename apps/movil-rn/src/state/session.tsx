@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { PropsWithChildren } from 'react';
 
 import { ApiError, validateBackendUrl, VigiaApiClient } from '../api/client';
+import { migrateFlutterData } from '../storage/flutterMigration';
 import { preferences } from '../storage/preferences';
 import { secureStorage } from '../storage/secure';
 import type { AppUser, Device, DeviceDetection, EdgeCredential, IssuedCredential, QueryInput, QueryResult, Scenario } from '../types/models';
@@ -76,6 +77,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
     let active = true;
     void (async () => {
       try {
+        try {
+          await migrateFlutterData();
+        } catch (reason) {
+          // Not fatal: the user can sign in again; it is retried on the next start.
+          console.warn('No fue posible migrar los datos de la app anterior.', reason);
+        }
         const savedUrl = await preferences.getApiUrl();
         if (!active) return;
         setBaseUrl(savedUrl);
