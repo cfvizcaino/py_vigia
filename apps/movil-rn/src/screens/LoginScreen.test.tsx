@@ -18,6 +18,11 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   setItem: jest.fn(async () => undefined),
   removeItem: jest.fn(async () => undefined),
 }));
+jest.mock('@expo/vector-icons/MaterialIcons', () => {
+  const { Text } = require('react-native') as typeof import('react-native');
+  const React = require('react') as typeof import('react');
+  return { __esModule: true, default: ({ name }: { name: string }) => React.createElement(Text, null, name) };
+});
 jest.mock('@maplibre/maplibre-react-native', () => {
   const React = require('react') as typeof import('react');
   const { View } = require('react-native') as typeof import('react-native');

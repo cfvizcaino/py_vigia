@@ -7,6 +7,10 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SessionProvider, useSession } from './src/state/session';
+import { AddEdgeScreen } from './src/screens/AddEdgeScreen';
+import { CameraDetailScreen } from './src/screens/CameraDetailScreen';
+import { IssuedTokenScreen } from './src/screens/IssuedTokenScreen';
+import { RelocateEdgeScreen } from './src/screens/RelocateEdgeScreen';
 import { CameraModeScreen } from './src/screens/CameraModeScreen';
 import { CamerasScreen } from './src/screens/CamerasScreen';
 import { EdgeModeScreen } from './src/screens/EdgeModeScreen';
@@ -81,6 +85,10 @@ function AppNavigation() {
       {user ? (
         <>
           <Stack.Screen name="Operator" component={OperatorTabs} options={{ headerShown: false }} />
+          <Stack.Screen name="CameraDetail" component={CameraDetailScreen} options={{ title: 'Cámara' }} />
+          <Stack.Screen name="AddEdge" component={AddEdgeScreen} options={{ title: 'Agregar edge' }} />
+          <Stack.Screen name="RelocateEdge" component={RelocateEdgeScreen} options={{ title: 'Ubicación' }} />
+          <Stack.Screen name="IssuedToken" component={IssuedTokenScreen} options={{ title: 'Token' }} />
           <Stack.Screen name="CameraMode" component={CameraModeScreen} options={{ title: 'Modo cámara' }} />
           <Stack.Screen name="EdgeMode" component={EdgeModeScreen} options={{ title: 'Edge autónomo' }} />
         </>

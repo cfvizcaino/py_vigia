@@ -1,14 +1,20 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { Card, DemoBadge, EmptyState, Screen } from '../components/ui';
+import { Card, DemoBadge, EmptyState, PrimaryButton, Screen } from '../components/ui';
 import { CameraMap } from '../components/CameraMap';
-import { AdminTools } from './AdminTools';
+import { StatusTag } from './CameraDetailScreen';
 import { useSession } from '../state/session';
 import { colors } from '../theme/colors';
+import type { RootStackParamList } from '../types/navigation';
 
 export function CamerasScreen() {
   const { devices, isDemo, user } = useSession();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const isAdmin = user?.role === 'admin' && !isDemo;
   const [showMap, setShowMap] = useState(true);
 
   return (
@@ -27,20 +33,28 @@ export function CamerasScreen() {
         </Card>
       ) : null}
       {devices.length === 0 ? <EmptyState title="No hay cámaras" description="El servidor no tiene cámaras registradas." /> : null}
+      {isAdmin ? <PrimaryButton title="Agregar edge" onPress={() => navigation.navigate('AddEdge')} /> : null}
       {devices.map((device) => (
-        <Card key={device.id}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Text style={{ color: colors.accent, fontSize: 22 }}>◉</Text>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={{ color: colors.text, fontWeight: '700' }}>{device.external_id}</Text>
-              <Text style={{ color: colors.muted }}>{device.name}</Text>
-              <Text style={{ color: colors.subtle, fontSize: 12 }}>{device.lat.toFixed(4)}, {device.lng.toFixed(4)}</Text>
+        <Pressable
+          key={device.id}
+          accessibilityRole="button"
+          accessibilityLabel={`Abrir ${device.external_id}`}
+          onPress={() => navigation.navigate('CameraDetail', { deviceId: device.id })}
+        >
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 42, height: 42, borderRadius: 6, backgroundColor: '#26352D', alignItems: 'center', justifyContent: 'center' }}>
+                <MaterialIcons name="videocam" size={22} color="#8FE1C4" />
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{device.external_id}</Text>
+                <Text style={{ color: colors.muted }}>{device.name} · {device.lat.toFixed(4)}, {device.lng.toFixed(4)}</Text>
+              </View>
+              <StatusTag status={device.status} />
             </View>
-            <Text style={{ color: device.status === 'online' ? colors.success : colors.warning }}>{device.status === 'online' ? 'En línea' : 'Sin conexión'}</Text>
-          </View>
-        </Card>
+          </Card>
+        </Pressable>
       ))}
-      {user?.role === 'admin' && !isDemo ? <AdminTools /> : null}
     </Screen>
   );
 }

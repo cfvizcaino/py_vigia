@@ -1,6 +1,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, StyleSheet, Text, View } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
 import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
@@ -16,6 +17,8 @@ import type { EdgeStats } from '../edge/engine';
 import type { LoadedModel } from '../edge/model';
 import type { Detection } from '../edge/types';
 import { colors } from '../theme/colors';
+import { useAppUpdate } from '../update/UpdateHost';
+import type { UpdateLevel } from '../update/release';
 
 const keepAwakeTag = 'vigia-edge-camera';
 
@@ -33,6 +36,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const engineRef = useRef<EdgeEngine | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
   const device = useCameraDevice('back');
+  const { available: updateLevel, showUpdate } = useAppUpdate();
 
   useEffect(() => {
     let cancelled = false;
@@ -142,23 +146,76 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
             />
             <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
           </View>
-          <Text style={styles.body}>
-            {foreground ? 'Inferencia local activa. El video no se envía al backend.' : 'Edge pausado mientras la app está en segundo plano.'}
-          </Text>
-          <Text style={styles.metric}>
-            {stats ? `${stats.fps.toFixed(1)} fps · ${stats.inferenceMs} ms · ${stats.activeTracks} vehículos · ${stats.framesProcessed} frames` : 'Iniciando inferencia…'}
-          </Text>
-          <Text style={styles.metric}>
-            {stats?.outbox
-              ? `Outbox: ${stats.outbox.pending} pendientes · ${stats.outbox.delivered} enviados · ${stats.outbox.rejected} rechazados · ${stats.outbox.retries} reintentos · ${stats.outbox.thumbnails} recortes`
-              : 'Preparando outbox…'}
-          </Text>
-          {stats?.lastError ? <Text accessibilityRole="alert" style={styles.error}>{stats.lastError}</Text> : null}
+          {foreground ? (
+            stats ? (
+              <EdgeStatusCard stats={stats} updateLevel={updateLevel} onUpdate={showUpdate} />
+            ) : (
+              <Text style={styles.body}>Iniciando inferencia…</Text>
+            )
+          ) : (
+            <Text style={styles.body}>Edge pausado mientras la app está en segundo plano.</Text>
+          )}
         </>
       ) : null}
       <SecondaryButton title="Detener Edge autónomo" onPress={onStop} />
     </Card>
   );
+}
+
+/** Same status as the Flutter card: pace, events, colour, recortes, connection (E05) and app version (G04). */
+function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; updateLevel: UpdateLevel; onUpdate: () => void }) {
+  const outbox = stats.outbox;
+  const healthy = !outbox?.lastError;
+  return (
+    <View style={[styles.status, healthy ? styles.statusOk : styles.statusWarn]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <MaterialIcons name={healthy ? 'sensors' : 'cloud-off'} size={22} color={healthy ? '#69D4A8' : '#FFC66D'} />
+        <Text style={[styles.metric, { flex: 1 }]}>
+          Detectando · {stats.fps.toFixed(1)} análisis/s · {stats.activeTracks} vehículo{stats.activeTracks === 1 ? '' : 's'}
+        </Text>
+      </View>
+      <Text style={styles.muted}>
+        Inferencia {stats.inferenceMs} ms · {stats.snapshots} eventos generados · {outbox?.delivered ?? 0} enviados · {outbox?.pending ?? 0} en cola
+        {outbox?.rejected ? ` · ${outbox.rejected} rechazados` : ''}
+      </Text>
+      <Text style={styles.muted}>
+        Modelo: {stats.framesProcessed} analizados{stats.failures ? ` · ${stats.failures} fallidos` : ''}
+      </Text>
+      <Text style={styles.muted}>Color: activo{stats.colorFailures ? ` · ${stats.colorFailures} fallidos` : ''}</Text>
+      <Text style={styles.muted}>
+        {outbox && !outbox.thumbnailsAccepted
+          ? 'Recortes: el centro no los guarda'
+          : `Recortes: ${outbox?.thumbnails ?? 0} enviados${outbox?.thumbnailsDropped ? ` · ${outbox.thumbnailsDropped} descartados` : ''}${stats.thumbnailFailures ? ` · ${stats.thumbnailFailures} fallidos` : ''}`}
+      </Text>
+      {stats.lastError ? <Text accessibilityRole="alert" style={styles.error}>Detección: {stats.lastError}</Text> : null}
+      {outbox?.lastError ? <Text style={styles.warning}>{describeOutboxError(outbox.lastError)}</Text> : null}
+      {updateLevel !== 'none' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <MaterialIcons name="system-update" size={18} color="#FFC66D" />
+          <Text style={[styles.warning, { flex: 1 }]}>
+            {updateLevel === 'required'
+              ? 'Esta versión de la app quedó por debajo del mínimo. Hay que actualizar.'
+              : 'Hay una versión más nueva de la app.'}
+          </Text>
+          <Pressable accessibilityRole="button" onPress={onUpdate}>
+            <Text style={{ color: colors.accent, fontWeight: '700' }}>Actualizar</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export function describeOutboxError(code: string): string {
+  if (code === 'NETWORK' || code === 'TIMEOUT') {
+    return 'Sin conexión con el servidor: los eventos se guardan y se enviarán al volver la red.';
+  }
+  if (code === 'HTTP_401') return 'El servidor rechazó el token (vencido o revocado). Olvida este edge y configura uno nuevo.';
+  if (code === 'HTTP_403') return 'El token pertenece a otra cámara.';
+  if (code === 'HTTP_404') return 'La cámara ya no está registrada en el servidor.';
+  if (code === 'OUTBOX_FULL') return 'La cola local está llena; se descartan eventos nuevos hasta recuperar conexión.';
+  if (code.startsWith('REJECTED_')) return `El servidor rechazó un evento (${code.slice(9)}); se apartó y el resto sigue.`;
+  return `Último error: ${code}`;
 }
 
 function labelsForVehicles(model: LoadedModel | undefined): Record<number, Detection['label']> {
@@ -180,4 +237,9 @@ const styles = StyleSheet.create({
   body: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   metric: { color: colors.text, fontSize: 13, lineHeight: 19 },
   error: { color: '#FFB4AB', fontSize: 14, lineHeight: 20 },
+  muted: { color: '#9AA79F', fontSize: 12, lineHeight: 18 },
+  warning: { color: '#FFE1B0', fontSize: 12, lineHeight: 18 },
+  status: { borderRadius: 6, borderWidth: 1, padding: 12, gap: 4 },
+  statusOk: { backgroundColor: '#1B2E2A', borderColor: '#2F5D52' },
+  statusWarn: { backgroundColor: '#302517', borderColor: '#6B5326' },
 });

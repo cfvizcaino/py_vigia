@@ -217,10 +217,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return updated;
   }, [api, requireAdmin]);
 
+  // Every operator sees a camera's recent detections, as in Flutter; the backend enforces roles.
   const recentDetections = useCallback(async (deviceId: string) => {
-    requireAdmin();
+    if (isDemo) return [];
     return api.recentDetections(deviceId);
-  }, [api, requireAdmin]);
+  }, [api, isDemo]);
 
   const issueCredential = useCallback(async (cameraId: string, days = 90) => {
     requireAdmin();
