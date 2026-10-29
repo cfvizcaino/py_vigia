@@ -1,14 +1,20 @@
-# App móvil: análisis, pruebas y compilación para Android e iOS.
-# El APK de distribución se firma en el equipo del proyecto (la llave no está en GitHub);
-# aquí se verifica que todo compile y se dejan artefactos de prueba descargables.
+# React Native mobile builds; Android is the current acceptance target.
 name: movil
 
 on:
   pull_request:
-    paths: ["apps/movil/**", ".github/workflows/movil.yml"]
+    paths:
+      - "apps/movil-rn/**"
+      - "apps/movil/**"
+      - "packages/contracts/detection-envelope-1.1.schema.json"
+      - ".github/workflows/movil.yml"
   push:
     branches: [main]
-    paths: ["apps/movil/**", ".github/workflows/movil.yml"]
+    paths:
+      - "apps/movil-rn/**"
+      - "apps/movil/**"
+      - "packages/contracts/detection-envelope-1.1.schema.json"
+      - ".github/workflows/movil.yml"
   workflow_dispatch:
 
 permissions:
@@ -18,57 +24,69 @@ concurrency:
   group: movil-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  FLUTTER_VERSION: "3.47.7"
-  VIGIA_DEFAULT_API: https://vigia-5dfe.mexicocentral.cloudapp.azure.com
-
 jobs:
-  pruebas-y-android:
+  android:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/movil
+        working-directory: apps/movil-rn
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/movil-rn/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
-      - name: APK de prueba (firma de depuración)
-        run: flutter build apk --release --dart-define=VIGIA_DEFAULT_API=$VIGIA_DEFAULT_API
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --runInBand
+      - run: npm run doctor
+      - run: npx expo prebuild --clean --platform android --non-interactive
+      - name: Build Android debug APK
+        run: cd android && ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: vigia-android-prueba
-          path: apps/movil/build/app/outputs/flutter-apk/app-release.apk
+          name: vigia-android-debug
+          path: apps/movil-rn/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
-  ios:
+  ios-unsigned:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: apps/movil
+        working-directory: apps/movil-rn
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-node@v4
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Compilar para iPhone sin firma
-        run: flutter build ios --release --no-codesign --dart-define=VIGIA_DEFAULT_API=$VIGIA_DEFAULT_API
-      - name: Empaquetar Runner.app
-        run: cd build/ios/iphoneos && zip -qry Runner-sin-firma.zip Runner.app
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/movil-rn/package-lock.json
+      - run: npm ci
+      - run: npx expo prebuild --clean --platform ios --non-interactive
+      - name: Build iOS without signing
+        shell: bash
+        run: |
+          project="$(find ios -maxdepth 1 -name '*.xcodeproj' -print -quit)"
+          scheme="$(xcodebuild -list -json -project "$project" | jq -r '.project.schemes[0]')"
+          xcodebuild \
+            -project "$project" \
+            -scheme "$scheme" \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          app="$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          ditto -c -k --sequesterRsrc --keepParent "$app" ios/build/Vigia-iOS-sin-firma.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: vigia-ios-sin-firma
-          path: apps/movil/build/ios/iphoneos/Runner-sin-firma.zip
+          name: vigia-ios-unsigned
+          path: apps/movil-rn/ios/build/Vigia-iOS-sin-firma.zip
           retention-days: 14

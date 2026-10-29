@@ -1,0 +1,92 @@
+{
+  "expo": {
+    "name": "VIGÍA",
+    "slug": "vigia-movil",
+    "version": "1.4.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "co.vigia.movil",
+      "buildNumber": "5",
+      "infoPlist": {
+        "NSCameraUsageDescription": "VIGÍA usa la cámara solo para transmitir al nodo de visión local o detectar vehículos en este teléfono.",
+        "NSLocationWhenInUseUsageDescription": "VIGÍA usa tu ubicación solo para registrar dónde queda un nuevo edge.",
+        "NSLocalNetworkUsageDescription": "VIGÍA se conecta al backend y al nodo de visión local configurados.",
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSIncludesSubdomains": false,
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
+      }
+    },
+    "android": {
+      "package": "co.vigia.movil",
+      "versionCode": 5,
+      "adaptiveIcon": {
+        "backgroundColor": "#1F3A31",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
+        "android.permission.WAKE_LOCK",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ],
+      "allowBackup": false
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VIGÍA usa tu ubicación solo para registrar dónde queda un nuevo edge."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#101512",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#101512"
+          }
+        }
+      ],
+      "@maplibre/maplibre-react-native",
+      [
+        "react-native-fast-tflite",
+        {
+          "enableCoreMLDelegate": true
+        }
+      ],
+      "./plugins/withVigiaAndroid",
+      "expo-asset"
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "extra": {
+      "defaultApiUrl": "http://10.0.2.2:8000"
+    }
+  }
+}
