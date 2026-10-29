@@ -7,6 +7,7 @@ import type { FrameProcessingResult, ThumbnailGate } from '../native/FrameProces
 import type { OutboxStatus } from './outbox';
 import type { ThumbnailPixels } from './preprocess';
 import type { Track } from './tracker';
+import type { Box } from './types';
 
 /** Encodes a recorte's RGB pixels as JPEG (natively on the phone). */
 export type EncodeThumbnail = (pixels: ThumbnailPixels) => Promise<Uint8Array>;
@@ -18,6 +19,13 @@ export const maxThumbnailEncodes = 4;
 export const thumbnailSettleMs = 1000;
 export const thumbnailMaxWaitMs = 10_000;
 
+/** Vehicles seen in the latest frame, for the boxes drawn over the preview. */
+export interface EdgeOverlay {
+  frameWidth: number;
+  frameHeight: number;
+  tracks: { id: number; box: Box; label: string; color: string | null; score: number }[];
+}
+
 export interface EdgeStats {
   framesProcessed: number;
   fps: number;
@@ -28,6 +36,7 @@ export interface EdgeStats {
   failures: number;
   colorFailures: number;
   thumbnailFailures: number;
+  overlay: EdgeOverlay | null;
   lastError: string | null;
 }
 
@@ -43,6 +52,7 @@ export class EdgeEngine {
   private failures = 0;
   private colorFailures = 0;
   private thumbnailFailures = 0;
+  private overlay: EdgeOverlay | null = null;
   private lastError: string | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
@@ -74,6 +84,7 @@ export class EdgeEngine {
       failures: this.failures,
       colorFailures: this.colorFailures,
       thumbnailFailures: this.thumbnailFailures,
+      overlay: this.overlay,
       lastError: this.lastError,
     };
   }
@@ -113,6 +124,19 @@ export class EdgeEngine {
       if (track) void this.sampleThumbnail(track, thumbnail);
     }
     this.updateThumbnailGates(now);
+    this.overlay = {
+      frameWidth: result.frameSize.width,
+      frameHeight: result.frameSize.height,
+      tracks: this.tracker.active(now)
+        .filter((track) => track.lastSeen === now)
+        .map((track) => ({
+          id: track.id,
+          box: track.box,
+          label: track.label,
+          color: track.colorVotes.color,
+          score: track.score,
+        })),
+    };
     this.publishStatus();
   }
 

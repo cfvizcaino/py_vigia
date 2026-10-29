@@ -36,6 +36,7 @@ function frame(box: Box, withThumbnail = true): FrameProcessingResult {
     colorFailureCount: 0,
     elapsedMs: 20,
     frameNumber: Date.now(),
+    frameSize: { width: 640, height: 480 },
     thumbnail: withThumbnail ? { rgb: new Uint8Array(3), width: 1, height: 1, detectionIndex: 0 } : null,
   };
 }

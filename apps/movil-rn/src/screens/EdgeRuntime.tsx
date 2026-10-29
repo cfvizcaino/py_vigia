@@ -1,8 +1,9 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, StyleSheet, Text } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
+import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
 import { Card, SecondaryButton } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
@@ -110,6 +111,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   useEffect(() => {
     gatesRef.current = setThumbnailGates;
   }, [setThumbnailGates]);
+  // A new array on every render would reconfigure the camera session.
+  const outputs = useMemo(() => [frameOutput], [frameOutput]);
 
   return (
     <Card title="Edge autónomo">
@@ -121,14 +124,24 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
       {models && !device ? <Text style={styles.body}>No se encontró una cámara trasera disponible.</Text> : null}
       {models && device ? (
         <>
-          <Camera
-            device={device}
-            isActive={foreground && permissionGranted === true}
-            outputs={[frameOutput]}
-            onError={(error) => engineRef.current?.reportError(error.message)}
-            onStarted={() => setStartupError(null)}
-            style={styles.camera}
-          />
+          <View
+            style={[
+              styles.camera,
+              stats?.overlay
+                ? { aspectRatio: previewAspectRatio(stats.overlay.frameWidth, stats.overlay.frameHeight, extraRotation) }
+                : null,
+            ]}
+          >
+            <Camera
+              device={device}
+              isActive={foreground && permissionGranted === true}
+              outputs={outputs}
+              onError={(error) => engineRef.current?.reportError(error.message.split('\n')[0] ?? error.message)}
+              onStarted={() => setStartupError(null)}
+              style={StyleSheet.absoluteFill}
+            />
+            <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
+          </View>
           <Text style={styles.body}>
             {foreground ? 'Inferencia local activa. El video no se envía al backend.' : 'Edge pausado mientras la app está en segundo plano.'}
           </Text>
@@ -163,7 +176,7 @@ function labelsForColors(model: LoadedModel | undefined): Record<number, string>
 }
 
 const styles = StyleSheet.create({
-  camera: { height: 260, width: '100%', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
+  camera: { width: '100%', aspectRatio: 3 / 4, maxHeight: 460, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
   body: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   metric: { color: colors.text, fontSize: 13, lineHeight: 19 },
   error: { color: '#FFB4AB', fontSize: 14, lineHeight: 20 },

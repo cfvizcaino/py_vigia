@@ -27,6 +27,8 @@ export interface FrameProcessingResult {
   colorFailureCount: number;
   elapsedMs: number;
   frameNumber: number;
+  /** Upright frame size (after every rotation), the space of the boxes. */
+  frameSize: { width: number; height: number };
   /** Recorte of one detection (by index), when its view improved. */
   thumbnail: (ThumbnailPixels & { detectionIndex: number }) | null;
 }
@@ -113,6 +115,10 @@ export function useVehicleFrameOutput(input: {
             colorFailureCount,
             elapsedMs,
             frameNumber: startedAt,
+            frameSize: {
+              width: modelInput.letterbox.uprightWidth,
+              height: modelInput.letterbox.uprightHeight,
+            },
             thumbnail,
           });
         }
