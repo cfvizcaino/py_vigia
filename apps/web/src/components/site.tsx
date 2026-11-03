@@ -2,9 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BrandMark } from "./brand";
-import { Icon } from "./icon";
 
 type Actions = { onSignIn?: () => void; onDemo?: () => void };
 
@@ -13,25 +12,48 @@ function SignInAction({ onSignIn, className }: { onSignIn?: () => void; classNam
   return onSignIn ? <button type="button" className={className} onClick={onSignIn}>Inicia sesión</button> : <Link className={className} href="/?entrar=1">Inicia sesión</Link>;
 }
 function DemoAction({ onDemo, label = "Explorar demo" }: { onDemo?: () => void; label?: string }) {
-  return onDemo ? <button type="button" className="pill-light" onClick={onDemo}>{label}<Icon name="arrow" size={16}/></button> : <Link className="pill-light" href="/?demo=1">{label}<Icon name="arrow" size={16}/></Link>;
+  return onDemo ? <button type="button" className="pill-figma" onClick={onDemo}>{label}</button> : <Link className="pill-figma" href="/?demo=1">{label}</Link>;
+}
+
+/** «Más» in the Figma navigation: holds the pages the design leaves out of the bar. */
+function MoreMenu({ current }: { current: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
+  }, [open]);
+  return <div className="more-menu" ref={ref}>
+    <button type="button" aria-expanded={open} aria-controls="more-links" aria-current={current === "app" ? "page" : undefined} onClick={() => setOpen((value) => !value)}>Más</button>
+    {open && <div id="more-links"><Link href="/app">App Android</Link></div>}
+  </div>;
 }
 
 export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotros" | "app" } & Actions) {
   return <header className="site-header">
-    <Link href="/" className="site-brand" aria-label="VIGÍA, inicio"><BrandMark size={44}/></Link>
+    <Link href="/" className="site-brand" aria-label="VIGÍA, inicio"><BrandMark size={61}/></Link>
     <nav className="site-nav" aria-label="Sitio">
-      <Link href="/" aria-current={current === "inicio" ? "page" : undefined}>Inicio</Link>
-      <Link href="/#soluciones">Soluciones</Link>
+      <Link href="/" aria-current={current === "inicio" ? "page" : undefined}>Home</Link>
       <Link href="/nosotros" aria-current={current === "nosotros" ? "page" : undefined}>Nosotros</Link>
-      <Link href="/app" aria-current={current === "app" ? "page" : undefined}>App Android</Link>
+      <Link href="/#soluciones">Soluciones</Link>
+      <MoreMenu current={current}/>
     </nav>
-    <SignInAction onSignIn={onSignIn} className="pill-light site-signin"/>
+    <div className="site-actions">
+      {/* Accounts are created by an administrator: «Regístrate» leads to sign-in, which says so. */}
+      <Link className="site-register" href="/?entrar=1">Regístrate</Link>
+      <SignInAction onSignIn={onSignIn} className="site-signin"/>
+    </div>
   </header>;
 }
 
 export function SiteClosing({ onDemo }: Actions) {
   return <section className="site-closing" aria-labelledby="closing-title">
-    <h2 id="closing-title">El siguiente movimiento es tuyo.</h2>
+    <h2 id="closing-title" className="gray-title">El siguiente movimiento es tuyo.</h2>
     <p>Descubre el potencial de VIGÍA y da el primer paso hacia una nueva forma de abordar la inteligencia vehicular.</p>
     <DemoAction onDemo={onDemo}/>
   </section>;
@@ -52,7 +74,7 @@ export function LegalNotice() {
   return <div className="legal">
     <p><b>© {COPYRIGHT_YEAR} Equipo VIGÍA. Todos los derechos reservados.</b> Trayectorias estimadas: no constituyen una identificación confirmada.</p>
     <p>Datos personales (Ley 1581 de 2012): el video se procesa en las cámaras y teléfonos del piloto y al servidor solo llegan metadatos. Los recortes y las placas se guardan 7 días, solo los ve un administrador y cada acceso queda registrado.</p>
-    <p>Android es una marca de Google LLC. iPhone es una marca de Apple Inc. Usa software y datos de terceros con sus propias licencias: Ultralytics YOLO (AGPL-3.0) y OpenStreetMap (ODbL, © colaboradores de OpenStreetMap).</p>
+    <p>Android es una marca de Google LLC. iPhone es una marca de Apple Inc. Usa software y datos de terceros con sus propias licencias: Ultralytics YOLO (AGPL-3.0), OpenStreetMap (ODbL, © colaboradores de OpenStreetMap) y Material Symbols de Google (Apache-2.0).</p>
   </div>;
 }
 
@@ -84,23 +106,24 @@ export function Landing({ onSignIn, onDemo }: Required<Actions>) {
         <h1 id="hero-title">De observaciones aisladas a <span>recorridos posibles.</span></h1>
         <p>VIGÍA convierte las detecciones de tus cámaras en trayectorias estimadas de vehículos, en segundos.</p>
         <DemoAction onDemo={onDemo}/>
+        <div className="hero-glow" aria-hidden="true"/>
         <figure className="hero-frame">
-          <Image src="/landing/consola-trayectoria.webp" alt="Consola de VIGÍA en modo demostración: trayectoria estimada de un automóvil blanco con dos rutas candidatas, su recorrido por cámaras y el mapa de Barranquilla" width={1600} height={1000} priority sizes="(max-width: 900px) 100vw, 1200px"/>
+          <Image src="/landing/consola-figma.webp" alt="Consola de VIGÍA en modo demostración: trayectoria estimada de un automóvil blanco con dos rutas candidatas, su recorrido por cámaras y el mapa de Barranquilla" width={1600} height={773} priority sizes="(max-width: 900px) 100vw, 1200px"/>
         </figure>
       </section>
 
       <section className="solutions" id="soluciones" aria-labelledby="solutions-title">
-        <h2 id="solutions-title">Inteligencia que conecta <span>cada observación.</span></h2>
-        <a className="text-link" href="#proceso">Ver cómo funciona</a>
+        <h2 id="solutions-title" className="gray-title">Inteligencia que conecta cada observación.</h2>
+        <a className="explore-link" href="#proceso">Explorar soluciones</a>
         <div className="solution-grid">
-          <article className="solution"><DetectionVisual/><h3>Detección inteligente</h3><p>Identificamos vehículos y analizamos características como su tipo y color mediante modelos de visión por computador.</p></article>
-          <article className="solution"><NetworkVisual/><h3>Procesamiento distribuido</h3><p>Procesamos imágenes cerca de las cámaras y conectamos los eventos relevantes en una plataforma central.</p></article>
-          <article className="solution"><RouteVisual/><h3>Análisis de recorridos</h3><p>Relacionamos observaciones para visualizar y explorar posibles trayectorias vehiculares.</p></article>
+          <article className="solution detection"><div className="solution-visual"><DetectionVisual/></div><h3>Detección inteligente</h3><p>Identificamos vehículos y analizamos características como su tipo y color mediante modelos de visión por computador.</p></article>
+          <article className="solution network"><div className="solution-visual framed"><NetworkVisual/></div><h3>Procesamiento distribuido</h3><p>Procesamos imágenes cerca de las cámaras y conectamos los eventos relevantes en una plataforma central.</p></article>
+          <article className="solution routes"><div className="solution-visual framed"><RouteVisual/></div><h3>Análisis de recorridos</h3><p>Relacionamos observaciones para visualizar y explorar posibles trayectorias vehiculares.</p></article>
         </div>
       </section>
 
       <section className="process" id="proceso" aria-labelledby="process-title">
-        <h2 id="process-title">De la cámara al análisis.</h2>
+        <h2 id="process-title" className="gray-title">De la cámara al análisis.</h2>
         <p className="process-lede">De cada imagen, una pista. De cada pista, una posible ruta.</p>
         <div className="process-body">
           <div className="process-steps" role="tablist" aria-orientation="vertical" aria-label="Etapas de VIGÍA">
@@ -123,7 +146,7 @@ export function Landing({ onSignIn, onDemo }: Required<Actions>) {
 /* Diagrams: exact geometry describing what each stage does, not pictures. */
 
 function DetectionVisual() {
-  return <svg className="solution-visual detection" viewBox="0 0 280 200" aria-hidden="true">
+  return <svg className="visual-svg" viewBox="0 0 280 200" aria-hidden="true">
     <defs><radialGradient id="det-glow"><stop offset="0" stopColor="var(--violet)" stopOpacity=".55"/><stop offset="1" stopColor="var(--violet)" stopOpacity="0"/></radialGradient></defs>
     <circle cx="140" cy="100" r="96" fill="url(#det-glow)"/>
     <path d="M84 70h-14v14m140-14h14v14M84 150H70v-14m140 14h14v-14" stroke="var(--ink)" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
@@ -136,8 +159,7 @@ function DetectionVisual() {
 
 function NetworkVisual() {
   const nodes = [[60, 50], [220, 44], [46, 150], [228, 156], [140, 30]];
-  return <svg className="solution-visual" viewBox="0 0 280 200" aria-hidden="true">
-    <rect x="88" y="48" width="104" height="104" rx="22" fill="var(--canvas)" stroke="var(--violet)" strokeWidth="2"/>
+  return <svg className="visual-svg" viewBox="0 0 280 200" aria-hidden="true">
     {nodes.map(([x, y]) => <line key={`${x}${y}`} x1={x} y1={y} x2="140" y2="100" stroke="var(--violet-soft)" strokeOpacity=".5" strokeWidth="1.5" strokeDasharray="3 5"/>)}
     {nodes.map(([x, y]) => <circle key={`n${x}${y}`} cx={x} cy={y} r="7" fill="var(--surface-3)" stroke="var(--violet-soft)" strokeWidth="2"/>)}
     <circle cx="140" cy="100" r="18" fill="var(--violet)"/>
@@ -147,8 +169,7 @@ function NetworkVisual() {
 
 function RouteVisual() {
   const stops = [[78, 140], [120, 96], [176, 112], [206, 60]];
-  return <svg className="solution-visual" viewBox="0 0 280 200" aria-hidden="true">
-    <rect x="56" y="24" width="168" height="152" rx="22" fill="var(--canvas)" stroke="var(--violet)" strokeWidth="2"/>
+  return <svg className="visual-svg" viewBox="0 0 280 200" aria-hidden="true">
     <path d="M56 70h168M56 124h168M108 24v152M168 24v152" stroke="var(--line)" strokeWidth="1"/>
     <polyline points={stops.map((p) => p.join(",")).join(" ")} fill="none" stroke="var(--violet-soft)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round"/>
     {stops.map(([x, y], index) => <g key={x}><circle cx={x} cy={y} r="10" fill="var(--violet)"/><text x={x} y={y + 4} textAnchor="middle" fontSize="10" fill="#fff" fontFamily="var(--font-body)">{index + 1}</text></g>)}

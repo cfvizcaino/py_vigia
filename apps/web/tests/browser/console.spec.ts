@@ -64,7 +64,7 @@ test("empty results, invalid time window and live radius output", async ({ page 
   await expect(page.locator(".query-card [role=alert]")).toContainText("La hora final debe ser posterior");
   const slider = page.getByRole("slider");
   await slider.fill("100");
-  await expect(page.locator(".radius-label output")).toHaveText("100 m");
+  await expect(page.locator(".radius-label output")).toHaveText("100m");
 });
 
 test("central queries send actual filters and failures stay visible", async ({ page }) => {
@@ -72,7 +72,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
   await signedIn(page);
   await page.goto("/");
-  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Red Barranquilla · Servicio central conectado" })).toBeVisible();
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.route("**/api/monitoring/queries", async (route) => {
@@ -84,7 +84,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
   await page.unroute("**/api/monitoring/queries");
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ status: 503, json: { error: "Servicio central no disponible" } }));
-  await page.getByRole("button", { name: "Ajustar consulta" }).click();
+  await page.getByRole("button", { name: "Volver" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect(page.locator(".query-card [role=alert]")).toHaveText("Servicio central no disponible");
   await expect(page.locator(".route-options")).toHaveCount(0);
@@ -125,7 +125,7 @@ test("weighted route explains evidence and uses the evaluated geometry", async (
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: result }));
   await signedIn(page);
   await page.goto("/");
-  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Red Barranquilla · Servicio central conectado" })).toBeVisible();
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
@@ -169,7 +169,7 @@ test("sign-in opens the central console, export goes through the server and logo
   await expect(page.locator(".login-card [role=alert]")).toHaveText("Correo o contraseña incorrectos.");
   await page.getByLabel("Contraseña").fill("contraseña-larga-ok");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Red Barranquilla · Servicio central conectado" })).toBeVisible();
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
@@ -188,7 +188,7 @@ test("an expired session during a search returns to sign-in", async ({ page }) =
   await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
   await signedIn(page);
   await page.goto("/");
-  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Red Barranquilla · Servicio central conectado" })).toBeVisible();
   await page.unroute("**/api/auth/session");
   await page.route("**/api/auth/session", (route) => route.fulfill({ status: 401, json: { error: "Sin sesión." } }));
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ status: 401, json: { error: "Tu sesión terminó." } }));
@@ -257,7 +257,7 @@ test("operators do not see the administration entry", async ({ page }) => {
   await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
   await signedIn(page);
   await page.goto("/");
-  await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Red Barranquilla · Servicio central conectado" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Administración", exact: false })).toHaveCount(0);
 });
 
@@ -289,7 +289,7 @@ test("on the scoring database a dataset case fills the whole query form", async 
   await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S03");
   await expect(color).toHaveValue("");
   await expect(page.getByRole("combobox", { name: "Punto de búsqueda" })).toHaveValue("SC-07");
-  await expect(page.locator(".radius-label output")).toHaveText("2,5 km");
+  await expect(page.locator(".radius-label output")).toHaveText("2,5km");
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect.poll(() => sent).toEqual({ lat: 11.008375, lng: -74.809824, radius_m: 2500,
     time_from: "2026-09-15T07:40:00-05:00", time_to: "2026-09-15T08:00:00-05:00", vehicle_type: "motorcycle" });
@@ -331,15 +331,15 @@ test("an admin searches by plate, sees the recortes and confirms steps that reca
   await page.goto("/");
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
-  await page.getByLabel("Placa · opcional, solo admin").fill("abc-123");
+  await page.getByLabel("Placa", { exact: true }).fill("abc-123");
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect.poll(() => sent).toMatchObject({ plate: "ABC123" });
   await expect(page.getByLabel("Placa ABC123")).toBeVisible();
   await expect(page.getByText("Recorte vencido")).toBeVisible();
   await expect(page.getByText("Sin recorte").first()).toBeVisible();
-  await page.getByRole("button", { name: "Sí, es este" }).first().click();
+  await page.getByRole("button", { name: "Sí", exact: true }).first().click();
   await expect.poll(() => verdict).toBe("match");
-  await expect(page.getByRole("button", { name: "Sí, es este" }).first()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Sí", exact: true }).first()).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".route-options button")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -351,11 +351,11 @@ test("operators get no plate field and no confirmation controls", async ({ page 
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: runDemoQuery(DEMO_QUERY) }));
   await page.goto("/");
   await openQuery(page);
-  await expect(page.getByLabel("Placa · opcional, solo admin")).toHaveCount(0);
+  await expect(page.getByLabel("Placa", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sí, es este" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sí", exact: true })).toHaveCount(0);
 });
 
 test("the Android page guides the download and the footer carries the rights", async ({ page }) => {

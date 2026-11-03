@@ -125,10 +125,10 @@ export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode
 
   return <div className="map-wrapper" data-route-visible={routeVisible}>
     <div ref={containerRef} className="map-canvas" aria-label="Mapa de dispositivos VIGÍA en Barranquilla"/>
-    <button className="round-button small map-recenter" onClick={recenter} aria-label="Centrar mapa en la red" title="Centrar mapa en la red"><Icon name="target" size={18}/></button>
+    <button className="map-recenter" onClick={recenter} aria-label="Centrar mapa en la red" title="Centrar mapa en la red"><Icon name="recenter" size={22}/></button>
     {mapStatus === "loading" && <div className="map-status"><span className="spinner"/>Cargando cartografía de Barranquilla…</div>}
     {mapStatus === "error" && <div className="map-status error" role="status"><Icon name="layers" size={24}/><b>Cartografía no disponible</b><span>Se necesita conexión a internet y soporte WebGL. Puedes seleccionar cámaras desde la lista y consultar sus detecciones.</span></div>}
-    <div className="map-place"><b>Barranquilla, Atlántico</b><span>Colombia · {cameras.length} nodos en el mapa</span></div>
-    <p className="map-caption">{caption}</p>
+    <div className="map-place"><b>Barranquilla, Atlántico</b><span>Colombia</span></div>
+    {caption && <p className="map-caption">{caption}</p>}
   </div>;
 }
