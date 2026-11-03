@@ -56,6 +56,8 @@ bash infra/edges/install-node-token.sh CEL-02 8082 https://vigia-5dfe.mexicocent
 
 En la app: ícono de enlace → `https://vigia-5dfe.mexicocentral.cloudapp.azure.com` → **Guardar**. Funciona con datos móviles o cualquier Wi-Fi, sin cable ni `adb reverse`.
 
+La página de descarga es `/app`, parte de la consola: lee la versión, el tamaño y el SHA-256 de `GET /api/v1/app/version` cada 5 minutos, así que un APK nuevo aparece sin tocar la página. `deploy.sh apk` sigue subiendo el APK, `app-version.json` (ahora con `size_bytes`) y el ícono a `/descargas/`. Caddy redirige `/descargar` y `/descargas/` a `/app`; ese cambio del Caddyfile se aplica con `deploy.sh $H sync`. Las capturas reales de la app van en `apps/web/public/app/capturas/` (`operador`, `edge` y `camara`, en `.webp` o `.png`).
+
 ## Recortes de vehículos
 
 Contenedor privado de Azure Blob con borrado a los 7 días; solo los ve un admin. Puesta en marcha y decisiones en [recortes.md](recortes.md).

@@ -19,6 +19,7 @@ def test_missing_or_corrupt_file_advertises_nothing(tmp_path):
     broken.write_text("{", encoding="utf-8")
     assert load_app_release(broken) == {
         "latest": None, "minimum": None, "apk_url": None, "sha256": None, "notes": "", "published_at": None,
+        "size_bytes": None,
     }
 
 
@@ -66,3 +67,14 @@ def test_version_endpoint_is_public(tmp_path, monkeypatch):
     assert body["latest"] == "1.3.0"
     assert body["minimum"] == "1.2.0"
     assert body["notes"] == "contrato"
+
+
+def test_size_is_optional_and_published_when_given(tmp_path):
+    target = tmp_path / "app-version.json"
+    write_app_release(target, version="1.4.0", sha256="a" * 64, url="https://h/x.apk", size_bytes=75_726_298)
+    assert load_app_release(target)["size_bytes"] == 75_726_298
+    write_app_release(target, version="1.4.1", sha256="b" * 64, url="https://h/y.apk")
+    assert load_app_release(target)["size_bytes"] is None
+    target.write_text('{"latest": "1.0.0", "size_bytes": "big"}', encoding="utf-8")
+    assert load_app_release(target)["size_bytes"] is None and load_app_release(target)["latest"] == "1.0.0"
+

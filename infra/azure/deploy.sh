@@ -126,7 +126,7 @@ case "$command" in
     elif command -v py >/dev/null 2>&1; then py=(py -3)
     else echo "Se necesita Python 3 para publicar la versión de la app" >&2; exit 1
     fi
-    release_args=(--version "$version" --sha256 "$sha" --url "https://$host/descargas/$name" --output "$work/app-version.json" --previous "$work/previous.json")
+    release_args=(--version "$version" --sha256 "$sha" --url "https://$host/descargas/$name" --output "$work/app-version.json" --previous "$work/previous.json" --size-bytes "$(wc -c < "$file" | tr -d ' ')")
     if [ -n "$minimum" ]; then release_args+=(--minimum "$minimum"); fi
     PYTHONPATH="$root_dir/apps/backend" "${py[@]}" -m vigia_backend.app_release write "${release_args[@]}" >/dev/null
     scp "${ssh_opts[@]}" "$work/app-version.json" "vigia@$host:$app/descargas/app-version.json"

@@ -91,8 +91,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await expect(page.getByText("Modo demostración · datos de ejemplo")).toHaveCount(0);
 });
 
-test("camera filtering works without a vision stream", async ({ page }) => {
-  await page.route("**/api/vision/status", (route) => route.fulfill({ json: { status: "offline", processingFps: 0, activeDetections: 0 } }));
+test("camera filtering and selection, without any video in the console", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Explorar demo" }).first().click();
   await page.getByRole("button", { name: "Cámaras", exact: false }).first().click();
@@ -100,6 +99,7 @@ test("camera filtering works without a vision stream", async ({ page }) => {
   await expect(page.locator(".device-list > button")).toHaveCount(1);
   await page.locator(".device-list > button").click();
   await expect(page.locator(".camera-selection")).toContainText("Calle 84");
+  await expect(page.locator("img[alt*='Transmisión'], .preview-frame")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -356,4 +356,17 @@ test("operators get no plate field and no confirmation controls", async ({ page 
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sí, es este" })).toHaveCount(0);
+});
+
+test("the Android page guides the download and the footer carries the rights", async ({ page }) => {
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "La app de VIGÍA, en tu teléfono." })).toBeVisible();
+  const download = page.getByRole("link", { name: /Descargar para Android/ });
+  await expect(download).toHaveAttribute("href", /^\/descargas\/vigia.*\.apk$/);
+  await expect(page.getByRole("navigation", { name: "Contenido de la guía" }).getByRole("link")).toHaveCount(7);
+  await page.getByRole("navigation", { name: "Contenido de la guía" }).getByRole("link", { name: "Verificar el archivo" }).click();
+  await expect(page.getByRole("heading", { name: "Verificar el archivo" })).toBeInViewport();
+  await expect(page.getByText("© 2026 Equipo VIGÍA. Todos los derechos reservados.")).toBeVisible();
+  await expect(page.getByText("Android es una marca de Google LLC", { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
