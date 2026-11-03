@@ -6,8 +6,9 @@ El costo OSRM es solo una señal, nunca se elige exclusivamente por distancia.
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
-import math
+import bisect
 import heapq
+import math
 
 @dataclass(frozen=True)
 class DetectionPoint:
@@ -141,7 +142,8 @@ def pair_is_compatible(earlier, later, links, config):
     segments = score_segments(earlier, later, links, config)
     return (True, segments[0]["score"], segments[0]["distant"]) if segments else (False, 0.0, False)
 
-def _candidate(path: list[DetectionPoint], segments: list[dict], cfg: RoutingConfig) -> RouteCandidate:
+def _candidate(path: list[DetectionPoint], segments: list[dict], cfg: RoutingConfig,
+               parameters: dict | None = None) -> RouteCandidate:
     geometric_mean = math.exp(sum(math.log(max(s["score"], 1e-9)) for s in segments) / len(segments))
     bonus = min(.04 * (len(path) - 2), .08)
     score = min(.99, geometric_mean + bonus)
@@ -154,7 +156,7 @@ def _candidate(path: list[DetectionPoint], segments: list[dict], cfg: RoutingCon
         "model": "weighted-evidence-v2", "calibrated_probability": False,
         "weights": {"detection": cfg.detection_weight, "time": cfg.time_weight,
                     "appearance": cfg.appearance_weight, "road": cfg.road_weight},
-        "parameters": asdict(cfg), "geometric_mean": geometric_mean, "coverage_bonus": bonus,
+        "parameters": parameters if parameters is not None else asdict(cfg), "geometric_mean": geometric_mean, "coverage_bonus": bonus,
         "direction_used": False,
         # How many steps carry a colour; unknown ones only joined through time and road.
         "color_evidence": {"known": sum(1 for p in path if p.color), "unknown": sum(1 for p in path if not p.color)},
@@ -198,37 +200,62 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
     required = frozenset(required_ids) & by_id.keys()
     if len(ordered) > cfg.max_detections:
         raise ValueError(f"Máximo {cfg.max_detections} detecciones por búsqueda; reduce ventana o radio")
-    edges = {(a.id, b.id): score_segments(a, b, road_links_m, cfg)
-             for i, a in enumerate(ordered) for b in ordered[i + 1:]}
-    frontier = [([d], []) for d in ordered]
+    # Only pairs that can be physically linked: the longest usable link at the lowest
+    # allowed speed bounds the gap, so later detections are never scored (dense zones
+    # used to evaluate every pair). Same result as scoring all pairs.
+    max_gap_s = cfg.max_road_m * 3.6 / cfg.min_speed_kmh
+    times = [d.observed_at.timestamp() for d in ordered]
+    # Per camera pair, the time gaps any of its usable road options allows; outside
+    # them score_segments would reject every option anyway.
+    windows: dict[tuple[str, str], tuple[float, float] | None] = {}
+    def feasible(a: DetectionPoint, b: DetectionPoint, delta: float) -> bool:
+        key = (a.camera_id, b.camera_id)
+        if key not in windows:
+            distances = [o.distance_m for o in road_options(*key, road_links_m)[:3]
+                         if math.isfinite(o.distance_m) and 0 < o.distance_m <= cfg.max_road_m]
+            windows[key] = (min(distances) * 3.6 / cfg.max_speed_kmh, max(distances) * 3.6 / cfg.min_speed_kmh) if distances else None
+        window = windows[key]
+        # A small margin keeps float rounding at the bounds in score_segments' hands.
+        return window is not None and window[0] - 1e-6 <= delta <= window[1] + 1e-6
+    successors: dict[str, list[tuple[DetectionPoint, list[dict]]]] = {}
+    for i, a in enumerate(ordered):
+        limit = bisect.bisect_right(times, times[i] + max_gap_s, lo=i + 1)
+        successors[a.id] = [(b, segments) for j, b in enumerate(ordered[i + 1:limit], i + 1)
+                            if feasible(a, b, times[j] - times[i])
+                            and (segments := score_segments(a, b, road_links_m, cfg))]
+    parameters = asdict(cfg)
+    # Frontier state: path, segments, ids, option indices, sum of log scores, confirmed steps.
+    frontier = [([d], [], (d.id,), (), 0.0, int(d.id in required)) for d in ordered]
     found = []
     pruned = False
     for _depth in range(2, cfg.max_route_length + 1):
         expanded_count = 0
+        bonus = min(.04 * (_depth - 2), .08)
         def expand():
             nonlocal expanded_count
-            for path, segments in frontier:
+            for path, segments, ids, options, log_sum, confirmed in frontier:
                 known_colors = {p.color for p in path if p.color}
                 known_plates = {p.plate for p in path if p.plate}
-                for nxt in ordered:
+                for nxt, candidates in successors[path[-1].id]:
                     if nxt.color and known_colors and nxt.color not in known_colors:
                         continue
                     if nxt.plate and known_plates and nxt.plate not in known_plates:
                         continue
-                    for segment in edges.get((path[-1].id, nxt.id), []):
-                        new_path, new_segments = path + [nxt], segments + [segment]
-                        score = math.exp(sum(math.log(max(s["score"], 1e-9)) for s in new_segments) / len(new_segments))
-                        score = round(min(.99, score + min(.04 * (len(new_path) - 2), .08)), 4)
+                    for segment in candidates:
+                        new_log = log_sum + math.log(max(segment["score"], 1e-9))
+                        score = round(min(.99, math.exp(new_log / (_depth - 1)) + bonus), 4)
                         expanded_count += 1
-                        yield score, new_path, new_segments
+                        yield (-(confirmed + (nxt.id in required)), -score, ids + (nxt.id,), options + (segment["option_index"],),
+                               path, segments, nxt, segment, new_log)
         # Keep only beam_width states, without materializing all expanded geometries.
         # Confirmed detections go first so the beam does not drop the paths through them.
-        selected = heapq.nsmallest(cfg.beam_width, expand(), key=lambda item: (
-            -sum(1 for p in item[1] if p.id in required), -item[0],
-            tuple(p.id for p in item[1]), tuple(s["option_index"] for s in item[2])))
+        selected = heapq.nsmallest(cfg.beam_width, expand(), key=lambda item: item[:4])
         pruned |= expanded_count > cfg.beam_width
-        found.extend(_candidate(p, s, cfg) for _, p, s in selected)
-        frontier = [(p, s) for _, p, s in selected]
+        frontier = []
+        for neg_confirmed, _score, ids, options, path, segments, nxt, segment, new_log in selected:
+            new_path, new_segments = path + [nxt], segments + [segment]
+            found.append(_candidate(new_path, new_segments, cfg, parameters))
+            frontier.append((new_path, new_segments, ids, options, new_log, -neg_confirmed))
         if not frontier:
             break
     found.sort(key=lambda c: (-c.confidence, -len(c.detection_ids), c.detection_ids))
