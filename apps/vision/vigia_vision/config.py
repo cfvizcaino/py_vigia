@@ -41,8 +41,6 @@ class Settings:
     idle_snapshot_interval_s: float = 30.0
     # OCR over the plates PLATE_MODEL finds; without PLATE_MODEL it never runs.
     plate_ocr_model: str | None = None
-    # One recorte per vehicle for admin confirmation (thumbnails.py); needs the central.
-    thumbnails: bool = True
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -112,7 +110,6 @@ class Settings:
             snapshot_interval_s=snapshot_interval_s,
             idle_snapshot_interval_s=idle_snapshot_interval_s,
             plate_ocr_model=os.getenv("PLATE_OCR_MODEL", "models/plate-ocr.onnx").strip() or None,
-            thumbnails=os.getenv("THUMBNAILS_ENABLED", "1").strip().lower() not in {"0", "false", "no"},
         )
 
     def source_url(self) -> str:

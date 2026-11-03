@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import random
 import threading
@@ -10,7 +9,6 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from .events import utc_now
@@ -20,11 +18,6 @@ from .events import utc_now
 EVENT_REJECTED = frozenset({400, 409, 413, 422})
 # 401/403/404 concern the whole node (token, camera registration): retry, never discard.
 MAX_BACKOFF_SECONDS = 30.0
-# Recortes (docs/operations/recortes.md): 404 unknown track, 413 too big, 415 not JPEG are
-# final for that recorte; 501 means the central keeps none. They are deleted, never set
-# aside, because a recorte can show a plate or a person (Ley 1581).
-THUMBNAIL_DROPPED = frozenset({404, 413, 415})
-THUMBNAIL_QUEUE_LIMIT = 500
 
 
 class SnapshotPublisher:
@@ -59,9 +52,6 @@ class SnapshotPublisher:
         self._last_error: str | None = None
         self._delivered = 0
         self._retries = 0
-        self._last_stem: str | None = None
-        self._thumbnails_enabled = True
-        self._thumbnails = {"sent": 0, "dropped": 0, "skipped": 0}
 
     @property
     def rejected_dir(self) -> Path:
@@ -96,38 +86,16 @@ class SnapshotPublisher:
 
         sequence = int(payload["sequenceNumber"])
         event_id = str(payload["eventId"])
-        stem = f"{sequence:020d}-{event_id}"
-        self._write(self.outbox / f"{stem}.json", payload)
-        with self._lock:
-            self._last_stem = stem
-        return True
-
-    def enqueue_thumbnail(self, camera_id: str, session_id: str, track_id: int, first_seen: str, jpeg: bytes) -> bool:
-        """Pone el recorte justo detrás del último sobre encolado, que ya publicó su track."""
-        with self._lock:
-            stem, enabled = self._last_stem, self._thumbnails_enabled
-        if not self.enabled or not enabled or stem is None:
-            return False
-        # The envelopes go first: a long queue (central down) stops taking recortes.
-        if self.pending_count() >= THUMBNAIL_QUEUE_LIMIT:
-            with self._lock:
-                self._thumbnails["skipped"] += 1
-            return False
-        payload = {"kind": "thumbnail", "cameraId": camera_id, "sessionId": session_id, "trackId": track_id,
-                   "firstSeen": first_seen, "jpeg": base64.b64encode(jpeg).decode("ascii")}
-        # "~" sorts after ".json", so the recorte follows its envelope in the queue.
-        self._write(self.outbox / f"{stem}~t{track_id:010d}.json", payload)
-        return True
-
-    def _write(self, destination: Path, payload: dict[str, Any]) -> None:
+        destination = self.outbox / f"{sequence:020d}-{event_id}.json"
         if destination.exists():
-            return
+            return True
         with NamedTemporaryFile("w", encoding="utf-8", dir=self.outbox, delete=False) as temporary:
             json.dump(payload, temporary, ensure_ascii=False, separators=(",", ":"))
             temporary.write("\n")
             temporary_path = Path(temporary.name)
         temporary_path.replace(destination)
         self._wake_event.set()
+        return True
 
     def pending_count(self) -> int:
         if not self.outbox.exists():
@@ -139,7 +107,6 @@ class SnapshotPublisher:
             last_delivered_at = self._last_delivered_at
             last_error = self._last_error
             delivered, retries = self._delivered, self._retries
-            thumbnails, thumbnails_enabled = dict(self._thumbnails), self._thumbnails_enabled
         return {
             "enabled": self.enabled,
             "pendingEvents": self.pending_count(),
@@ -148,7 +115,6 @@ class SnapshotPublisher:
             "retries": retries,
             "lastDeliveredAt": last_delivered_at,
             "lastError": last_error,
-            "thumbnails": {**thumbnails, "enabled": thumbnails_enabled},
         }
 
     def _next_event(self) -> Path | None:
@@ -162,15 +128,9 @@ class SnapshotPublisher:
                 self._wake_event.clear()
                 self._wake_event.wait(timeout=5)
                 continue
-            is_thumbnail = "~t" in path.name
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
-                if is_thumbnail:
-                    self._send_thumbnail(payload)
-                    with self._lock:
-                        self._thumbnails["sent"] += 1
-                else:
-                    self._send(payload)
+                self._send(payload)
                 path.unlink(missing_ok=True)
                 with self._lock:
                     self._last_delivered_at = utc_now()
@@ -178,23 +138,13 @@ class SnapshotPublisher:
                     self._delivered += 1
                 backoff_seconds = self.initial_backoff_seconds
             except HTTPError as exc:
-                if is_thumbnail and (exc.code in THUMBNAIL_DROPPED or exc.code == 501):
-                    path.unlink(missing_ok=True)
-                    with self._lock:
-                        self._thumbnails["dropped"] += 1
-                        if exc.code == 501:
-                            self._thumbnails_enabled = False
-                    continue
                 if exc.code in EVENT_REJECTED:
                     self._reject(path, exc.code)
                     continue
                 backoff_seconds = self._back_off(f"HTTP_{exc.code}", backoff_seconds)
             except ValueError:
                 # Unreadable file (e.g. truncated by a power cut): it can never be sent as is.
-                if is_thumbnail:
-                    path.unlink(missing_ok=True)
-                else:
-                    self._reject(path, "INVALID_JSON")
+                self._reject(path, "INVALID_JSON")
             except (OSError, URLError) as exc:
                 backoff_seconds = self._back_off(type(exc).__name__, backoff_seconds)
             if self._stop_event.is_set():
@@ -229,17 +179,3 @@ class SnapshotPublisher:
         with urlopen(request, timeout=self.timeout_seconds) as response:  # noqa: S310 - URL is operator config
             if response.status < 200 or response.status >= 300:
                 raise HTTPError(request.full_url, response.status, "ingest rejected", response.headers, None)
-
-    def _send_thumbnail(self, payload: dict[str, Any]) -> None:
-        if self.central_api_url is None:
-            return
-        headers = {"Content-Type": "image/jpeg", "User-Agent": "vigia-edge/1.1"}
-        if self.device_token:
-            headers["X-Vigia-Device-Token"] = self.device_token
-        query = urlencode({key: payload[key] for key in ("cameraId", "sessionId", "trackId", "firstSeen")})
-        request = Request(f"{self.central_api_url}/api/v1/ingest/thumbnails?{query}",
-                          data=base64.b64decode(payload["jpeg"]), headers=headers, method="POST")
-        with urlopen(request, timeout=self.timeout_seconds) as response:  # noqa: S310 - URL is operator config
-            if response.status < 200 or response.status >= 300:
-                raise HTTPError(request.full_url, response.status, "thumbnail rejected", response.headers, None)
-
