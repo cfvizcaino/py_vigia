@@ -3,6 +3,13 @@ import { DEMO_DEVICES, DEMO_QUERY, runDemoQuery } from "../../src/lib/demo-monit
 
 const OPERATOR = { id: "00000000-0000-4000-8000-000000000001", email: "ana@vigia.test", display_name: "Ana Operadora", role: "operator" };
 
+/** The query form starts folded behind the «Nueva consulta» search pill. */
+async function openQuery(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Nueva consulta" }).click();
+}
+
+const LANDING = "De observaciones aisladas a recorridos posibles.";
+
 async function signedIn(page: import("@playwright/test").Page) {
   await page.unroute("**/api/auth/session");
   await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: OPERATOR, expires_at: "2026-10-09T08:00:00Z" } }));
@@ -21,9 +28,10 @@ test("explicit demo, filtered search, route selection, export and history", asyn
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
-  await page.getByRole("button", { name: "Explorar demo" }).click();
+  await expect(page.getByRole("heading", { name: LANDING })).toBeVisible();
+  await page.getByRole("button", { name: "Explorar demo" }).first().click();
   await expect(page.getByText("Modo demostración · datos de ejemplo")).toBeVisible();
+  await openQuery(page);
   await page.getByRole("button", { name: "Buscar en la demostración" }).click();
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Demostración")).toBeVisible();
   await page.getByRole("button", { name: "Ruta 2" }).click();
@@ -36,7 +44,7 @@ test("explicit demo, filtered search, route selection, export and history", asyn
   expect(download.suggestedFilename()).toMatch(/^vigia-demo-.*\.json$/);
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath("console.png"), fullPage: true });
-  await page.getByRole("button", { name: "Trayectorias", exact: false }).first().click();
+  await page.getByRole("button", { name: "Consultas", exact: false }).first().click();
   await expect(page.getByRole("heading", { name: "Historial de consultas" })).toBeVisible();
   await expect(page.locator(".history-list > button")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -45,10 +53,12 @@ test("explicit demo, filtered search, route selection, export and history", asyn
 
 test("empty results, invalid time window and live radius output", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Explorar demo" }).click();
+  await page.getByRole("button", { name: "Explorar demo" }).first().click();
+  await openQuery(page);
   await page.getByRole("combobox", { name: "Color", exact: true }).selectOption("red");
   await page.getByRole("button", { name: "Buscar en la demostración" }).click();
   await expect(page.getByText("Sin trayectorias para estos filtros")).toBeVisible();
+  await page.getByRole("button", { name: "Ajustar consulta" }).click();
   await page.getByLabel("Hasta", { exact: true }).fill("08:00");
   await page.getByRole("button", { name: "Buscar en la demostración" }).click();
   await expect(page.locator(".query-card [role=alert]")).toContainText("La hora final debe ser posterior");
@@ -63,6 +73,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await signedIn(page);
   await page.goto("/");
   await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.route("**/api/monitoring/queries", async (route) => {
     expect(route.request().method()).toBe("POST");
@@ -73,6 +84,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
   await page.unroute("**/api/monitoring/queries");
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ status: 503, json: { error: "Servicio central no disponible" } }));
+  await page.getByRole("button", { name: "Ajustar consulta" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect(page.locator(".query-card [role=alert]")).toHaveText("Servicio central no disponible");
   await expect(page.locator(".route-options")).toHaveCount(0);
@@ -82,7 +94,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
 test("camera filtering works without a vision stream", async ({ page }) => {
   await page.route("**/api/vision/status", (route) => route.fulfill({ json: { status: "offline", processingFps: 0, activeDetections: 0 } }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Explorar demo" }).click();
+  await page.getByRole("button", { name: "Explorar demo" }).first().click();
   await page.getByRole("button", { name: "Cámaras", exact: false }).first().click();
   await page.getByRole("textbox", { name: "Filtrar cámaras" }).fill("Calle 84");
   await expect(page.locator(".device-list > button")).toHaveCount(1);
@@ -114,6 +126,7 @@ test("weighted route explains evidence and uses the evaluated geometry", async (
   await signedIn(page);
   await page.goto("/");
   await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await page.getByText("¿Por qué aparece esta ruta?", { exact: true }).click();
@@ -148,6 +161,8 @@ test("sign-in opens the central console, export goes through the server and logo
   });
 
   await page.goto("/");
+  await page.getByRole("button", { name: "Inicia sesión" }).click();
+  await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
   await page.getByLabel("Correo").fill(OPERATOR.email);
   await page.getByLabel("Contraseña").fill("incorrecta");
   await page.getByRole("button", { name: "Entrar" }).click();
@@ -155,14 +170,16 @@ test("sign-in opens the central console, export goes through the server and logo
   await page.getByLabel("Contraseña").fill("contraseña-larga-ok");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByText("Servicio central conectado", { exact: true })).toBeVisible();
+  await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar resultados JSON" }).click();
   expect((await downloadPromise).suggestedFilename()).toBe(`vigia-${result.query.id}.json`);
   expect(exported).toBe(1);
+  await page.getByRole("button", { name: "Cuenta" }).click();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
-  await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: LANDING })).toBeVisible();
   expect(loggedOut).toBe(true);
 });
 
@@ -175,8 +192,9 @@ test("an expired session during a search returns to sign-in", async ({ page }) =
   await page.unroute("**/api/auth/session");
   await page.route("**/api/auth/session", (route) => route.fulfill({ status: 401, json: { error: "Sin sesión." } }));
   await page.route("**/api/monitoring/queries", (route) => route.fulfill({ status: 401, json: { error: "Tu sesión terminó." } }));
+  await openQuery(page);
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: LANDING })).toBeVisible();
 });
 
 test("admin reviews the audit trail and issues then revokes a node credential", async ({ page }) => {
@@ -262,6 +280,7 @@ test("on the scoring database a dataset case fills the whole query form", async 
   });
   await signedIn(page);
   await page.goto("/");
+  await openQuery(page);
   await expect(page.getByRole("button", { name: "Cargar escenario de prueba" })).toHaveCount(0);
   const color = page.getByRole("combobox", { name: "Color", exact: true });
   await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S02");
@@ -274,4 +293,18 @@ test("on the scoring database a dataset case fills the whole query form", async 
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect.poll(() => sent).toEqual({ lat: 11.008375, lng: -74.809824, radius_m: 2500,
     time_from: "2026-09-15T07:40:00-05:00", time_to: "2026-09-15T08:00:00-05:00", vehicle_type: "motorcycle" });
+});
+
+test("the public site links the about page back to sign-in and the demo", async ({ page }) => {
+  await page.goto("/nosotros");
+  await expect(page.getByRole("heading", { name: "Innovación que nace de un desafío real." })).toBeVisible();
+  await page.getByRole("link", { name: "Explorar demo" }).click();
+  await expect(page.getByText("Modo demostración · datos de ejemplo")).toBeVisible();
+  await page.goto("/nosotros");
+  await page.getByRole("link", { name: "Inicia sesión" }).click();
+  await expect(page.getByRole("heading", { name: "Inicia sesión" })).toBeVisible();
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
+  await page.getByRole("tab", { name: "Conexión", exact: false }).click();
+  await expect(page.getByText("Los eventos se envían de forma segura a la plataforma central.")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

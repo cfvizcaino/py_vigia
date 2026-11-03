@@ -1,11 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BrandMark } from "./brand";
 import { Icon } from "./icon";
 import { OperationsConsole } from "./operations-console";
+import { Landing } from "./site";
 
 export type SessionUser = { id: string; email: string; display_name: string; role: "operator" | "admin" };
 type State = { kind: "loading" } | { kind: "anonymous"; offline: boolean } | { kind: "user"; user: SessionUser } | { kind: "demo" };
+type Screen = "landing" | "login";
+
+/** `/?entrar=1` and `/?demo=1` come from pages outside the gate, such as /nosotros. */
+function requestedEntry() {
+  const params = new URLSearchParams(window.location.search);
+  return params.has("demo") ? "demo" : params.has("entrar") ? "login" : null;
+}
+
+/** Dropped only once the session answer is used, so a remounted effect still sees it. */
+function forgetEntry() {
+  if (window.location.search) window.history.replaceState(null, "", window.location.pathname);
+}
 
 /**
  * Chooses what to render. It is not a security boundary: every API route
@@ -13,26 +27,33 @@ type State = { kind: "loading" } | { kind: "anonymous"; offline: boolean } | { k
  */
 export function ConsoleGate() {
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [screen, setScreen] = useState<Screen>("landing");
 
   useEffect(() => {
     const controller = new AbortController();
+    const entry = requestedEntry();
     // A late answer must not undo a choice made meanwhile (e.g. opening the demo).
     const settle = (next: State) => setState((current) => current.kind === "loading" ? next : current);
     fetch("/api/auth/session", { cache: "no-store", signal: controller.signal })
       .then(async (response) => {
         const next: State = response.ok ? { kind: "user", user: (await response.json()).user } : { kind: "anonymous", offline: response.status >= 500 };
-        settle(next);
+        forgetEntry();
+        if (next.kind === "anonymous" && entry === "demo") settle({ kind: "demo" });
+        else { if (entry === "login") setScreen("login"); settle(next); }
       })
-      .catch(() => { if (!controller.signal.aborted) settle({ kind: "anonymous", offline: true }); });
+      .catch(() => { if (!controller.signal.aborted) { forgetEntry(); if (entry === "login") setScreen("login"); settle({ kind: "anonymous", offline: true }); } });
     return () => controller.abort();
   }, []);
 
   if (state.kind === "user") return <OperationsConsole user={state.user}/>;
   if (state.kind === "demo") return <OperationsConsole user={null}/>;
-  return <LoginScreen loading={state.kind === "loading"} offline={state.kind === "anonymous" && state.offline} onLogin={(user) => setState({ kind: "user", user })} onDemo={() => setState({ kind: "demo" })}/>;
+  if (state.kind === "loading") return <main className="splash" aria-busy="true"><BrandMark size={56} title="VIGÍA"/><span className="visually-hidden">Comprobando la sesión…</span></main>;
+  const openDemo = () => setState({ kind: "demo" });
+  if (screen === "login") return <LoginScreen offline={state.offline} onLogin={(user) => setState({ kind: "user", user })} onDemo={openDemo} onBack={() => setScreen("landing")}/>;
+  return <Landing onSignIn={() => { setScreen("login"); window.scrollTo(0, 0); }} onDemo={openDemo}/>;
 }
 
-function LoginScreen({ loading, offline, onLogin, onDemo }: { loading: boolean; offline: boolean; onLogin: (user: SessionUser) => void; onDemo: () => void }) {
+function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; onLogin: (user: SessionUser) => void; onDemo: () => void; onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -57,20 +78,21 @@ function LoginScreen({ loading, offline, onLogin, onDemo }: { loading: boolean; 
   }
 
   return <main className="login-shell">
-    <section className="panel login-card" aria-labelledby="login-title">
-      <div className="brand login-brand"><span className="brand-mark"><Icon name="shield" size={27}/></span><span><strong>VIGIA<span>●</span></strong><small>INTELIGENCIA COMUNITARIA</small></span></div>
+    <button type="button" className="round-button login-back" onClick={onBack} aria-label="Volver al inicio"><Icon name="back" size={22}/></button>
+    <section className="login-card" aria-labelledby="login-title">
+      <BrandMark size={52}/>
       <h1 id="login-title">Inicia sesión</h1>
       <p>Las consultas, el video de las cámaras y las exportaciones requieren una cuenta autorizada y quedan registradas.</p>
       <form onSubmit={submit}>
-        <fieldset disabled={loading || submitting}>
-          <label>Correo<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required/></label>
-          <label>Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/></label>
-          <button className="primary-action" type="submit">{submitting ? <><span className="spinner"/>Validando…</> : <>Entrar<Icon name="arrow" size={17}/></>}</button>
+        <fieldset disabled={submitting}>
+          <label className="line-field">Correo<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required/></label>
+          <label className="line-field">Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/></label>
+          <button className="pill-light wide" type="submit">{submitting ? <><span className="spinner"/>Validando…</> : <>Entrar<Icon name="arrow" size={17}/></>}</button>
         </fieldset>
       </form>
       {error && <p className="error-message" role="alert">{error}</p>}
-      {offline && <p className="form-help" role="status"><Icon name="layers" size={15}/>El servicio central no responde. Puedes revisar la consola con datos de ejemplo.</p>}
-      <button className="text-action login-demo" type="button" onClick={onDemo}>Explorar demo<Icon name="arrow" size={14}/></button>
+      {offline && <p className="form-help" role="status"><Icon name="alert" size={16}/>El servicio central no responde. Puedes revisar la consola con datos de ejemplo.</p>}
+      <button className="text-link login-demo" type="button" onClick={onDemo}>Explorar demo sin cuenta</button>
     </section>
   </main>;
 }

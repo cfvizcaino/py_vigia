@@ -7,7 +7,7 @@ import { Icon } from "./icon";
 
 type Point = { lng: number; lat: number };
 type RouteMode = "none" | "loading" | "road-network" | "camera-chord";
-type Props = { cameras: Device[]; selectedId: string; onSelect: (id: string) => void; routePoints: Point[]; routeMode: RouteMode; radius: number; center?: Point };
+type Props = { cameras: Device[]; selectedId: string; onSelect: (id: string) => void; routePoints: Point[]; routeMode: RouteMode; radius: number; center?: Point; caption: string };
 
 function circle(center: Point, meters: number) {
   return Array.from({ length: 65 }, (_, index) => {
@@ -21,7 +21,7 @@ function fitPoints(map: MapLibreMap, points: Point[]) {
   map.fitBounds([[Math.min(...points.map((p) => p.lng)), Math.min(...points.map((p) => p.lat))], [Math.max(...points.map((p) => p.lng)), Math.max(...points.map((p) => p.lat))]], { padding: 85, maxZoom: 15, duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 500 });
 }
 
-export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode, radius, center }: Props) {
+export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode, radius, center, caption }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Map<string, Marker>>(new Map());
@@ -35,7 +35,7 @@ export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode
       setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
       map = new MapLibreMap({
         container: containerRef.current,
-        style: { version: 8, sources: { openstreetmap: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' } }, layers: [{ id: "openstreetmap", type: "raster", source: "openstreetmap", paint: { "raster-saturation": -0.65 } }] },
+        style: { version: 8, sources: { openstreetmap: { type: "raster", tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], tileSize: 256, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors' } }, layers: [{ id: "openstreetmap", type: "raster", source: "openstreetmap", paint: { "raster-brightness-min": 0.92, "raster-brightness-max": 0.06, "raster-saturation": -1, "raster-contrast": 0.12, "raster-opacity": 0.86 } }] },
         center: [-74.810, 11.009], zoom: 13.4, attributionControl: false,
       });
     } catch {
@@ -49,11 +49,11 @@ export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode
     const timeout = window.setTimeout(() => setMapStatus("error"), 12_000);
     map.on("load", () => {
       map.addSource("vigia-radius", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "vigia-radius-fill", type: "fill", source: "vigia-radius", paint: { "fill-color": "#15b6a4", "fill-opacity": 0.08 } });
-      map.addLayer({ id: "vigia-radius-line", type: "line", source: "vigia-radius", paint: { "line-color": "#118d80", "line-width": 1.5, "line-dasharray": [4, 3] } });
+      map.addLayer({ id: "vigia-radius-fill", type: "fill", source: "vigia-radius", paint: { "fill-color": "#9d76f8", "fill-opacity": 0.1 } });
+      map.addLayer({ id: "vigia-radius-line", type: "line", source: "vigia-radius", paint: { "line-color": "#9d76f8", "line-width": 1.5, "line-dasharray": [4, 3] } });
       map.addSource("vigia-route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      map.addLayer({ id: "vigia-route-shadow", type: "line", source: "vigia-route", paint: { "line-color": "#fff", "line-width": 9, "line-opacity": 0.9 } });
-      map.addLayer({ id: "vigia-route", type: "line", source: "vigia-route", paint: { "line-color": "#de6025", "line-width": 4, "line-dasharray": [2, 1] } });
+      map.addLayer({ id: "vigia-route-shadow", type: "line", source: "vigia-route", paint: { "line-color": "#090119", "line-width": 10, "line-opacity": 0.85 } });
+      map.addLayer({ id: "vigia-route", type: "line", source: "vigia-route", paint: { "line-color": "#c4a8ff", "line-width": 4.5, "line-dasharray": [2, 1] } });
       window.clearTimeout(timeout);
       setMapStatus("ready");
     });
@@ -124,11 +124,11 @@ export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode
   }
 
   return <div className="map-wrapper" data-route-visible={routeVisible}>
-    <div ref={containerRef} className="map-canvas" aria-label="Mapa de dispositivos VIGIA en Barranquilla"/>
-    <div className="map-overlay-label"><span className="small-orbit"/><span>RED COLABORATIVA<b>{cameras.length} nodos en el mapa</b></span></div>
-    <button className="map-recenter" onClick={recenter} aria-label="Centrar mapa en la red" title="Centrar mapa en la red"><Icon name="pin" size={18}/></button>
+    <div ref={containerRef} className="map-canvas" aria-label="Mapa de dispositivos VIGÍA en Barranquilla"/>
+    <button className="round-button small map-recenter" onClick={recenter} aria-label="Centrar mapa en la red" title="Centrar mapa en la red"><Icon name="target" size={18}/></button>
     {mapStatus === "loading" && <div className="map-status"><span className="spinner"/>Cargando cartografía de Barranquilla…</div>}
     {mapStatus === "error" && <div className="map-status error" role="status"><Icon name="layers" size={24}/><b>Cartografía no disponible</b><span>Se necesita conexión a internet y soporte WebGL. Puedes seleccionar cámaras desde la lista y consultar sus detecciones.</span></div>}
-    <span className="map-coordinate">BARRANQUILLA / ATLÁNTICO <span>CO</span></span>
+    <div className="map-place"><b>Barranquilla, Atlántico</b><span>Colombia · {cameras.length} nodos en el mapa</span></div>
+    <p className="map-caption">{caption}</p>
   </div>;
 }
