@@ -53,5 +53,5 @@ El nodo Python (cámaras RTSP, webcam, teléfono como cámara IP) todavía no en
 
 1. **Centro:** almacén, subida, vista de admin, retención. En producción desde el 28/10.
 2. **Teléfono:** recortar y subir un JPEG por track desde el edge autónomo (app 1.4.0).
-3. **Confirmación:** en consola y app, el admin marca cada paso como "es este" / "no es este" y la ruta se recalcula.
+3. **Confirmación:** en la consola web desde el 02/11 (la app queda pendiente). En la vista de trayectoria, el admin ve el recorte y la placa de cada paso y responde «¿Es este el vehículo que buscas?». `PUT /api/v1/queries/{id}/confirmations/{detección}` con `match` o `reject` (y `DELETE` para deshacer) guarda la respuesta en `detection_confirmations`, la audita (`detection.confirmed`) y recalcula las rutas de esa misma consulta: lo rechazado sale de todas y lo confirmado debe estar en todas. La exportación sigue las rutas recalculadas.
 4. **Aprendizaje:** las confirmaciones alimentan el conjunto de puntaje (`scoring_dataset.py`) y los recortes corregidos el reentrenamiento de color por cámara.

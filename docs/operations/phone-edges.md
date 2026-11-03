@@ -57,12 +57,14 @@ En el teléfono (OPPO CPH2599, Android 16, CEL-02 contra Azure):
 
 Una vista cenital nocturna de un parqueadero no da detecciones. Allí YOLO26n de COCO tampoco detecta en el PC: ningún vehículo a 320 px y 1 a 640 px con PyTorch. Para resultados útiles, la cámara debe ver la vía de lado o en diagonal, como en el video de referencia. Afinar el modelo con datos propios queda para la etapa de entrenamiento.
 
-**Placas (siguiente etapa).** El contrato ya trae `licensePlate` (hoy `null`) y el exportador sirve para cualquier modelo YOLO. El plan:
+**Placas (siguiente etapa).** El contrato ya trae `licensePlate` (hoy `null` en la app) y el nodo PC ya la llena (`docs/modeling/license-plates.md`). El plan para el teléfono replica ese flujo:
 
-1. exportar el detector de placas entrenado (`apps/vision/outputs/training/…`) con `--labels 0:plate`;
-2. recortar cada vehículo rastreado en el cuadro a resolución completa;
-3. pasar el recorte por el detector de placas y luego por un OCR;
-4. llenar `licensePlate` en el track una sola vez por vehículo.
+1. exportar `apps/vision/models/plate-detector.pt` (entrenado con recortes de vehículos) con `training/export_mobile.py --labels 0:plate`;
+2. recortar cada vehículo rastreado en el cuadro a resolución completa, como ya se hace para el color, y pasar el recorte por el detector de placas;
+3. leer con el OCR (`plate-ocr.onnx`, convertido a TFLite o con ONNX Runtime) solo las placas de 45 px o más;
+4. votar el texto por track (dos lecturas iguales, formato colombiano) y llenar `licensePlate`.
+
+El obstáculo principal es la resolución, no el modelo: el modo edge captura en `ResolutionPreset.medium` (720×480 en Android), donde una placa que en el video 4K de referencia medía 45–60 px queda en 8–11 px. Para leer placas, el teléfono debe capturar al menos en 1080p (`veryHigh`) y estar cerca de la vía, y hay que medir el costo en CPU y en batería de copiar cuadros más grandes.
 
 La placa sigue siendo un dato sensible: se publica solo el texto, nunca la imagen.
 

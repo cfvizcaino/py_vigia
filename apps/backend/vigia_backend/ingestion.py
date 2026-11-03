@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .models import Detection, Device, EdgeObservation, IngestedEvent
+from .plates import normalize_plate, purge_plates
 from .retention import purge_raw_events
 from .schemas import DetectionEnvelopeV11
 from .thumbnails import purge_thumbnails
@@ -36,7 +37,7 @@ class IngestionResult:
 
 
 def maybe_purge_raw_events(db: Session) -> None:
-    """Eventos crudos y recortes vencidos. Como mucho una vez por hora y por proceso. Un fallo aquí no rechaza el evento."""
+    """Eventos crudos, recortes y placas vencidos. Como mucho una vez por hora y por proceso. Un fallo aquí no rechaza el evento."""
     global _next_purge
     now = time.monotonic()
     if now < _next_purge:
@@ -45,7 +46,7 @@ def maybe_purge_raw_events(db: Session) -> None:
         if time.monotonic() < _next_purge:
             return
         _next_purge = time.monotonic() + 3600
-    for purge in (purge_raw_events, purge_thumbnails):
+    for purge in (purge_raw_events, purge_thumbnails, purge_plates):
         try:
             purge(db)
         except Exception:
@@ -116,6 +117,7 @@ def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> Ing
                 confidence=edge_detection.confidence,
                 observed_at=edge_detection.last_seen,
                 thumbnail_url=None,
+                license_plate=normalize_plate(edge_detection.license_plate),
             )
             db.add(detection)
             db.flush()
@@ -141,6 +143,10 @@ def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> Ing
             # while the vote is still open must not erase a colour already known.
             if edge_detection.color is not None:
                 detection.color = edge_detection.color
+            # The plate is voted the same way: a later snapshot without it keeps the known text.
+            plate = normalize_plate(edge_detection.license_plate)
+            if plate is not None:
+                detection.license_plate = plate
             detection.direction = edge_detection.direction
             detection.confidence = edge_detection.confidence
             detection.observed_at = edge_detection.last_seen

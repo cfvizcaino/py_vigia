@@ -1,6 +1,6 @@
 # Roadmap de cierre de VIGIA
 
-Actualizado: 2026-10-12. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
+Actualizado: 2026-11-02. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
 
 ## Principio de priorización
 
@@ -20,7 +20,7 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 6 | P1.1 Evaluación independiente | Pendiente; existe el dataset sintético de puntajes como base | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Aprobado con nodo simulado (08/10: 248/248 eventos, 0 duplicados); la Tapo real ya corrió 8 h contra Azure. Falta repetir el corte de 5 min con la cámara real | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
 | 8 | P1.3 Carga y observabilidad | **Carga medida (12/10)** hasta 100 nodos simulados en Azure: cumple con 4–50 nodos y satura desde 50 msg/s; falta la observabilidad (métricas agregadas) | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
-| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color del vehículo y seguimiento sin fragmentar. Siguiente: placas (detector + OCR) | Cada etapa medida con prueba de sitio y documentada |
+| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color, seguimiento sin fragmentar, placas en el nodo PC (detector + OCR votado por track) y en la central (7 días, solo admin), y recortes por track desde el teléfono con confirmación del admin en la consola. Siguiente: placas en el teléfono | Cada etapa medida con prueba de sitio y documentada |
 
 ## Hitos cumplidos
 
@@ -47,16 +47,19 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 12/10 | Grafo OSRM del área metropolitana (Barranquilla, Soledad, Puerto Colombia con Villa Campestre, Galapa, Malambo), servido con `--mmap` (~1 MB de RAM) y releases versionadas; enlaces de las 5 cámaras reales sincronizados ([detalle](./operations/osrm-self-hosted.md)) | #29 |
 | 12/10 | Análisis de sensibilidad de umbrales y pesos del puntaje ([evidencia](./evidence/sensibilidad-puntaje-20261012.md)); segundo informe actualizado | — |
 | 12/10 | Aviso de actualización de la app (`GET /api/v1/app/version`, escrito por `deploy.sh apk`), sincronización de enlaces al registrar o mover una cámara, retención de eventos crudos (7 días) y latido de 30 s sin vehículos | — |
+| 28/10 | Prueba de campo: una estimación por trayectoria para que el tráfico no esconda rutas largas | #34 |
+| 28/10 | Recortes: fase 1 (centro, Azure Blob privado, 7 días, solo admin) y fase 2 (teléfono, app 1.4.0) | #35, #36 |
+| 02/11 | Consola con la cara del Figma «VIGÍA-DESIGN» y sitio público; placas en la central; confirmación de recortes (fase 3) en la web; top-k diversificado: recall@3 de 0,429 a 0,571 y enlaces falsos de 0,24 a 0,167 ([evidencia](./evidence/topk-diversificado-20261102.md)) | — |
 
 ## Orden de ejecución siguiente
 
 1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tarda de 6 a 8 s (p95). Generar solo los pares con enlace vial y ventana temporal compatible.
-2. **Placas.** Detector de placas medido con datos del sitio, OCR para placas colombianas y votación del texto por track; primero en el nodo PC y luego en el teléfono.
+2. **Placas en el teléfono.** El nodo PC y la central ya están (02/11); falta llevar detector y OCR a la app.
 3. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
 4. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.
 5. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
 6. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), límite por IP y CSP en Caddy, respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
-7. **Evaluación y escala:** P1.1 con recorridos independientes, diversificación del top-k, corte de 5 min con la cámara real y observabilidad (P1.3).
+7. **Evaluación y escala:** P1.1 con recorridos independientes (el top-k ya se diversificó el 02/11), confirmaciones del admin como verdad de terreno (recortes, fase 4), corte de 5 min con la cámara real y observabilidad (P1.3).
 8. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
 
 ## Detalle de incrementos anteriores

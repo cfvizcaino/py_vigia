@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { Icon } from "./icon";
 
 type VisionStatus = {
   status: string;
@@ -61,7 +62,7 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
   return (
     <article className={`camera-preview-card ${active ? "active" : ""} ${large ? "large" : ""}`}>
       <div className="card-heading">
-        <div><span className="section-kicker">Cámara física · CAM-01</span><h2>Tapo C110</h2></div>
+        <div><h2>Tapo C110</h2><small>Cámara física · CAM-01</small></div>
         <span className={`live-badge ${isLive ? "online" : ""}`}><i/>{STATUS_LABELS[status?.status ?? "offline"] ?? status?.status}</span>
       </div>
       <div className="preview-frame">
@@ -69,7 +70,7 @@ export function CameraPreview({ active, large = false }: { active: boolean; larg
           <Image src={previewUrl} alt="Transmisión procesada de la cámara Tapo C110" fill sizes={large ? "(max-width: 1050px) 100vw, 72vw" : "(max-width: 1050px) 100vw, 32vw"} priority unoptimized onError={() => setPreviewUrl(null)}/>
         ) : (
           <div className="preview-placeholder">
-            <span className="preview-camera-icon">◉</span>
+            <Icon name="camera" size={30}/>
             <b>{active ? "Inicia el servicio de visión" : "Selecciona CAM-01"}</b>
             <small>{active ? "La transmisión aparecerá cuando el nodo de visión esté disponible." : "La transmisión configurada corresponde a la Tapo C110 de CAM-01."}</small>
           </div>

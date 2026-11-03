@@ -128,3 +128,12 @@ test("la ruta avisa cuántos pasos no tienen el color confirmado", () => {
   assert.equal(unknownColorNote(route(1, 2)), " · 2 pasos sin color confirmado");
   assert.equal(unknownColorNote({}), "");
 });
+
+test("plates are normalized to Colombian formats and malformed ones are rejected", async () => {
+  const { normalizePlate } = await import("../src/lib/monitoring");
+  assert.equal(normalizePlate("abc-123"), "ABC123");
+  assert.equal(normalizePlate("xyz 12d"), "XYZ12D");
+  assert.equal(normalizePlate("AB1234"), null);
+  assert.equal(validateQuery({ ...DEMO_QUERY, plate: "abc 123" }).plate, "ABC123");
+  assert.throws(() => validateQuery({ ...DEMO_QUERY, plate: "123" }));
+});

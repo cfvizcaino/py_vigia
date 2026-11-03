@@ -132,7 +132,7 @@ function AuditPanel() {
 
   return <article className="panel audit-card" aria-busy={loading}>
     <div className="card-heading">
-      <div><span className="section-kicker">Trazabilidad</span><h2>Auditoría de uso</h2></div>
+      <div><h2>Auditoría de uso</h2></div>
       <button className="icon-button" onClick={() => load(false)} disabled={loading} aria-label="Actualizar auditoría" title="Actualizar auditoría"><Icon name="refresh" size={18}/></button>
     </div>
     <div className="audit-filters" role="group" aria-label="Filtrar por tipo de evento">
@@ -229,7 +229,7 @@ function CredentialsPanel({ cameras }: { cameras: Device[] }) {
   const ordered = [...credentials].sort((a, b) => Number(a.revoked) - Number(b.revoked) || b.created_at.localeCompare(a.created_at));
 
   return <article className="panel credentials-card">
-    <div className="card-heading"><div><span className="section-kicker">Identidad de nodos edge</span><h2>Credenciales <span className="count-badge">{credentials.filter((c) => credentialState(c).tone === "ok").length}</span></h2></div><Icon name="key"/></div>
+    <div className="card-heading"><div><h2>Credenciales <span className="count-badge">{credentials.filter((c) => credentialState(c).tone === "ok").length}</span></h2></div><Icon name="key"/></div>
     <form className="credential-form" onSubmit={issue}>
       <fieldset disabled={busy || !cameras.length}>
         <label>Cámara<select value={selectedCamera} onChange={(event) => setCamera(event.target.value)}>{cameras.map((item) => <option key={item.id} value={item.external_id}>{item.external_id} · {item.name}</option>)}</select></label>

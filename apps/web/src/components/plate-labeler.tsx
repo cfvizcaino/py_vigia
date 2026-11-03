@@ -160,7 +160,7 @@ export function PlateLabeler() {
     <section className="labeler-layout">
       <article className="labeler-card">
         <header className="labeler-heading">
-          <div><span className="section-kicker">Dataset local · clase plate</span><h2>Etiquetar placas</h2></div>
+          <div><h2>Etiquetar placas</h2></div>
           <div className="labeler-progress"><span>{completed} de {frames.length} listas</span><div><i style={{ width: `${progress}%` }}/></div><b>{progress}%</b></div>
         </header>
 
@@ -213,7 +213,7 @@ export function PlateLabeler() {
       </article>
 
       <aside className="labeler-side">
-        <div className="labeler-help"><span className="section-kicker">Cómo hacerlo</span><h3>Dibuja una caja ajustada</h3><p>Arrastra desde una esquina de la placa hasta la opuesta. Incluye placas visibles aunque el texto no sea legible.</p><ul><li>No incluyas el parachoques.</li><li>No marques avisos ni calcomanías.</li><li>Usa zoom para las placas pequeñas.</li></ul></div>
+        <div className="labeler-help"><h3>Dibuja una caja ajustada</h3><p>Arrastra desde una esquina de la placa hasta la opuesta. Incluye placas visibles aunque el texto no sea legible.</p><ul><li>No incluyas el parachoques.</li><li>No marques avisos ni calcomanías.</li><li>Usa zoom para las placas pequeñas.</li></ul></div>
         <div className="frame-list">
           <div className="frame-list-heading"><b>Fotogramas</b><span>{completed}/{frames.length}</span></div>
           {frames.map((frame, index) => (

@@ -5,7 +5,8 @@ Barranquilla, consultar detecciones y comparar trayectorias estimadas.
 
 ## Funcionalidades
 
-- Interfaz oscura con acentos naranja y turquesa, tarjetas de métricas y diseño adaptable.
+- Sitio público (`/` sin sesión y `/nosotros`) y consola con la cara del Figma «VIGÍA-DESIGN»: lienzo nocturno violeta, pastillas y mapa oscuro. El sistema visual está en [DESIGN.md](DESIGN.md) y el contexto de producto en [PRODUCT.md](PRODUCT.md).
+- Flujo de consulta: Resumen → «Nueva consulta» → Trayectorias estimadas → Registros de búsqueda.
 - Dispositivos desde el backend central, selección en mapa y búsqueda por nombre.
 - Consulta por cámara de referencia, radio, tipo, color, fecha y ventana horaria.
 - Horarios de Colombia (UTC−5), convertidos explícitamente para el API.
@@ -54,7 +55,7 @@ del **25 de agosto de 2026, desde las 09:30 de Colombia**. El botón **Cargar es
 de prueba · 25 ago.** prepara una búsqueda de automóvil blanco entre 09:20 y 10:30.
 El seed reinicia los datos de la base: úsalo únicamente en una base de desarrollo.
 
-Sin backend, pulsa **Explorar demo** y **Buscar en la demostración**. Los filtros se
+Sin backend, pulsa **Explorar demo**, abre **Nueva consulta** y pulsa **Buscar en la demostración**. Los filtros se
 aplican a un conjunto reducido de ejemplos locales; sus rutas y porcentajes son
 ilustrativos y no ejecutan el algoritmo del backend. La cámara física aparece sin
 conexión en esta demostración porque no se deduce su disponibilidad.
