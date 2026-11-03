@@ -76,9 +76,20 @@ Los respaldos están en el mismo disco de la VM: copiarlos periódicamente fuera
 az network nsg rule update -g vigia-rg --nsg-name vigia-centralNSG -n ssh-solo-admin --source-address-prefixes "$(curl -s https://api.ipify.org)/32"
 ```
 
+## Límite por IP y cabeceras de seguridad
+
+Caddy usa una imagen propia (`infra/caddy`, publicada por CI como `vigia-caddy`) con el plugin `caddy-ratelimit`. Por IP: 10 intentos de inicio de sesión por minuto (API y consola juntas) y 1 200 peticiones por minuto al resto de `/api/*`. La ingestión (`/api/v1/ingest/*`) no tiene límite, porque los edges de una sede comparten IP y el backend ya descarta carga con 503. Un exceso responde `429` con `Retry-After`. La consola envía su Content-Security-Policy desde Next.js.
+
+Para instalarla, una vez y **después** de que CI publique `vigia-caddy` desde `main`:
+
+```bash
+bash infra/azure/deploy.sh $H sync && bash infra/azure/deploy.sh $H up
+```
+
+Si `docker compose pull caddy` responde `unauthorized`, el paquete quedó privado: hazlo público en GitHub → Packages → `vigia-caddy` → *Package settings*.
+
 ## Pendiente
 
 - Aprobación de los tutores sobre el alojamiento de datos fuera de Colombia (Ley 1581).
-- Límite de peticiones por IP en Caddy; hoy existe el bloqueo por cuenta del login.
 - Tras un cambio en `compose.yaml` (por ejemplo `WEB_CONCURRENCY`): `deploy.sh $H sync` y `deploy.sh $H up`; no es automático.
 - Si crece el uso, cambiar el tamaño de la VM (por ejemplo, B2als v2 con 4 GB) sin perder el disco.

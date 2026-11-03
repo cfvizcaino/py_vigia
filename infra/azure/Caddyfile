@@ -1,6 +1,34 @@
+{
+	# rate_limit viene del plugin caddy-ratelimit (infra/caddy/Dockerfile).
+	order rate_limit before basic_auth
+}
+
 # HTTPS automático (Let's Encrypt) para el nombre DNS de Azure.
 {$VIGIA_DOMAIN} {
 	encode gzip
+	# Límite por IP. Caddy fija X-Forwarded-For con la IP real y descarta la que mande el
+	# cliente. La ingestión queda fuera: los edges de una sede comparten IP detrás del
+	# NAT, usan token propio y el backend ya descarta carga con 503. Un exceso responde
+	# 429 con Retry-After.
+	rate_limit {
+		zone login {
+			match {
+				path /api/v1/auth/login /api/auth/login
+			}
+			key {remote_host}
+			events 10
+			window 1m
+		}
+		zone api {
+			match {
+				path /api/*
+				not path /api/v1/ingest/*
+			}
+			key {remote_host}
+			events 1200
+			window 1m
+		}
+	}
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
