@@ -143,6 +143,14 @@ Se leyeron a mano 30 placas del tramo de prueba, todas con texto verificable por
 
 El OCR no pesa; lo que cuesta es el detector de placas sobre cada vehículo (cada `PLATE_EVERY_N_FRAMES` cuadros). La cobertura la limita el tamaño de la placa en la imagen, no el OCR.
 
-**Pendiente en la central:** el backend valida `licensePlate`, pero hoy no lo guarda (`Detection` no tiene la columna). Guardarlo y buscar por placa es una decisión de tratamiento de datos (Ley 1581: finalidad, retención y acceso) que debe tomarse con los asesores antes de implementarse.
+**En la central (02/11/2026):** se aplica la misma política que a los recortes ([recortes.md](../operations/recortes.md)), decidida por el equipo:
+
+- `detections.license_plate` guarda el texto solo si tiene formato colombiano (`ABC123`, `ABC12D`, `ABC12`); un sobre posterior sin placa no borra la ya conocida.
+- Se borra a los **7 días** (`PLATE_RETENTION_DAYS`), junto con el filtro guardado en la consulta. La detección (tipo, color, hora) se conserva.
+- Solo un **admin** la ve en la consola y busca por ella (`GET /api/v1/queries?plate=`). Un operador recibe `403` y el intento queda en la auditoría.
+- La auditoría guarda la placa enmascarada (`ABC•••`), porque vive más que la placa.
+- En la reconstrucción, dos placas distintas no se unen en una ruta; la misma placa cuenta como apariencia confirmada. Una búsqueda por placa conserva los pasos sin placa leída (la mayoría), como el color.
+
+Conviene que los asesores confirmen esta política, como hicieron con los recortes.
 
 Las placas son datos personales (Ley 1581): este documento reporta exactitudes y tamaños, nunca números de placa. Los fotogramas, las etiquetas y las lecturas quedan en `apps/vision/datasets/`, fuera de Git.
