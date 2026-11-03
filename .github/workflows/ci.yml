@@ -98,7 +98,11 @@ jobs:
       packages: write
     strategy:
       matrix:
-        app: [backend, web]
+        include:
+          - { app: backend, context: apps/backend }
+          - { app: web, context: apps/web }
+          # Caddy with the per-IP rate limit plugin; deploy.sh sync + up installs it.
+          - { app: caddy, context: infra/caddy }
     env:
       MAIN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
@@ -120,7 +124,7 @@ jobs:
             type=sha,format=short,prefix=sha-
       - uses: docker/build-push-action@v7
         with:
-          context: apps/${{ matrix.app }}
+          context: ${{ matrix.context }}
           push: ${{ env.PUBLISH == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
