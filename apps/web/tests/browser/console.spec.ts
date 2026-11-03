@@ -308,3 +308,52 @@ test("the public site links the about page back to sign-in and the demo", async 
   await expect(page.getByText("Los eventos se envían de forma segura a la plataforma central.")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("an admin searches by plate, sees the recortes and confirms steps that recalculate the routes", async ({ page }) => {
+  await page.unroute("**/api/auth/session");
+  await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: { ...OPERATOR, role: "admin", display_name: "Admin" }, expires_at: "2026-10-09T08:00:00Z" } }));
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  const result = runDemoQuery(DEMO_QUERY);
+  const first = result.routes[0];
+  first.detections = first.detections.map((hop, index) => ({ ...hop, has_thumbnail: index === 0, license_plate: index === 0 ? "ABC123" : null, confirmation: null }));
+  let sent: Record<string, unknown> | null = null;
+  await page.route("**/api/monitoring/queries", async (route) => { sent = route.request().postDataJSON(); await route.fulfill({ json: result }); });
+  await page.route("**/api/detections/*/thumbnail", (route) => route.fulfill({ status: 404, json: { error: "x" } }));
+  let verdict: unknown = null;
+  await page.route(`**/api/monitoring/queries/${result.query.id}/confirmations/*`, async (route) => {
+    verdict = route.request().method() === "PUT" ? route.request().postDataJSON().verdict : "undo";
+    const confirmed = structuredClone(result);
+    confirmed.routes = [confirmed.routes[0]];
+    confirmed.routes[0].detections[0].confirmation = "match";
+    await route.fulfill({ json: confirmed });
+  });
+  await page.goto("/");
+  await openQuery(page);
+  await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
+  await page.getByLabel("Placa · opcional, solo admin").fill("abc-123");
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await expect.poll(() => sent).toMatchObject({ plate: "ABC123" });
+  await expect(page.getByLabel("Placa ABC123")).toBeVisible();
+  await expect(page.getByText("Recorte vencido")).toBeVisible();
+  await expect(page.getByText("Sin recorte").first()).toBeVisible();
+  await page.getByRole("button", { name: "Sí, es este" }).first().click();
+  await expect.poll(() => verdict).toBe("match");
+  await expect(page.getByRole("button", { name: "Sí, es este" }).first()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".route-options button")).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("operators get no plate field and no confirmation controls", async ({ page }) => {
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  await signedIn(page);
+  await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: runDemoQuery(DEMO_QUERY) }));
+  await page.goto("/");
+  await openQuery(page);
+  await expect(page.getByLabel("Placa · opcional, solo admin")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sí, es este" })).toHaveCount(0);
+});

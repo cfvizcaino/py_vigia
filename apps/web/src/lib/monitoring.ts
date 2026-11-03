@@ -18,6 +18,8 @@ export type QueryInput = {
   time_to: string;
   vehicle_type?: string;
   color?: string;
+  /** Admin only; the backend rejects it for operators (Ley 1581, same policy as recortes). */
+  plate?: string;
 };
 
 export type RouteHop = {
@@ -29,6 +31,11 @@ export type RouteHop = {
   direction: string;
   confidence: number;
   observed_at: string;
+  /** A recorte is stored and within its 7 days; only admins can open it. */
+  has_thumbnail?: boolean;
+  /** Admin only, within 7 days. */
+  license_plate?: string | null;
+  confirmation?: "match" | "reject" | null;
 };
 
 export type CandidateRoute = {
@@ -48,6 +55,9 @@ export type CandidateRoute = {
     geometric_mean: number;
     coverage_bonus: number;
     search_pruned: boolean;
+    selection?: string;
+    /** Best-ranked route sharing a detection with this one: it is an alternative of that vehicle. */
+    shares_with_rank?: number | null;
     /** Steps with a voted colour vs unknown ones (joined only by time and road). */
     color_evidence?: { known: number; unknown: number };
     segments: {
@@ -69,6 +79,12 @@ export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro",
 /** Colours the cameras' classifier reports (apps/vision/training/build_color_dataset.py); silver comes out as gray. */
 export const REPORTED_COLORS = ["white", "black", "gray", "red", "blue", "green", "yellow", "brown"];
 export const STATUS_LABELS: Record<string, string> = { online: "En línea", offline: "Sin conexión", simulated: "Simulada" };
+/** Colombian plates: cars ABC123, motorcycles ABC12D or ABC12. Same rule as the backend. */
+export function normalizePlate(value: string): string | null {
+  const text = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return /^[A-Z]{3}(?:[0-9]{3}|[0-9]{2}[A-Z]?)$/.test(text) ? text : null;
+}
+
 export const vehicleLabel = (type: string) => type === "motorcycle" ? "Motocicleta" : "Automóvil";
 export const percent = (value: number) => `${Math.round(value * 100)}%`;
 
@@ -96,7 +112,12 @@ export function validateQuery(value: unknown): QueryInput {
   if (Date.parse(input.time_from) >= Date.parse(input.time_to)) throw new Error("La hora final debe ser posterior a la inicial.");
   if (input.vehicle_type && !["car", "motorcycle"].includes(input.vehicle_type)) throw new Error("Tipo de vehículo no válido.");
   if (input.color !== undefined && (typeof input.color !== "string" || !input.color.trim() || input.color.length > 64)) throw new Error("Color no válido.");
-  return { lat: input.lat, lng: input.lng, radius_m: input.radius_m, time_from: input.time_from, time_to: input.time_to, ...(input.vehicle_type ? { vehicle_type: input.vehicle_type } : {}), ...(input.color ? { color: input.color } : {}) };
+  let plate: string | null = null;
+  if (input.plate !== undefined) {
+    plate = typeof input.plate === "string" ? normalizePlate(input.plate) : null;
+    if (!plate) throw new Error("La placa debe tener formato colombiano: ABC123 o ABC12D.");
+  }
+  return { lat: input.lat, lng: input.lng, radius_m: input.radius_m, time_from: input.time_from, time_to: input.time_to, ...(input.vehicle_type ? { vehicle_type: input.vehicle_type } : {}), ...(input.color ? { color: input.color } : {}), ...(plate ? { plate } : {}) };
 }
 
 /** A case of the synthetic scoring dataset, with Colombian local date and times. */

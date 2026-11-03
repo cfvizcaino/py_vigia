@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AdminPanel } from "./admin-panel";
 import { BrandMark } from "./brand";
@@ -8,7 +9,7 @@ import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
-import { COLORS, REPORTED_COLORS, STATUS_LABELS, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type Scenario } from "@/lib/monitoring";
+import { COLORS, REPORTED_COLORS, STATUS_LABELS, normalizePlate, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type RouteHop, type Scenario } from "@/lib/monitoring";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Administración";
@@ -41,6 +42,25 @@ function sessionEnded(response: Response) {
   return true;
 }
 
+/** Admin review of one step: the recorte, the plate and «¿Es este el vehículo?». */
+function HopEvidence({ hop, busy, onVerdict }: { hop: RouteHop; busy: boolean; onVerdict: (verdict: "match" | "reject" | null) => void }) {
+  const [broken, setBroken] = useState(false);
+  const verdict = hop.confirmation ?? null;
+  return <div className={`hop-evidence ${verdict ?? ""}`}>
+    {hop.has_thumbnail && !broken
+      ? <Image className="hop-thumb" src={`/api/detections/${hop.detection_id}/thumbnail`} alt={`Recorte del vehículo en ${hop.camera_id}`} width={132} height={99} unoptimized onError={() => setBroken(true)}/>
+      : <span className="hop-thumb empty">{broken ? "Recorte vencido" : "Sin recorte"}</span>}
+    <div className="hop-question">
+      {hop.license_plate && <span className="plate-chip" aria-label={`Placa ${hop.license_plate}`}>{hop.license_plate}</span>}
+      <p>¿Es este el vehículo que buscas?</p>
+      <div className="verdict-buttons" role="group" aria-label={`Confirmación del paso en ${hop.camera_id}`}>
+        <button type="button" className={verdict === "match" ? "selected" : ""} aria-pressed={verdict === "match"} disabled={busy} onClick={() => onVerdict(verdict === "match" ? null : "match")}>Sí, es este</button>
+        <button type="button" className={verdict === "reject" ? "selected" : ""} aria-pressed={verdict === "reject"} disabled={busy} onClick={() => onVerdict(verdict === "reject" ? null : "reject")}>No es este</button>
+      </div>
+    </div>
+  </div>;
+}
+
 function CountPill({ value, label, tone = "violet" }: { value: ReactNode; label: string; tone?: "violet" | "deep" | "muted" }) {
   return <div className="count-pill"><span className={`count-value ${tone}`}>{value}</span><span>{label}</span></div>;
 }
@@ -60,6 +80,9 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const [timeFrom, setTimeFrom] = useState("09:20");
   const [timeTo, setTimeTo] = useState("10:30");
   const [radius, setRadius] = useState(2000);
+  const [plate, setPlate] = useState("");
+  const [confirming, setConfirming] = useState("");
+  const [confirmError, setConfirmError] = useState("");
   const [searching, setSearching] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState("");
@@ -93,6 +116,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const routePoints = routeGeometry?.points ?? cameraRoutePoints;
   const routeMode = routeGeometryLoading ? "loading" : routeGeometry?.source ?? (cameraRoutePoints.length > 1 ? "camera-chord" : "none");
   const physical = cameras.filter((camera) => camera.kind === "physical").length;
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!user) return;
@@ -220,7 +244,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     const controller = new AbortController();
     queryRef.current = controller;
     try {
-      const input = validateQuery({ lat: selected.lat, lng: selected.lng, radius_m: radius, time_from: `${date}T${timeFrom}:00-05:00`, time_to: `${date}T${timeTo}:00-05:00`, ...(vehicle ? { vehicle_type: vehicle } : {}), ...(color ? { color } : {}) });
+      const input = validateQuery({ lat: selected.lat, lng: selected.lng, radius_m: radius, time_from: `${date}T${timeFrom}:00-05:00`, time_to: `${date}T${timeTo}:00-05:00`, ...(vehicle ? { vehicle_type: vehicle } : {}), ...(color ? { color } : {}), ...(isAdmin && plate.trim() ? { plate } : {}) });
       setSearching(true);
       let data: QueryResult;
       if (source === "demo") data = runDemoQuery(input);
@@ -242,6 +266,32 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "No fue posible ejecutar la consulta.");
     } finally {
       if (!controller.signal.aborted) setSearching(false);
+    }
+  }
+
+  /** Sends an admin's verdict; the backend recalculates this query's routes and returns them. */
+  async function confirmHop(hop: RouteHop, verdict: "match" | "reject" | null) {
+    if (!record || record.source !== "central" || confirming) return;
+    setConfirming(hop.detection_id);
+    setConfirmError("");
+    try {
+      const response = await fetch(`/api/monitoring/queries/${record.result.query.id}/confirmations/${hop.detection_id}`, verdict
+        ? { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ verdict }) }
+        : { method: "DELETE" });
+      if (sessionEnded(response)) return;
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "No fue posible guardar la confirmación.");
+      const next = { ...record, result: body as QueryResult };
+      setRecord(next);
+      setHistory((current) => current.map((item) => item === record ? next : item));
+      // Keep looking at the same cameras when that route survives the recalculation.
+      const ids = (hops: RouteHop[] = []) => hops.map((item) => item.detection_id).join();
+      const same = next.result.routes.find((route) => ids(route.detections) === ids(activeRoute?.detections));
+      setRouteId(same?.id ?? next.result.routes[0]?.id ?? "");
+    } catch (error) {
+      setConfirmError(error instanceof Error ? error.message : "No fue posible guardar la confirmación.");
+    } finally {
+      setConfirming("");
     }
   }
 
@@ -298,6 +348,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
         <label className="line-field">Vehículo<span className="select-wrap"><select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="">Todos</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></select><Icon name="chevron" size={18}/></span></label>
         <label className="line-field">Color<span className="select-wrap"><select value={color} onChange={(event) => setColor(event.target.value)}><option value="">Todos</option>{REPORTED_COLORS.map((key) => <option key={key} value={key}>{COLORS[key]}</option>)}{color && !REPORTED_COLORS.includes(color) && <option value={color}>{COLORS[color] ?? color}</option>}</select><Icon name="chevron" size={18}/></span></label>
       </div>
+      {isAdmin && <label className="line-field plate-field">Placa · opcional, solo admin<input value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="ABC123" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={plate.trim() !== "" && !normalizePlate(plate)}/></label>}
       <label className="line-field">Fecha · hora de Colombia<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required/></label>
       <div className="field-row">
         <label className="line-field">Desde<input type="time" value={timeFrom} onChange={(event) => setTimeFrom(event.target.value)} required/></label>
@@ -335,11 +386,15 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     {activeRoute ? <>
       <div className="route-options" role="group" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={16}/>Ruta {route.rank}<small>{score(route.confidence)}/100</small></button>)}</div>
       <p className={`route-caution ${activeRoute.has_distant_gaps ? "warning" : ""}`}><Icon name={activeRoute.has_distant_gaps ? "alert" : "shield"} size={17}/>{activeRoute.has_distant_gaps ? "Hay tramos distantes sin observaciones intermedias. Revisa las rutas alternativas." : "La ruta une observaciones y expresa una estimación, no una identificación confirmada."}</p>
+      {activeRoute.explanation?.shares_with_rank && <p className="route-caution"><Icon name="route" size={17}/>Comparte observaciones con la ruta {activeRoute.explanation.shares_with_rank}: es otra forma de unir al mismo vehículo, no un vehículo distinto.</p>}
       <h3 className="route-subtitle">Recorrido · {activeRoute.camera_ids.length} pasos por cámaras{unknownColorNote(activeRoute)}</h3>
-      <ol className="timeline">{activeRoute.detections.map((hop, index) => <li key={hop.detection_id}>
-        <span className="timeline-dot">{index + 1}</span>
-        <div><b>{result?.nearby_devices.find((device) => device.external_id === hop.camera_id)?.name ?? hop.camera_id}</b><small>{hop.camera_id} · {hop.direction.replaceAll("-", " ")}</small></div>
+      {isAdmin && record?.source === "central" && <p className="route-caution"><Icon name="shield" size={17}/>Los recortes y las placas son datos personales: duran 7 días y cada vista queda en la auditoría. Al confirmar, las rutas se recalculan.</p>}
+      {confirmError && <p className="error-message" role="alert">{confirmError}</p>}
+      <ol className="timeline">{activeRoute.detections.map((hop, index) => <li key={hop.detection_id} className={hop.confirmation ?? ""}>
+        <span className="timeline-dot">{hop.confirmation === "match" ? <Icon name="check" size={18}/> : index + 1}</span>
+        <div><b>{result?.nearby_devices.find((device) => device.external_id === hop.camera_id)?.name ?? hop.camera_id}</b><small>{hop.camera_id} · {hop.direction.replaceAll("-", " ")}{hop.confirmation === "match" ? " · confirmado" : ""}</small></div>
         <div className="hop-time"><b>{observationTime(hop.observed_at)}</b><small>{percent(hop.confidence)} coincidencia</small></div>
+        {isAdmin && record?.source === "central" && <HopEvidence hop={hop} busy={confirming !== ""} onVerdict={(verdict) => confirmHop(hop, verdict)}/>}
       </li>)}</ol>
       {activeRoute.explanation?.segments && <details className="route-evidence" key={activeRoute.id}>
         <summary><Icon name="chevron" size={18}/>¿Por qué aparece esta ruta?</summary>

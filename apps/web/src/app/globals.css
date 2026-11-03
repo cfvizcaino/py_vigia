@@ -524,3 +524,25 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Admin review of a step: recorte, plate and «¿Es este el vehículo?» (Figma «Ventana EXTRA, verificación») */
+.plate-field input { text-transform: uppercase; letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.plate-field input[aria-invalid="true"] { border-bottom-color: var(--danger); }
+.timeline li.reject { opacity: .55; }
+.timeline li.match .timeline-dot { background: var(--ok); color: var(--on-light); }
+.hop-evidence { grid-column: 2 / -1; display: grid; grid-template-columns: 132px minmax(0, 1fr); align-items: center; gap: 18px; margin-top: 4px; padding: 14px; border-radius: 22px; border: 1px solid var(--line-strong); background: rgba(9, 1, 25, .35); }
+.hop-evidence.match { border-color: rgba(111, 224, 168, .55); }
+.hop-evidence.reject { border-color: rgba(255, 143, 143, .45); }
+.hop-thumb { display: block; width: 132px; height: 99px; border-radius: 14px; object-fit: cover; background: #0b0518; }
+.hop-thumb.empty { display: grid; place-items: center; color: var(--on-violet-muted); font-size: 12px; text-align: center; border: 1px dashed var(--line-strong); }
+.hop-question { display: grid; gap: 10px; justify-items: start; }
+.hop-question p { font-size: 15px; }
+.plate-chip { padding: 3px 12px; border-radius: 8px; background: #f5d84a; color: #1a1400; font-weight: 600; letter-spacing: .12em; font-variant-numeric: tabular-nums; font-size: 14px; }
+.verdict-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.verdict-buttons button { min-height: 40px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--light); color: var(--on-light); font-size: 14px; font-weight: 500; transition: background .2s; }
+.verdict-buttons button.selected { background: #7a3ade; color: #fff; }
+.verdict-buttons button:hover:not(:disabled):not(.selected) { background: #fff; }
+@media (max-width: 860px) {
+  .hop-evidence { grid-column: 1 / -1; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 12px; }
+  .hop-thumb { width: 96px; height: 72px; }
+}
