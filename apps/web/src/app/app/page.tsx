@@ -14,8 +14,9 @@ export const metadata: Metadata = {
   description: "Descarga la app de VIGÍA para Android: consulta trayectorias, registra edges y usa el teléfono como edge autónomo o como cámara de un nodo.",
 };
 
-// The version comes from the backend (written when an APK is published); refresh every 5 minutes.
-export const revalidate = 300;
+// Rendered per request so a deploy never serves the build-time copy (CI has no backend);
+// the backend answer itself is cached for 5 minutes by the fetch below.
+export const dynamic = "force-dynamic";
 
 type Release = { latest: string | null; apk_url: string | null; sha256: string | null; published_at: string | null; size_bytes?: number | null; notes?: string };
 
