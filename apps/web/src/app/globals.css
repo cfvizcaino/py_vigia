@@ -332,21 +332,6 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .camera-selection h2 { font-family: var(--font-body); font-size: 18px; font-weight: 500; }
 .camera-selection p { display: grid; gap: 2px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .camera-selection p b { color: var(--ink); font-weight: 500; font-size: 14px; }
-.camera-preview-card { border-radius: 32px; background: var(--surface-2); overflow: hidden; }
-.camera-preview-card .card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px 26px; }
-.camera-preview-card h2 { font-family: var(--font-body); font-size: 17px; font-weight: 500; }
-.camera-preview-card .card-heading small { color: var(--muted); font-size: 12px; }
-.live-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: var(--surface-3); color: var(--muted); font-size: 12px; }
-.live-badge i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.live-badge.online { color: var(--ok); }
-.preview-frame { position: relative; aspect-ratio: 16 / 9; background: #0b0518; }
-.preview-frame img { object-fit: contain; }
-.preview-placeholder { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 24px; text-align: center; color: var(--violet-soft); }
-.preview-placeholder b { color: var(--ink); font-weight: 500; }
-.preview-placeholder small { max-width: 34ch; color: var(--muted); font-size: 13px; }
-.preview-overlay { position: absolute; left: 14px; bottom: 14px; padding: 6px 12px; border-radius: 999px; background: rgba(9, 1, 25, .85); font-size: 12px; }
-.preview-meta { display: flex; justify-content: space-between; gap: 12px; padding: 14px 26px; color: var(--muted); font-size: 12px; }
-.preview-meta b { color: var(--ink); font-weight: 500; }
 
 /* Map */
 .map-card { grid-area: map; min-width: 0; border-radius: 32px; overflow: hidden; border: 1px solid var(--line-strong); background: #120b22; }

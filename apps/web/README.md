@@ -13,13 +13,12 @@ Barranquilla, consultar detecciones y comparar trayectorias estimadas.
 - Varias rutas candidatas, confianza, secuencia de detecciones y aviso de tramos distantes.
 - Radio visible en mapa y botón para encuadrar la red o la ruta seleccionada.
 - Historial de las últimas 20 consultas de esta sesión y exportación JSON con origen de datos.
-- Vista MJPEG de la Tapo C110 mediante el proxy existente de visión.
+- Sin video: la consola nunca muestra la transmisión de las cámaras; trabaja con metadatos y, para un admin, con el recorte de cada paso.
 - Demostración local opcional cuando no hay conexión central; nunca reemplaza una consulta real fallida.
 - Estados de carga, errores, resultados vacíos, navegación por teclado y movimiento reducido.
 
 Las métricas corresponden a la red cargada y a la consulta seleccionada. El estado
-registrado de una cámara no prueba que su transmisión esté disponible; la vista de
-la Tapo consulta por separado el servicio de visión. El servidor solicita a OSRM una
+registrado de una cámara no prueba que su transmisión esté disponible. El servidor solicita a OSRM una
 geometría conducible entre cámaras; si falla, la consola identifica y dibuja un enlace
 directo discontinuo. En ambos casos la ruta es una hipótesis, no una identificación confirmada.
 

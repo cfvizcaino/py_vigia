@@ -91,8 +91,7 @@ test("central queries send actual filters and failures stay visible", async ({ p
   await expect(page.getByText("Modo demostración · datos de ejemplo")).toHaveCount(0);
 });
 
-test("camera filtering works without a vision stream", async ({ page }) => {
-  await page.route("**/api/vision/status", (route) => route.fulfill({ json: { status: "offline", processingFps: 0, activeDetections: 0 } }));
+test("camera filtering and selection, without any video in the console", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Explorar demo" }).first().click();
   await page.getByRole("button", { name: "Cámaras", exact: false }).first().click();
@@ -100,6 +99,7 @@ test("camera filtering works without a vision stream", async ({ page }) => {
   await expect(page.locator(".device-list > button")).toHaveCount(1);
   await page.locator(".device-list > button").click();
   await expect(page.locator(".camera-selection")).toContainText("Calle 84");
+  await expect(page.locator("img[alt*='Transmisión'], .preview-frame")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 

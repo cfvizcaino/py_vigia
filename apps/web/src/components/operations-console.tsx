@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AdminPanel } from "./admin-panel";
 import { BrandMark } from "./brand";
-import { CameraPreview } from "./camera-preview";
 import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
@@ -458,7 +457,6 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     <div className="stage-main">
       <label className="search-pill"><Icon name="search" size={22}/><input aria-label="Filtrar cámaras" placeholder="Buscar nombre o identificador…" value={deviceFilter} onChange={(event) => setDeviceFilter(event.target.value)}/></label>
       {devicesPanel}
-      <CameraPreview active={selected?.external_id === "CAM-01" && selected.kind === "physical"}/>
     </div>
     <aside className="stage-aside" aria-label="Estado de la red">
       {camerasPill}

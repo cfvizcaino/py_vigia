@@ -24,7 +24,7 @@ Red colaborativa de cámaras y teléfonos con detección en el origen (YOLO en e
 
 - Piloto en Barranquilla (UTC−5), centro en una VM de Azure con HTTPS, FastAPI, PostgreSQL y OSRM.
 - Flujo del operador: iniciar sesión → elegir punto de búsqueda en el mapa → filtrar → ver rutas candidatas, su línea de tiempo y la evidencia → exportar (auditado).
-- Vistas actuales: Resumen, Cámaras (incluye vista MJPEG de la Tapo C110), Consultas, Trayectorias (historial de la sesión), Administración; además el etiquetador de placas.
+- Vistas actuales: Resumen, Cámaras, Consultas (historial y trayectorias), Administración; además el etiquetador de placas. La consola no muestra video: desde la sede de operación nunca se ve la transmisión de las cámaras (decisión del 02/11/2026).
 - Hay app móvil (Flutter / React Native) con el mismo flujo de consulta.
 
 ## Capabilities and Constraints
