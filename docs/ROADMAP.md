@@ -53,7 +53,7 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 
 ## Orden de ejecución siguiente
 
-1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tarda de 6 a 8 s (p95). Generar solo los pares con enlace vial y ventana temporal compatible.
+1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tardaba de 6 a 8 s (p95) en la VM saturada. Desde el 02/11 solo se puntúan los pares dentro de la ventana física (enlace ≤ 2 km a ≥ 8 km/h) y de la ventana de tiempo de cada par de cámaras; el haz suma el puntaje de forma incremental. Mismo resultado y 43 % menos tiempo de reconstrucción en local con 220 candidatas (0,44 → 0,25 s). Falta repetir la medición en Azure.
 2. **Placas en el teléfono.** El nodo PC y la central ya están (02/11); falta llevar detector y OCR a la app.
 3. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
 4. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.

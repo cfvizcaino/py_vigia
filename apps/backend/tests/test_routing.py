@@ -258,3 +258,20 @@ def test_busy_short_sequence_does_not_hide_the_longer_trajectory() -> None:
     assert len(sequences) == len(set(sequences))
     assert reconstruct_routes(trip + traffic, links, config=RoutingConfig(max_per_trajectory=3))[2].camera_ids \
         == ("CEL-NICO", "CEL-VENECO")
+
+
+def test_time_window_pruning_matches_scoring_every_pair() -> None:
+    # The bounded pair generation must not change the result in a dense zone.
+    import random
+    from vigia_backend import routing as module
+    rnd = random.Random(7)
+    points = [_det(f"d{i:03d}", rnd.choice(["CAM-01", "CAM-02", "CAM-03", "CAM-04"]), "car", rnd.choice(["white", None]),
+                   "x", rnd.uniform(0, 30), confidence=round(rnd.uniform(.5, .95), 2)) for i in range(70)]
+    fast = reconstruct_routes(points, LINKS, color="white")
+    original = module.bisect.bisect_right
+    module.bisect.bisect_right = lambda times, value, lo=0: len(times)  # Every later detection, like before.
+    try:
+        slow = reconstruct_routes(points, LINKS, color="white")
+    finally:
+        module.bisect.bisect_right = original
+    assert [(r.detection_ids, r.confidence) for r in fast] == [(r.detection_ids, r.confidence) for r in slow]
