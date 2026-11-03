@@ -100,6 +100,8 @@ PLATE_OCR_MODEL=models/plate-ocr.onnx
 
 Cuando está habilitado, el nodo busca placas dentro de los vehículos, dibuja una caja amarilla y conserva una captura por track en `outputs/plates`. Estos archivos están excluidos de Git. Las placas de 45 px o más se leen con `PLATE_OCR_MODEL`, y el texto votado entre cuadros llena `licensePlate` (ver `docs/modeling/license-plates.md`). Son datos personales: actívalo solo con autorización.
 
+Con la central configurada, el nodo también sube un recorte JPEG por vehículo (solo la caja, unos 10 KB) para que un admin confirme las rutas, con la misma regla que el teléfono ([recortes](../../docs/operations/recortes.md)). `THUMBNAILS_ENABLED=0` lo apaga. `/status` muestra en `publisher.thumbnails` los recortes enviados, descartados y omitidos.
+
 Para entrenar un peso propio:
 
 ```bash

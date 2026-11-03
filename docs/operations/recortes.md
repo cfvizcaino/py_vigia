@@ -47,11 +47,15 @@ El edge autónomo guarda la vista más grande de cada vehículo y la envía una 
 - **Respuestas:** `404`, `413` o `415` descartan ese recorte; `501` deja de enviar recortes en esa sesión; `503`, `401/403` y fallos de red se reintentan como los sobres.
 - La pantalla del edge muestra los recortes enviados, descartados y fallidos.
 
-El nodo Python (cámaras RTSP, webcam, teléfono como cámara IP) todavía no envía recortes.
+## En el nodo PC (02/11)
+
+El nodo Python (Tapo por RTSP, webcam, teléfono como cámara IP) sigue la misma regla que el teléfono: la vista más grande de cada vehículo publicado, con margen del 10 %, lado mayor ≤ 224 px y JPEG de calidad 80. Se reenvía si la caja crece un 20 %, con un máximo de 4 tomas. Se envía cuando el vehículo lleva 1 s sin verse, al completar 4 tomas o tras 10 s en cuadro.
+
+El recorte va en la cola en disco justo detrás del sobre que publicó su track. Con más de 500 archivos pendientes se omite. Las respuestas `404`, `413`, `415` y `501` lo borran sin guardar la imagen (`501` además apaga los recortes en esa sesión); el resto se reintenta. `THUMBNAILS_ENABLED=0` lo apaga.
 
 ## Fases
 
 1. **Centro:** almacén, subida, vista de admin, retención. En producción desde el 28/10.
-2. **Teléfono:** recortar y subir un JPEG por track desde el edge autónomo (app 1.4.0).
+2. **Edges:** recortar y subir un JPEG por track desde el teléfono (app 1.4.0) y, desde el 02/11, desde el nodo PC.
 3. **Confirmación:** en la consola web desde el 02/11 (la app queda pendiente). En la vista de trayectoria, el admin ve el recorte y la placa de cada paso y responde «¿Es este el vehículo que buscas?». `PUT /api/v1/queries/{id}/confirmations/{detección}` con `match` o `reject` (y `DELETE` para deshacer) guarda la respuesta en `detection_confirmations`, la audita (`detection.confirmed`) y recalcula las rutas de esa misma consulta: lo rechazado sale de todas y lo confirmado debe estar en todas. La exportación sigue las rutas recalculadas.
 4. **Aprendizaje:** las confirmaciones alimentan el conjunto de puntaje (`scoring_dataset.py`) y los recortes corregidos el reentrenamiento de color por cámara.
