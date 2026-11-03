@@ -517,7 +517,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
         <div className={`network-pill ${source}`} role="status"><span className="network-icon"><Icon name="signal" size={22}/></span><span><b>Red Barranquilla</b><small>{SOURCE_STATUS[source]}</small></span></div>
       </div>
       <main>{stage}</main>
-      <footer className="workspace-footer"><span>VIGÍA · Barranquilla, Colombia · UTC−5</span><span>Trayectorias estimadas, no identificaciones confirmadas.</span></footer>
+      <footer className="workspace-footer"><span>© 2026 Equipo VIGÍA · Barranquilla, Colombia · UTC−5</span><span>Trayectorias estimadas, no identificaciones confirmadas.</span></footer>
     </div>
   </div>;
 }

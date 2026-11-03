@@ -531,3 +531,75 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   .hop-evidence { grid-column: 1 / -1; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 12px; }
   .hop-thumb { width: 96px; height: 72px; }
 }
+
+/* Site footer with rights and legal notices */
+.site-footer { flex-direction: column; gap: 22px; }
+.footer-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
+.footer-brand { display: inline-flex; align-items: center; gap: 10px; }
+.site-footer nav { display: flex; gap: 22px; }
+.site-footer nav a { text-decoration: none; color: var(--muted); }
+.site-footer nav a:hover { color: var(--ink); }
+.legal { display: grid; gap: 8px; max-width: 110ch; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.legal b { color: var(--ink); font-weight: 500; }
+
+/* App download guide (/app): one-page manual with a fixed index */
+.guide { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: clamp(32px, 6vw, 112px); max-width: 1320px; margin: 0 auto; padding: clamp(56px, 8vw, 110px) clamp(16px, 5vw, 120px) clamp(80px, 10vw, 140px); }
+.app-index { position: sticky; top: 32px; align-self: start; }
+.app-index ol { list-style: none; margin: 0; padding: 0 0 0 2px; display: grid; gap: 2px; border-left: 1px solid var(--line-strong); }
+.app-index a { position: relative; display: block; padding: 9px 0 9px 22px; color: var(--muted); text-decoration: none; font-size: 15px; transition: color .2s; }
+.app-index a::before { content: ""; position: absolute; left: -3px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--violet); transform: scaleY(0); transition: transform .35s var(--ease-out); }
+.app-index a:hover, .app-index a[aria-current] { color: var(--ink); }
+.app-index a[aria-current]::before { transform: scaleY(1); }
+.guide-body { min-width: 0; max-width: 760px; }
+.guide-hero h1 { font-size: clamp(2.3rem, 4.6vw, 4rem); line-height: 1.1; letter-spacing: -.03em; }
+.guide-hero h1 span { display: block; color: var(--violet); }
+.guide-hero > p { margin-top: 20px; max-width: 54ch; color: var(--muted); font-size: 1.08rem; }
+.download-pill { margin-top: 32px; min-height: 56px; padding: 0 30px; font-size: 16px; }
+.release-sheet { display: flex; flex-wrap: wrap; gap: 0; margin: 32px 0 0; border-radius: var(--radius-card); background: var(--surface); overflow: hidden; }
+.release-sheet > div { flex: 1 1 auto; padding: 18px 22px; }
+.release-sheet dd { white-space: nowrap; }
+.release-sheet dt { color: var(--muted); font-size: 12px; }
+.release-sheet dd { margin: 4px 0 0; font-size: 16px; font-variant-numeric: tabular-nums; }
+.release-sheet .release-hash { flex-basis: 100%; border-top: 1px solid var(--line); }
+.release-sheet .release-hash dd { white-space: normal; }
+.release-hash dd { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.release-hash code, .command-list code { font-family: var(--font-mono), ui-monospace, monospace; font-size: 13px; overflow-wrap: anywhere; color: var(--ink); }
+.release-hash code { flex: 1 1 320px; }
+.copy-button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line-strong); background: transparent; color: var(--ink); font-size: 13px; }
+.copy-button:hover { border-color: var(--violet-soft); }
+.guide-section { padding-top: clamp(64px, 8vw, 96px); scroll-margin-top: 24px; }
+.guide-section h2 { display: flex; align-items: center; gap: 16px; font-size: clamp(1.5rem, 2.4vw, 2rem); letter-spacing: -.02em; }
+.guide-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 50%; background: var(--surface-2); color: var(--violet-soft); }
+.guide-section > p, .guide-split p { margin-top: 18px; color: var(--muted); max-width: 64ch; }
+.guide-section b, .guide-split b { color: var(--ink); font-weight: 500; }
+.guide-steps { list-style: none; counter-reset: step; display: grid; gap: 18px; margin: 26px 0 0; padding: 0; }
+.guide-steps li { counter-increment: step; position: relative; min-height: 40px; padding: 8px 0 0 58px; color: var(--muted); max-width: 66ch; }
+.guide-steps li::before { content: counter(step); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--violet); color: #fff; font-size: 16px; }
+.guide-list { list-style: none; display: grid; gap: 12px; margin: 18px 0 0; padding: 0; }
+.guide-list li { display: flex; gap: 12px; align-items: flex-start; color: var(--ink); }
+.guide-list svg { flex: none; margin-top: 3px; color: var(--violet-soft); }
+.guide-note { display: flex; gap: 12px; align-items: flex-start; margin-top: 24px !important; padding: 16px 20px; border-radius: 20px; background: var(--surface); color: var(--muted); font-size: 14px; max-width: 64ch; }
+.guide-note svg { flex: none; margin-top: 2px; color: var(--violet-soft); }
+.guide-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 40px; align-items: start; }
+.guide-shot { margin: 26px 0 0; width: 220px; border-radius: 30px; border: 6px solid var(--surface-2); overflow: hidden; box-shadow: 0 24px 48px -20px rgba(0, 0, 0, .8); }
+.guide-shot img { display: block; width: 100%; height: auto; }
+.command-list { display: grid; gap: 0; margin: 22px 0 0; border-radius: 20px; background: var(--surface); overflow: hidden; }
+.command-list > div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.command-list > div:last-child { border-bottom: 0; }
+.command-list dt { color: var(--muted); font-size: 13px; }
+.command-list dd { margin: 0; }
+@media (max-width: 860px) {
+  .guide { grid-template-columns: minmax(0, 1fr); padding-top: 32px; gap: 28px; }
+  .app-index { position: sticky; top: 0; z-index: 20; margin: 0 -16px; padding: 10px 16px; background: rgba(9, 1, 25, .96); border-bottom: 1px solid var(--line); }
+  .app-index ol { display: flex; gap: 8px; overflow-x: auto; border-left: 0; padding: 0 32px 0 0; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  .app-index a { white-space: nowrap; padding: 8px 14px; border-radius: 999px; background: var(--surface-2); font-size: 13px; }
+  .app-index a::before { display: none; }
+  .app-index a[aria-current] { background: var(--violet-deep); }
+  .guide-section { scroll-margin-top: 70px; }
+  .guide-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .guide-shot { width: 60%; max-width: 240px; }
+  .command-list > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .download-pill { width: 100%; }
+  .release-sheet > div:not(.release-hash) { flex-basis: 45%; }
+  .guide-steps li { padding-left: 52px; }
+}

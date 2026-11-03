@@ -29,6 +29,10 @@ const paths = {
   logout: <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 8l-4 4 4 4M6 12h10"/>,
   copy: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
   alert: <><path d="M12 3 2 20h20Z"/><path d="M12 10v4m0 3v.5"/></>,
+  phone: <><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></>,
+  lock: <><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></>,
+  fingerprint: <><path d="M12 11v3.5a6 6 0 0 1-1.6 4.1M8.4 7.2A5 5 0 0 1 17 11v2.5m-.4 3.7c-.3 1-.7 1.9-1.3 2.8M7 11a5 5 0 0 1 .5-2.2M7 14.5v-.5"/><path d="M4.6 15.5A10 10 0 0 1 4 11a8 8 0 0 1 12-6.9M19.4 8a8 8 0 0 1 .6 3v1"/></>,
+  cable: <><path d="M7 3v4M11 3v4M5.5 7h7v3a3.5 3.5 0 0 1-7 0zM9 13.5V16a4 4 0 0 0 4 4h1a4 4 0 0 0 4-4V8"/><path d="M16 5.5 18 3l2 2.5"/></>,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof paths;

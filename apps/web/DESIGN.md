@@ -12,6 +12,10 @@ colors:
   violet: "#9d76f8"
   violet-soft: "#c4a8ff"
   violet-deep: "#5a12a8"
+  gradient-start: "#a57bf7"
+  gradient-mid: "#7a3ade"
+  count-start: "#5c3d99"
+  count-end: "#8f74da"
   light: "#e4e0ec"
   muted-pill: "#bfb9cd"
   on-light: "#120a22"
@@ -49,6 +53,11 @@ typography:
     fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.4
+  mono:
+    fontFamily: "DM Mono, ui-monospace, monospace"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.5
 rounded:
   pill: "999px"
   panel: "40px"
@@ -143,6 +152,7 @@ La consola es modo *Operate*: escanear, comparar y actuar. La expresión vive en
 - **Display y títulos:** Poppins 300/400/500 (vía `next/font`), tracking -0.02 a -0.03em. El título de página termina en punto («Dispositivos de la red.»).
 - **Cuerpo, etiquetas y datos:** DM Sans. Cifras con `font-variant-numeric: tabular-nums` (horas, puntajes, coordenadas, conteos).
 - Escala: display de landing `clamp(2.4rem, 5.2vw, 4.75rem)`; título de consola `clamp(2rem, 3.6vw, 4rem)`; título de sección `clamp(2rem, 3.6vw, 3.25rem)`; encabezado de tarjeta 18–24px en DM Sans 500; cuerpo 15px; etiquetas 13px.
+- **Mono:** DM Mono (vía `next/font`), solo para datos que se copian o comparan: huellas SHA-256 y comandos. Nunca como disfraz «técnico».
 - Sin eyebrows ni kickers sobre los títulos.
 
 ## Layout
@@ -174,6 +184,8 @@ La profundidad viene de la luminosidad de las superficies (lienzo → superficie
 - **Cámara en lista**: pastilla con borde; seleccionada, en degradado.
 - **Opción de ruta**: pastilla con borde; seleccionada, clara con tinta oscura.
 - **Línea de tiempo**: círculos violeta numerados, nombre de la cámara y hora tabular.
+- **Guía de una página** (`/app`): índice fijo a la izquierda con barra violeta en la sección activa (en móvil, fila de pastillas con desvanecido a la derecha y la activa en violeta profundo); secciones separadas por espacio, con icono en círculo de superficie 2; pasos con círculos violeta numerados; notas en superficie con icono violeta suave; ficha de versión (versión, tamaño, requisito, fecha y SHA-256 con «Copiar»).
+- **Pie del sitio**: marca, enlaces y aviso legal: «© 2026 Equipo VIGÍA. Todos los derechos reservados.», datos personales (Ley 1581), marcas de terceros y licencias (Ultralytics AGPL-3.0, OpenStreetMap ODbL). La consola repite la línea de derechos.
 - **Mapa**: OSM en raster invertido y desaturado sobre lienzo violeta; radio punteado violeta, ruta `#c4a8ff` y lugar «Barranquilla, Atlántico» abajo a la izquierda.
 
 ## Do's and Don'ts

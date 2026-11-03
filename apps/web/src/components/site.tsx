@@ -16,14 +16,14 @@ function DemoAction({ onDemo, label = "Explorar demo" }: { onDemo?: () => void; 
   return onDemo ? <button type="button" className="pill-light" onClick={onDemo}>{label}<Icon name="arrow" size={16}/></button> : <Link className="pill-light" href="/?demo=1">{label}<Icon name="arrow" size={16}/></Link>;
 }
 
-export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotros" } & Actions) {
+export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotros" | "app" } & Actions) {
   return <header className="site-header">
     <Link href="/" className="site-brand" aria-label="VIGÍA, inicio"><BrandMark size={44}/></Link>
     <nav className="site-nav" aria-label="Sitio">
       <Link href="/" aria-current={current === "inicio" ? "page" : undefined}>Inicio</Link>
       <Link href="/#soluciones">Soluciones</Link>
       <Link href="/nosotros" aria-current={current === "nosotros" ? "page" : undefined}>Nosotros</Link>
-      <a href="/descargar">App Android</a>
+      <Link href="/app" aria-current={current === "app" ? "page" : undefined}>App Android</Link>
     </nav>
     <SignInAction onSignIn={onSignIn} className="pill-light site-signin"/>
   </header>;
@@ -39,10 +39,24 @@ export function SiteClosing({ onDemo }: Actions) {
 
 export function SiteFooter() {
   return <footer className="site-footer">
-    <span><BrandMark size={22}/>VIGÍA · Piloto en Barranquilla, Colombia</span>
-    <span>Trayectorias estimadas, no identificaciones confirmadas.</span>
+    <div className="footer-top">
+      <span className="footer-brand"><BrandMark size={22}/>VIGÍA · Piloto en Barranquilla, Colombia</span>
+      <nav aria-label="Pie de página"><Link href="/">Inicio</Link><Link href="/nosotros">Nosotros</Link><Link href="/app">App Android</Link></nav>
+    </div>
+    <LegalNotice/>
   </footer>;
 }
+
+/** Rights and legal notices, shared by the public site and the download page. */
+export function LegalNotice() {
+  return <div className="legal">
+    <p><b>© {COPYRIGHT_YEAR} Equipo VIGÍA. Todos los derechos reservados.</b> Trayectorias estimadas: no constituyen una identificación confirmada.</p>
+    <p>Datos personales (Ley 1581 de 2012): el video se procesa en las cámaras y teléfonos del piloto y al servidor solo llegan metadatos. Los recortes y las placas se guardan 7 días, solo los ve un administrador y cada acceso queda registrado.</p>
+    <p>Android es una marca de Google LLC. iPhone es una marca de Apple Inc. Usa software y datos de terceros con sus propias licencias: Ultralytics YOLO (AGPL-3.0) y OpenStreetMap (ODbL, © colaboradores de OpenStreetMap).</p>
+  </div>;
+}
+
+const COPYRIGHT_YEAR = 2026;
 
 const STEPS: { id: string; title: string; text: string; scene: ReactNode }[] = [
   { id: "captura", title: "Captura", text: "Una cámara o dispositivo compatible registra la presencia de vehículos.", scene: <CaptureScene/> },

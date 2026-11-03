@@ -357,3 +357,16 @@ test("operators get no plate field and no confirmation controls", async ({ page 
   await expect(page.getByText("4 detecciones · 2 rutas candidatas · Servicio central")).toBeVisible();
   await expect(page.getByRole("button", { name: "Sí, es este" })).toHaveCount(0);
 });
+
+test("the Android page guides the download and the footer carries the rights", async ({ page }) => {
+  await page.goto("/app");
+  await expect(page.getByRole("heading", { name: "La app de VIGÍA, en tu teléfono." })).toBeVisible();
+  const download = page.getByRole("link", { name: /Descargar para Android/ });
+  await expect(download).toHaveAttribute("href", /^\/descargas\/vigia.*\.apk$/);
+  await expect(page.getByRole("navigation", { name: "Contenido de la guía" }).getByRole("link")).toHaveCount(7);
+  await page.getByRole("navigation", { name: "Contenido de la guía" }).getByRole("link", { name: "Verificar el archivo" }).click();
+  await expect(page.getByRole("heading", { name: "Verificar el archivo" })).toBeInViewport();
+  await expect(page.getByText("© 2026 Equipo VIGÍA. Todos los derechos reservados.")).toBeVisible();
+  await expect(page.getByText("Android es una marca de Google LLC", { exact: false })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
