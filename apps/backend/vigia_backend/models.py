@@ -128,7 +128,7 @@ class DeviceLink(Base):
 
 
 class Detection(Base):
-    """Observación vehicular central; sin placa/marca/modelo en este prototipo."""
+    """Observación vehicular central; la placa vive 7 días (plates.py), sin marca ni modelo."""
 
     __tablename__ = "detections"
 
@@ -144,6 +144,8 @@ class Detection(Base):
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     # Clave del recorte en el almacén privado (thumbnails.py), no una URL pública; 7 días.
     thumbnail_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Placa votada en el edge, solo con formato colombiano; dato personal, 7 días y solo admin.
+    license_plate: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
 
     device: Mapped[Device] = relationship(back_populates="detections")
@@ -218,6 +220,8 @@ class Query(Base):
     time_to: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     vehicle_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     color: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Filtro por placa (solo admin); se borra a los 7 días como la placa de la detección.
+    license_plate: Mapped[str | None] = mapped_column(String(8), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
     user: Mapped[User] = relationship(back_populates="queries")
@@ -256,3 +260,26 @@ class RouteResultDetection(Base):
 
     route_result: Mapped[RouteResult] = relationship(back_populates="detections")
     detection: Mapped[Detection] = relationship()
+
+
+class DetectionConfirmation(Base):
+    """Un admin miró el recorte de un paso y dijo si es el vehículo buscado en esa consulta.
+
+    «match» obliga a que las rutas recalculadas pasen por la detección; «reject» la saca.
+    Es la base de la fase 4 (aprendizaje del puntaje); no guarda la imagen ni la placa.
+    """
+
+    __tablename__ = "detection_confirmations"
+    __table_args__ = (UniqueConstraint("query_id", "detection_id", name="uq_confirmation_query_detection"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=new_uuid)
+    query_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("queries.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    detection_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("detections.id", ondelete="CASCADE"), nullable=False
+    )
+    verdict: Mapped[str] = mapped_column(String(16), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+

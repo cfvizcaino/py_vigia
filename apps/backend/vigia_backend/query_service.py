@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from .geo import haversine_m
 from .models import (
     Detection,
+    DetectionConfirmation,
     Device,
     DeviceLink,
     Query,
@@ -20,6 +21,7 @@ from .models import (
     SecurityAudit,
     User,
 )
+from .plates import mask_plate, visible_plate
 from .routing import DetectionPoint, RoadOption, RouteCandidate, RoutingConfig, reconstruct_routes
 import json
 import os
@@ -38,6 +40,8 @@ class QueryExecution:
     candidate_detections: list[Detection]
     routes: list[RouteCandidate]
     persisted_route_ids: list[uuid.UUID]
+    # detection id → "match" | "reject", from an admin looking at the recortes.
+    confirmations: dict[str, str]
 
 
 def find_nearby_devices(db: Session, lat: float, lng: float, radius_m: float) -> list[NearbyDevice]:
@@ -86,6 +90,7 @@ def fetch_candidate_detections(
     time_to: datetime,
     vehicle_type: str | None,
     color: str | None,
+    plate: str | None = None,
 ) -> list[Detection]:
     if not device_ids:
         return []
@@ -101,6 +106,9 @@ def fetch_candidate_detections(
     if color is not None:
         # Unknown colour stays in: see reconstruct_routes.
         statement = statement.where(or_(Detection.color == color, Detection.color.is_(None)))
+    if plate is not None:
+        # Unread plates stay in, like unknown colours.
+        statement = statement.where(or_(Detection.license_plate == plate, Detection.license_plate.is_(None)))
     return list(db.scalars(statement).all())
 
 
@@ -122,6 +130,7 @@ def detections_to_points(
                 direction=det.direction,
                 confidence=det.confidence,
                 observed_at=det.observed_at,
+                plate=visible_plate(det),
             )
         )
     return points
@@ -162,6 +171,38 @@ def persist_route_results(
     return ids
 
 
+def _routing_config() -> RoutingConfig:
+    return RoutingConfig(**json.loads(os.getenv("ROUTING_CONFIG_JSON", "{}")))
+
+
+def _solve(db: Session, query: Query, confirmations: dict[str, str]):
+    """Dispositivos, candidatas y rutas de una consulta guardada, con sus confirmaciones."""
+    nearby = find_nearby_devices(db, query.lat, query.lng, query.radius_m)
+    device_ids = [item.device.id for item in nearby]
+    device_by_id = {item.device.id: item.device for item in nearby}
+    detections = fetch_candidate_detections(
+        db, device_ids, query.time_from, query.time_to, query.vehicle_type, query.color, query.license_plate
+    )
+    links = load_road_links_m(db, set(device_ids))
+    points = detections_to_points(detections, device_by_id)
+    routes = reconstruct_routes(
+        points,
+        links,
+        vehicle_type=query.vehicle_type,
+        color=query.color,
+        plate=query.license_plate,
+        required_ids=frozenset(i for i, v in confirmations.items() if v == "match"),
+        excluded_ids=frozenset(i for i, v in confirmations.items() if v == "reject"),
+        config=_routing_config(),
+    )
+    return nearby, detections, routes
+
+
+def query_confirmations(db: Session, query_id: uuid.UUID) -> dict[str, str]:
+    rows = db.scalars(select(DetectionConfirmation).where(DetectionConfirmation.query_id == query_id)).all()
+    return {str(row.detection_id): row.verdict for row in rows}
+
+
 def execute_query(
     db: Session,
     *,
@@ -173,26 +214,10 @@ def execute_query(
     vehicle_type: str | None,
     color: str | None,
     user: User,
+    plate: str | None = None,
 ) -> QueryExecution:
     if time_to < time_from:
         raise ValueError("time_to must be greater than or equal to time_from")
-
-    nearby = find_nearby_devices(db, lat, lng, radius_m)
-    device_ids = [item.device.id for item in nearby]
-    device_by_id = {item.device.id: item.device for item in nearby}
-
-    detections = fetch_candidate_detections(
-        db, device_ids, time_from, time_to, vehicle_type, color
-    )
-    links = load_road_links_m(db, set(device_ids))
-    points = detections_to_points(detections, device_by_id)
-    routes = reconstruct_routes(
-        points,
-        links,
-        vehicle_type=vehicle_type,
-        color=color,
-        config=RoutingConfig(**json.loads(os.getenv("ROUTING_CONFIG_JSON", "{}"))),
-    )
 
     query = Query(
         user_id=user.id,
@@ -203,17 +228,17 @@ def execute_query(
         time_to=time_to,
         vehicle_type=vehicle_type,
         color=color,
+        license_plate=plate,
     )
+    nearby, detections, routes = _solve(db, query, {})
     db.add(query)
     db.flush()
     route_ids = persist_route_results(db, query, routes)
     # Same transaction: a stored query always has its audit entry (coordinates live in `queries`).
-    db.add(SecurityAudit(
-        action="query.executed",
-        user_id=user.id,
-        outcome="allowed",
-        detail={"query": str(query.id), "radius_m": radius_m, "detections": len(detections), "routes": len(routes)},
-    ))
+    detail = {"query": str(query.id), "radius_m": radius_m, "detections": len(detections), "routes": len(routes)}
+    if plate:
+        detail["plate"] = mask_plate(plate)  # The audit outlives the 7-day plate.
+    db.add(SecurityAudit(action="query.executed", user_id=user.id, outcome="allowed", detail=detail))
     db.commit()
     db.refresh(query)
 
@@ -223,4 +248,28 @@ def execute_query(
         candidate_detections=detections,
         routes=routes,
         persisted_route_ids=route_ids,
+        confirmations={},
+    )
+
+
+def recalculate_query(db: Session, query: Query) -> QueryExecution:
+    """Vuelve a resolver una consulta guardada con sus confirmaciones y reemplaza sus rutas."""
+    confirmations = query_confirmations(db, query.id)
+    nearby, detections, routes = _solve(db, query, confirmations)
+    old = db.scalars(select(RouteResult).where(RouteResult.query_id == query.id)).all()
+    for row in old:
+        for hop in db.scalars(select(RouteResultDetection).where(RouteResultDetection.route_result_id == row.id)).all():
+            db.delete(hop)
+        db.delete(row)
+    db.flush()
+    route_ids = persist_route_results(db, query, routes)
+    db.commit()
+    db.refresh(query)
+    return QueryExecution(
+        query=query,
+        nearby_devices=nearby,
+        candidate_detections=detections,
+        routes=routes,
+        persisted_route_ids=route_ids,
+        confirmations=confirmations,
     )

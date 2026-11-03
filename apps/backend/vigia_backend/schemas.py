@@ -162,6 +162,10 @@ class RouteDetectionHop(BaseModel):
     observed_at: datetime
     # A recorte is stored and still within retention; admins fetch it by detection id.
     has_thumbnail: bool = False
+    # Only for admins and within the 7-day retention; always None for operators.
+    license_plate: str | None = None
+    # An admin's verdict on this step for this query: "match", "reject" or None.
+    confirmation: str | None = None
 
 
 class RouteCandidateRead(BaseModel):
@@ -189,6 +193,7 @@ class QueryRead(BaseModel):
     time_to: datetime
     vehicle_type: str | None
     color: str | None
+    license_plate: str | None = None
     created_at: datetime
 
 
@@ -301,3 +306,10 @@ class ScenarioRead(BaseModel):
     time_to: str
     vehicle_type: VehicleType | None
     color: str | None
+
+
+class ConfirmationWrite(BaseModel):
+    """Lo que dice un admin al mirar el recorte de un paso."""
+
+    verdict: Literal["match", "reject"]
+

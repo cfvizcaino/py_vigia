@@ -18,6 +18,8 @@ class DetectionPoint:
     direction: str
     confidence: float
     observed_at: datetime
+    # Text voted on the edge (normalized); None when unread. Kept 7 days (plates.py).
+    plate: str | None = None
 
 @dataclass(frozen=True)
 class RoadOption:
@@ -52,6 +54,8 @@ class RoutingConfig:
     # street many vehicles of the queried colour pass the same cameras, and copies
     # of one short trajectory would push longer ones out of the list.
     max_per_trajectory: int = 1
+    # Eligible routes considered by the diversified selection.
+    max_pool: int = 300
     beam_width: int = 200
     max_detections: int = 500
     detection_weight: float = .35
@@ -92,6 +96,10 @@ def score_segments(earlier: DetectionPoint, later: DetectionPoint, links: RoadLi
         return []
     if earlier.color and later.color and earlier.color != later.color:
         return []
+    # Two different plates are two vehicles; the same plate is the strongest appearance evidence.
+    if earlier.plate and later.plate and earlier.plate != later.plate:
+        return []
+    same_plate = bool(earlier.plate and earlier.plate == later.plate)
     options = road_options(earlier.camera_id, later.camera_id, links)
     valid_weights = [o.weight for o in options if o.weight and math.isfinite(o.weight) and o.weight > 0]
     min_weight = min(valid_weights, default=None)
@@ -106,7 +114,7 @@ def score_segments(earlier: DetectionPoint, later: DetectionPoint, links: RoadLi
         measured = option.duration_s is not None and math.isfinite(option.duration_s) and option.duration_s > 0
         expected = option.duration_s * config.time_factor if measured else distance / (30 / 3.6)
         timing = math.exp(-.5 * (math.log(delta / expected) / config.time_sigma) ** 2)
-        appearance = 1.0 if earlier.color and later.color else .4
+        appearance = 1.0 if same_plate or (earlier.color and later.color) else .4
         road_prior = min(1.0, min_weight / option.weight) if min_weight and option.weight and option.weight > 0 else .5
         components = {"detection": (earlier.confidence + later.confidence) / 2,
                       "time": timing, "appearance": appearance, "road": road_prior}
@@ -150,6 +158,7 @@ def _candidate(path: list[DetectionPoint], segments: list[dict], cfg: RoutingCon
         "direction_used": False,
         # How many steps carry a colour; unknown ones only joined through time and road.
         "color_evidence": {"known": sum(1 for p in path if p.color), "unknown": sum(1 for p in path if not p.color)},
+        "plate_evidence": {"known": sum(1 for p in path if p.plate), "unknown": sum(1 for p in path if not p.plate)},
         "segments": [{k: v for k, v in s.items() if k != "geometry"} for s in segments],
     }
     return RouteCandidate(tuple(p.id for p in path), tuple(p.camera_id for p in path), path[0].vehicle_type,
@@ -162,17 +171,31 @@ def _is_subsequence(short, long):
     it = iter(long)
     return all(item in it for item in short)
 
+def _shares_detections(candidate: RouteCandidate, used: set[str]) -> bool:
+    return not used.isdisjoint(candidate.detection_ids)
+
 def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks, *,
-                       vehicle_type: str | None = None, color: str | None = None,
+                       vehicle_type: str | None = None, color: str | None = None, plate: str | None = None,
+                       required_ids: frozenset[str] = frozenset(), excluded_ids: frozenset[str] = frozenset(),
                        config: RoutingConfig | None = None) -> list[RouteCandidate]:
+    """Rutas candidatas ordenadas y diversificadas.
+
+    `required_ids` / `excluded_ids` vienen de las confirmaciones de un admin sobre los
+    recortes: una detección marcada «no es este» no entra en ninguna ruta y una marcada
+    «es este» debe estar en todas.
+    """
     cfg = config or RoutingConfig()
     # A colour filter keeps detections whose colour is unknown: the edge leaves it
     # null when the vote is not clear (night, short tracks), and dropping them would
     # cut the vehicle's path. Unknown colour already scores as weak appearance
     # evidence, and every route must still show the requested colour at least once.
+    # The plate filter works the same way: most detections carry no readable plate.
     ordered = sorted((d for d in detections if (vehicle_type is None or d.vehicle_type == vehicle_type)
-                      and (color is None or d.color in (color, None))), key=lambda p: (p.observed_at, p.id))
+                      and (color is None or d.color in (color, None))
+                      and (plate is None or d.plate in (plate, None))
+                      and d.id not in excluded_ids), key=lambda p: (p.observed_at, p.id))
     by_id = {d.id: d for d in ordered}
+    required = frozenset(required_ids) & by_id.keys()
     if len(ordered) > cfg.max_detections:
         raise ValueError(f"Máximo {cfg.max_detections} detecciones por búsqueda; reduce ventana o radio")
     edges = {(a.id, b.id): score_segments(a, b, road_links_m, cfg)
@@ -186,8 +209,11 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
             nonlocal expanded_count
             for path, segments in frontier:
                 known_colors = {p.color for p in path if p.color}
+                known_plates = {p.plate for p in path if p.plate}
                 for nxt in ordered:
                     if nxt.color and known_colors and nxt.color not in known_colors:
+                        continue
+                    if nxt.plate and known_plates and nxt.plate not in known_plates:
                         continue
                     for segment in edges.get((path[-1].id, nxt.id), []):
                         new_path, new_segments = path + [nxt], segments + [segment]
@@ -196,28 +222,60 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
                         expanded_count += 1
                         yield score, new_path, new_segments
         # Keep only beam_width states, without materializing all expanded geometries.
+        # Confirmed detections go first so the beam does not drop the paths through them.
         selected = heapq.nsmallest(cfg.beam_width, expand(), key=lambda item: (
-            -item[0], tuple(p.id for p in item[1]), tuple(s["option_index"] for s in item[2])))
+            -sum(1 for p in item[1] if p.id in required), -item[0],
+            tuple(p.id for p in item[1]), tuple(s["option_index"] for s in item[2])))
         pruned |= expanded_count > cfg.beam_width
         found.extend(_candidate(p, s, cfg) for _, p, s in selected)
         frontier = [(p, s) for _, p, s in selected]
         if not frontier:
             break
-    # Longer chains only dominate subsequences if evidence score is >=.
     found.sort(key=lambda c: (-c.confidence, -len(c.detection_ids), c.detection_ids))
-    kept = []
+    # Eligible routes, best first. A longer chain only hides its subsequence when its
+    # steps are at least as good on their own: the coverage bonus alone must not let a
+    # true trajectory disappear behind the same path plus another car's detection,
+    # which is what happens at rush hour with many vehicles of one colour.
+    pool: list[RouteCandidate] = []
     per_trajectory: dict[tuple, int] = {}
     for candidate in found:
-        if color is not None and not any(by_id[i].color == color for i in candidate.detection_ids):
+        ids = candidate.detection_ids
+        if color is not None and not any(by_id[i].color == color for i in ids):
+            continue
+        if plate is not None and not any(by_id[i].plate == plate for i in ids):
+            continue
+        if not required <= set(ids):
             continue
         trajectory = (candidate.camera_ids, tuple(s["option_index"] for s in candidate.explanation["segments"]))
         if per_trajectory.get(trajectory, 0) >= cfg.max_per_trajectory:
             continue
-        if any(_is_subsequence(candidate.detection_ids, other.detection_ids) for other in kept):
+        mean = candidate.explanation["geometric_mean"]
+        if any(_is_subsequence(ids, other.detection_ids) and other.explanation["geometric_mean"] >= mean for other in pool):
             continue
         per_trajectory[trajectory] = per_trajectory.get(trajectory, 0) + 1
-        candidate.explanation["search_pruned"] = pruned
-        kept.append(candidate)
-        if len(kept) == cfg.max_candidates:
+        pool.append(candidate)
+        if len(pool) == cfg.max_pool:
             break
-    return [replace(c, rank=i) for i, c in enumerate(kept, 1)]
+    # Diversified top-k: first the best routes that share no detection (each one a
+    # different vehicle), then the alternatives in score order. Copies of one
+    # vehicle's path no longer push the other vehicles out of the list.
+    kept: list[RouteCandidate] = []
+    used: set[str] = set()
+    for candidate in pool:
+        if not _shares_detections(candidate, used):
+            kept.append(candidate)
+            used.update(candidate.detection_ids)
+            if len(kept) == cfg.max_candidates:
+                break
+    if len(kept) < cfg.max_candidates:
+        chosen = {id(c) for c in kept}
+        kept += [c for c in pool if id(c) not in chosen][:cfg.max_candidates - len(kept)]
+    # Rank follows that order, so a lower score can rank above an alternative of a better route.
+    ranked = [replace(c, rank=i) for i, c in enumerate(kept, 1)]
+    for route in ranked:
+        route.explanation["search_pruned"] = pruned
+        route.explanation["selection"] = "diversified-v1"
+        # The best-ranked route that shares a detection, so the console can say it is an alternative.
+        route.explanation["shares_with_rank"] = next((other.rank for other in ranked if other.rank < route.rank
+                                                      and not set(other.detection_ids).isdisjoint(route.detection_ids)), None)
+    return ranked
