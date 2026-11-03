@@ -3,8 +3,9 @@ import { DM_Mono, DM_Sans, Poppins } from "next/font/google";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
-const display = Poppins({ subsets: ["latin"], weight: ["300", "400", "500"], variable: "--font-display", display: "swap" });
-const body = DM_Sans({ subsets: ["latin"], variable: "--font-body", display: "swap" });
+const display = Poppins({ subsets: ["latin"], weight: ["300", "400", "500", "700"], variable: "--font-display", display: "swap" });
+// The Figma sets DM Sans with its optical size axis at 14.
+const body = DM_Sans({ subsets: ["latin"], variable: "--font-body", display: "swap", axes: ["opsz"] });
 // Checksums and commands: the monospaced cut of the same family.
 const mono = DM_Mono({ subsets: ["latin"], weight: ["400"], variable: "--font-mono", display: "swap" });
 

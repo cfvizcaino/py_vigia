@@ -3,27 +3,21 @@ name: VIGÍA
 description: Consola nocturna para reconstruir recorridos vehiculares a partir de observaciones dispersas.
 colors:
   canvas: "#090119"
-  surface: "#1a1429"
-  surface-2: "#2e263b"
-  surface-3: "#3b3249"
-  ink: "#f4f1fa"
-  muted: "#aba3be"
-  on-violet-muted: "#dccff7"
+  site: "#110922"
+  panel: "#1d152d"
+  card: "#2e263b"
   violet: "#9d76f8"
-  violet-soft: "#c4a8ff"
-  violet-deep: "#5a12a8"
-  gradient-start: "#a57bf7"
-  gradient-mid: "#7a3ade"
-  count-start: "#5c3d99"
-  count-end: "#8f74da"
-  light: "#e4e0ec"
-  muted-pill: "#bfb9cd"
-  on-light: "#120a22"
-  blue: "#2e86f9"
-  grey: "#6b6a73"
-  ok: "#6fe0a8"
-  warn: "#f5b451"
+  violet-deep: "#57038f"
+  violet-mid: "#7738c0"
+  blue: "#2082f9"
+  grey: "#5c5c5c"
+  light: "#d9d9d9"
+  light-2: "#e0e0e0"
+  icon: "#e3e3e3"
+  count-start: "#2f2545"
+  count-end: "#765dab"
   danger: "#ff8f8f"
+  warn: "#f5b451"
 typography:
   display:
     fontFamily: "Poppins, system-ui, sans-serif"
@@ -124,7 +118,7 @@ components:
 
 ## Overview
 
-Fuente: el archivo Figma «VIGÍA-DESIGN» (páginas WEB y MOBILE), llevado a código en `src/app/globals.css`. Es un mundo nocturno: lienzo casi negro con matiz violeta, superficies violeta-gris elevadas por luminosidad, un solo acento violeta y pastillas claras para la acción principal. Sirve a operadores en sala de monitoreo con luz baja y a visitantes que conocen el producto en la landing.
+Fuente única: el archivo Figma «VIGÍA-DESIGN» (página WEB, lienzo de 1920 px), llevado a código en `src/app/globals.css` con los valores del Figma. `--u` vale un píxel del Figma (`clamp(.62px, 100vw/1920, 1px)`): las medidas se escriben `calc(N * var(--u))`, así 1920 px coincide exacto y pantallas menores conservan la proporción. Iconos: los SVG del Figma (Material Symbols) y, donde el diseño no trae, Material Symbols Outlined (`src/components/icon-paths.ts`). Es un mundo nocturno: lienzo casi negro con matiz violeta, superficies violeta-gris elevadas por luminosidad, un solo acento violeta y pastillas claras para la acción principal. Sirve a operadores en sala de monitoreo con luz baja y a visitantes que conocen el producto en la landing.
 
 La consola es modo *Operate*: escanear, comparar y actuar. La expresión vive en los detalles: el degradado violeta marca lo seleccionado, los títulos en Poppins ligera dan calma y el mapa oscuro se funde con el lienzo.
 
