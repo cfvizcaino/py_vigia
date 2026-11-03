@@ -42,8 +42,11 @@
 	handle /health {
 		reverse_proxy backend:8000
 	}
-	# Página de descarga de la app móvil (APK firmado y su huella).
-	redir /descargar /descargas/
+	# La página de descarga de la app vive en la consola (/app); aquí quedan el APK
+	# firmado, su huella y app-version.json.
+	redir /descargar /app
+	redir /descargas/ /app
+	redir /descargas/index.html /app
 	handle /descargas/* {
 		root * /srv
 		header /descargas/*.apk Content-Type application/vnd.android.package-archive

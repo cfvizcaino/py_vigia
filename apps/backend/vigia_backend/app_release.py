@@ -10,7 +10,8 @@ from pathlib import Path
 
 VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
-EMPTY = {"latest": None, "minimum": None, "apk_url": None, "sha256": None, "notes": "", "published_at": None}
+EMPTY = {"latest": None, "minimum": None, "apk_url": None, "sha256": None, "notes": "", "published_at": None,
+         "size_bytes": None}
 
 
 def load_app_release(path: Path | None) -> dict:
@@ -29,6 +30,10 @@ def load_app_release(path: Path | None) -> dict:
     sha256 = raw.get("sha256")
     notes = raw.get("notes") or ""
     published_at = raw.get("published_at")
+    # Optional (older files lack it): the download page shows the APK size.
+    size_bytes = raw.get("size_bytes")
+    if size_bytes is not None and not (isinstance(size_bytes, int) and not isinstance(size_bytes, bool) and size_bytes > 0):
+        size_bytes = None
     if latest is not None and not (isinstance(latest, str) and VERSION.match(latest)):
         return dict(EMPTY)
     if minimum is not None and not (isinstance(minimum, str) and VERSION.match(minimum)):
@@ -46,6 +51,7 @@ def load_app_release(path: Path | None) -> dict:
         "sha256": sha256,
         "notes": notes[:500],
         "published_at": published_at,
+        "size_bytes": size_bytes,
     }
 
 
@@ -66,6 +72,7 @@ def write_app_release(
     notes: str = "",
     previous: Path | None = None,
     published_at: datetime | None = None,
+    size_bytes: int | None = None,
 ) -> dict:
     """Publica latest y conserva el minimum anterior, salvo que el operador lo suba."""
     if not VERSION.match(version):
@@ -86,6 +93,10 @@ def write_app_release(
         "notes": notes.strip()[:500],
         "published_at": (published_at or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    if size_bytes is not None:
+        if size_bytes <= 0:
+            raise ValueError("El tamaño del APK debe ser positivo")
+        document["size_bytes"] = size_bytes
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -103,6 +114,7 @@ def main() -> None:
     write.add_argument("--output", type=Path, required=True)
     write.add_argument("--minimum", help="Si se omite, se conserva el mínimo ya publicado")
     write.add_argument("--previous", type=Path)
+    write.add_argument("--size-bytes", type=int, help="Tamaño del APK, para la página de descarga")
     args = parser.parse_args()
     try:
         document = write_app_release(
@@ -113,6 +125,7 @@ def main() -> None:
             minimum=args.minimum,
             notes=os.getenv("VIGIA_APK_NOTES", ""),
             previous=args.previous,
+            size_bytes=args.size_bytes,
         )
     except ValueError as exc:
         parser.exit(1, f"No se escribió la versión: {exc}\n")
