@@ -58,7 +58,7 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 3. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
 4. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.
 5. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
-6. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), límite por IP y CSP en Caddy, respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
+6. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), ~~límite por IP y CSP~~ (02/11: límite en Caddy y CSP en la consola), respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
 7. **Evaluación y escala:** P1.1 con recorridos independientes (el top-k ya se diversificó el 02/11), confirmaciones del admin como verdad de terreno (recortes, fase 4), corte de 5 min con la cámara real y observabilidad (P1.3).
 8. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
 
