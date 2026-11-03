@@ -23,6 +23,7 @@ from .plate_ocr import PlateReader, PlateReads, read_tracks
 from .plate_ocr import prune as prune_plate_reads
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
 from .publisher import SnapshotPublisher
+from .thumbnails import ThumbnailCollector
 
 COCO_VEHICLE_CLASSES = [2, 3]
 # Longer than the tracker's memory, so a vehicle ByteTrack revives keeps its record.
@@ -60,6 +61,9 @@ class VisionRuntime:
         self._color_error_code: str | None = None
         self._session_id = uuid.uuid4()
         self._sequence_number = 0
+        self._thumbnails = ThumbnailCollector()
+        # Track id → firstSeen of the tracks already sent in an envelope (recortes need them).
+        self._published: dict[int, str] = {}
         self._latest_snapshot: dict[str, Any] | None = None
         self._publisher = SnapshotPublisher(
             settings.central_api_url,
@@ -137,9 +141,22 @@ class VisionRuntime:
     def _emit_snapshot(self, frame_number: int, tracks: dict[int, TrackState]) -> None:
         payload = self._build_snapshot(frame_number, tracks)
         write_snapshot_payload(self.settings.output, payload)
-        self._publisher.enqueue(payload)
+        if self._publisher.enqueue(payload):
+            for detection in payload["detections"]:
+                self._published[detection["trackId"]] = detection["firstSeen"]
         with self._lock:
             self._latest_snapshot = payload
+
+    def _send_thumbnails(self, now_monotonic: float, *, flush: bool = False) -> None:
+        if not (self.settings.thumbnails and self._publisher.enabled):
+            return
+        with self._lock:
+            last_seen = dict(self._last_seen)
+        for track_id, jpeg in self._thumbnails.due(last_seen, set(self._published), now_monotonic, flush=flush):
+            self._publisher.enqueue_thumbnail(self.settings.camera_id, str(self._session_id), track_id,
+                                              self._published[track_id], jpeg)
+        # Keep the map to live tracks plus the ones still waiting for their recorte.
+        self._published = {key: value for key, value in self._published.items() if key in last_seen}
 
     def preview(self) -> bytes | None:
         with self._lock:
@@ -340,6 +357,9 @@ class VisionRuntime:
                             self._captured_plate_tracks.add(detection.track_id)
 
                     visible = publishable(tracks_copy, self.settings.confidence)
+                    if self.settings.thumbnails and self._publisher.enabled and visible:
+                        boxes = {key: box for key, box in track_boxes(result).items() if key in visible}
+                        self._thumbnails.observe(frame, boxes, now_monotonic, cv2)
                     if snapshot_due(
                         now_monotonic - last_write,
                         has_vehicles=bool(visible),
@@ -348,6 +368,7 @@ class VisionRuntime:
                     ):
                         self._emit_snapshot(frame_number, tracks_copy)
                         last_write = now_monotonic
+                    self._send_thumbnails(now_monotonic)
             except Exception:
                 self._set_status("reconnecting", "PROCESSING_ERROR")
             finally:
@@ -361,6 +382,7 @@ class VisionRuntime:
             tracks_copy = dict(self._tracks)
             frame_number = self._frame_number
         self._emit_snapshot(frame_number, tracks_copy)
+        self._send_thumbnails(time.monotonic(), flush=True)
 
 
 def track_boxes(result: Any) -> dict[int, list[int]]:
