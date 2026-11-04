@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Icon, type IconName } from "./icon";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Icon } from "./icon";
 import { observationDate, observationTime, type Device } from "@/lib/monitoring";
 
 type AuditEntry = {
@@ -22,7 +22,6 @@ const CATEGORIES = [
   { id: "", label: "Todo" },
   { id: "sessions", label: "Sesiones" },
   { id: "queries", label: "Consultas" },
-  { id: "preview", label: "Video" },
   { id: "changes", label: "Cambios" },
   { id: "credentials", label: "Credenciales" },
   { id: "denied", label: "Denegados" },
@@ -39,6 +38,12 @@ const ACTIONS: Record<string, string> = {
   "detection.created": "Detección creada",
   "detection.updated": "Detección corregida",
   "detection.deleted": "Detección eliminada",
+  "detection.confirmed": "Recorte confirmado",
+  "detection.unconfirmed": "Recorte descartado",
+  "device.links_synced": "Enlaces de cámaras sincronizados",
+  "device.links_sync_failed": "Sincronización de enlaces fallida",
+  "query.plate": "Búsqueda por placa",
+  "thumbnail.viewed": "Recorte consultado",
   "credential.issued": "Credencial emitida",
   "credential.revoked": "Credencial revocada",
   "ingest.denied": "Ingestión rechazada",
@@ -48,13 +53,14 @@ const ACTIONS: Record<string, string> = {
   "user.disable": "Persona deshabilitada",
   "user.enable": "Persona habilitada",
 };
-// Outcome is always shown as text + icon, never by color alone.
-const OUTCOMES: Record<string, { label: string; icon: IconName; tone: "ok" | "warn" }> = {
-  allowed: { label: "Permitido", icon: "check", tone: "ok" },
-  invalid: { label: "Rechazado", icon: "close", tone: "warn" },
-  locked: { label: "Bloqueado", icon: "alert", tone: "warn" },
-  forbidden: { label: "Sin permiso", icon: "alert", tone: "warn" },
-  wrong_camera: { label: "Cámara ajena", icon: "alert", tone: "warn" },
+// As in the Figma: an allowed event is a filled violet pill, anything else an outlined one
+// (the word always says which, so colour is never the only cue).
+const OUTCOMES: Record<string, { label: string; tone: "ok" | "warn" }> = {
+  allowed: { label: "Permitido", tone: "ok" },
+  invalid: { label: "Rechazado", tone: "warn" },
+  locked: { label: "Bloqueado", tone: "warn" },
+  forbidden: { label: "Sin permiso", tone: "warn" },
+  wrong_camera: { label: "Cámara ajena", tone: "warn" },
 };
 
 function describe(entry: AuditEntry) {
@@ -102,6 +108,7 @@ function AuditPanel() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState("");
   const request = useRef<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (append: boolean, before?: string) => {
     request.current?.abort();
@@ -130,36 +137,95 @@ function AuditPanel() {
     return () => request.current?.abort();
   }, [load]);
 
-  return <article className="panel audit-card" aria-busy={loading}>
-    <div className="card-heading">
-      <div><h2>Auditoría de uso</h2></div>
-      <button className="icon-button" onClick={() => load(false)} disabled={loading} aria-label="Actualizar auditoría" title="Actualizar auditoría"><Icon name="refresh" size={18}/></button>
-    </div>
+  return <article className="admin-card audit-card" aria-busy={loading} aria-labelledby="audit-title">
+    <h2 id="audit-title">Auditoría de uso</h2>
     <div className="audit-filters" role="group" aria-label="Filtrar por tipo de evento">
       {CATEGORIES.map((item) => <button key={item.id} className={category === item.id ? "selected" : ""} aria-pressed={category === item.id} onClick={() => setCategory(item.id)}>{item.label}</button>)}
     </div>
     {error && <p className="error-message admin-message" role="alert">{error}</p>}
-    {entries.length > 0 ? <div className="audit-table-wrap">
+    <div className="audit-body">
+    <div className="audit-scroll" tabIndex={0} aria-label="Eventos auditados" ref={scrollRef}>
       <table className="audit-table">
         <caption className="visually-hidden">Eventos auditados, del más reciente al más antiguo. Hora de Colombia.</caption>
-        <thead><tr><th scope="col">Fecha · hora</th><th scope="col">Evento</th><th scope="col">Persona</th><th scope="col">Resultado</th><th scope="col">Detalle</th></tr></thead>
+        <thead><tr><th scope="col">Fecha y hora</th><th scope="col">Evento</th><th scope="col">Persona</th><th scope="col">Resultado</th></tr></thead>
         <tbody>{entries.map((entry, index) => {
-          const outcome = OUTCOMES[entry.outcome] ?? { label: entry.outcome, icon: "layers" as const, tone: "warn" as const };
+          const outcome = OUTCOMES[entry.outcome] ?? { label: entry.outcome, tone: "warn" as const };
+          const detail = describe(entry);
           return <tr key={`${entry.occurred_at}-${index}`}>
             <td data-label="Fecha"><span className="audit-when"><span className="audit-time">{observationTime(entry.occurred_at)}</span><small>{observationDate(entry.occurred_at)}</small></span></td>
-            <td data-label="Evento"><b>{ACTIONS[entry.action] ?? entry.action}</b></td>
-            <td data-label="Persona" className="audit-person">{entry.user_email ?? <span className="muted">Sistema o nodo</span>}</td>
-            <td data-label="Resultado"><span className={`outcome ${outcome.tone}`}><Icon name={outcome.icon} size={13}/>{outcome.label}</span></td>
-            <td data-label="Detalle" className="audit-detail">{describe(entry) || <span className="muted">—</span>}</td>
+            <td data-label="Evento" title={detail || undefined}>{ACTIONS[entry.action] ?? entry.action}{detail && <span className="visually-hidden"> · {detail}</span>}</td>
+            <td data-label="Persona" className="audit-person">{entry.user_email ?? "Sistema o nodo"}</td>
+            <td data-label="Resultado"><span className={`admin-pill ${outcome.tone}`}>{outcome.label}</span></td>
           </tr>;
         })}</tbody>
       </table>
-    </div> : !loading && !error && <div className="empty-state"><span className="empty-icon"><Icon name="shield" size={28}/></span><b>Sin eventos para este filtro</b><p>Cuando alguien inicie sesión, consulte, exporte o abra el video, el registro aparecerá aquí.</p></div>}
-    <div className="audit-footer" role="status" aria-live="polite">
-      {loading ? <span><span className="spinner"/>Cargando eventos…</span> : <span>{entries.length} eventos mostrados · hora de Colombia</span>}
-      {hasMore && !loading && <button className="text-action" onClick={() => load(true, entries.at(-1)?.occurred_at)}>Cargar anteriores<Icon name="arrow" size={14}/></button>}
+      {!entries.length && !loading && !error && <p className="admin-empty">Sin eventos para este filtro. Cuando alguien inicie sesión, consulte o exporte, el registro aparecerá aquí.</p>}
+      {hasMore && !loading && <button className="admin-more" onClick={() => load(true, entries.at(-1)?.occurred_at)}>Cargar anteriores</button>}
     </div>
+    <ScrollTrack target={scrollRef} watch={entries.length}/>
+    </div>
+    <p className="visually-hidden" role="status" aria-live="polite">{loading ? "Cargando eventos…" : `${entries.length} eventos mostrados`}</p>
   </article>;
+}
+
+/**
+ * The audit list's scrollbar as drawn in the Figma (a faint track and a violet-to-white
+ * thumb), which no browser draws natively. The list still scrolls natively (wheel, touch,
+ * keyboard); the thumb can also be dragged and the track clicked. Decorative for screen readers.
+ */
+function ScrollTrack({ target, watch }: { target: React.RefObject<HTMLDivElement | null>; watch: number }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useLayoutEffect(() => {
+    const list = target.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!list || !track || !thumb) return;
+    const update = () => {
+      const overflow = list.scrollHeight - list.clientHeight;
+      setVisible(overflow > 1 && getComputedStyle(list).overflowY !== "visible");
+      if (overflow <= 1) return;
+      const size = Math.max(parseFloat(getComputedStyle(thumb).minHeight) || 40, track.clientHeight * list.clientHeight / list.scrollHeight);
+      thumb.style.height = `${size}px`;
+      thumb.style.transform = `translateY(${(track.clientHeight - size) * list.scrollTop / overflow}px)`;
+    };
+    update();
+    list.addEventListener("scroll", update, { passive: true });
+    const resize = new ResizeObserver(update);
+    resize.observe(list);
+    if (list.firstElementChild) resize.observe(list.firstElementChild);
+    return () => { list.removeEventListener("scroll", update); resize.disconnect(); };
+  }, [target, watch]);
+
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    const list = target.current;
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!list || !track || !thumb) return;
+    event.preventDefault();
+    const travel = track.clientHeight - thumb.offsetHeight;
+    const ratio = (list.scrollHeight - list.clientHeight) / Math.max(1, travel);
+    if (event.target !== thumb) {
+      // A click on the track centres the thumb there.
+      const offset = event.clientY - track.getBoundingClientRect().top - thumb.offsetHeight / 2;
+      list.scrollTo({ top: offset * ratio, behavior: "smooth" });
+      return;
+    }
+    const startY = event.clientY;
+    const startTop = list.scrollTop;
+    thumb.setPointerCapture(event.pointerId);
+    const move = (moveEvent: PointerEvent) => { list.scrollTop = startTop + (moveEvent.clientY - startY) * ratio; };
+    const end = () => { thumb.removeEventListener("pointermove", move); thumb.removeEventListener("pointerup", end); thumb.removeEventListener("pointercancel", end); };
+    thumb.addEventListener("pointermove", move);
+    thumb.addEventListener("pointerup", end);
+    thumb.addEventListener("pointercancel", end);
+  }
+
+  return <div className={`audit-track ${visible ? "" : "hidden"}`} ref={trackRef} onPointerDown={onPointerDown} aria-hidden="true">
+    <div className="audit-thumb" ref={thumbRef}/>
+  </div>;
 }
 
 function CredentialsPanel({ cameras }: { cameras: Device[] }) {
@@ -228,42 +294,40 @@ function CredentialsPanel({ cameras }: { cameras: Device[] }) {
 
   const ordered = [...credentials].sort((a, b) => Number(a.revoked) - Number(b.revoked) || b.created_at.localeCompare(a.created_at));
 
-  return <article className="panel credentials-card">
-    <div className="card-heading"><div><h2>Credenciales <span className="count-badge">{credentials.filter((c) => credentialState(c).tone === "ok").length}</span></h2></div><Icon name="key"/></div>
+  return <article className="admin-card credentials-card" aria-labelledby="credentials-title">
+    <h2 id="credentials-title">Credenciales</h2>
     <form className="credential-form" onSubmit={issue}>
       <fieldset disabled={busy || !cameras.length}>
-        <label>Cámara<select value={selectedCamera} onChange={(event) => setCamera(event.target.value)}>{cameras.map((item) => <option key={item.id} value={item.external_id}>{item.external_id} · {item.name}</option>)}</select></label>
-        <label>Vigencia<select value={days} onChange={(event) => setDays(Number(event.target.value))}>{[30, 90, 180, 365].map((value) => <option key={value} value={value}>{value} días</option>)}</select></label>
-        <button className="primary-action" type="submit">{busy ? <><span className="spinner"/>Procesando…</> : <><Icon name="key" size={16}/>Emitir credencial</>}</button>
+        <label><span>Cámara</span><span className="admin-select"><select value={selectedCamera} onChange={(event) => setCamera(event.target.value)}>{cameras.map((item) => <option key={item.id} value={item.external_id}>{item.external_id} · {item.name}</option>)}</select><Icon name="chevron" size={24}/></span></label>
+        <label><span>Vigencia</span><span className="admin-select"><select value={days} onChange={(event) => setDays(Number(event.target.value))}>{[30, 90, 180, 365].map((value) => <option key={value} value={value}>{value} días</option>)}</select><Icon name="chevron" size={24}/></span></label>
+        <button className="issue-button" type="submit">{busy ? <><span className="spinner"/>Procesando…</> : "Emitir credencial"}</button>
       </fieldset>
     </form>
     {issued && <div className="secret-callout" role="region" aria-label="Token recién emitido">
-      <p><Icon name="alert" size={16}/><span><b>Copia este token ahora.</b> No se volverá a mostrar. Instálalo en el <code>.env</code> del nodo {issued.camera_id} como <code>VIGIA_CENTRAL_API_TOKEN</code>.</span></p>
+      <p><b>Copia este token ahora.</b> No se volverá a mostrar. Instálalo en el <code>.env</code> del nodo {issued.camera_id} como <code>VIGIA_CENTRAL_API_TOKEN</code>.</p>
       <code className="secret-value">{issued.secret}</code>
       <div className="secret-actions">
-        <button className="secondary-action" type="button" onClick={copySecret}><Icon name={copied ? "check" : "copy"} size={16}/>{copied ? "Copiado" : "Copiar token"}</button>
-        <button className="text-action" type="button" onClick={() => setIssued(null)}>Ya lo guardé</button>
+        <button className="admin-pill ok" type="button" onClick={copySecret}>{copied && <Icon name="check" size={30}/>}{copied ? "Copiado" : "Copiar token"}</button>
+        <button className="admin-pill outline" type="button" onClick={() => setIssued(null)}>Ya lo guardé</button>
       </div>
       <span className="visually-hidden" role="status" aria-live="polite">{copied ? "Token copiado al portapapeles" : ""}</span>
     </div>}
     {error && <p className="error-message admin-message" role="alert">{error}</p>}
     <ul className="credential-list">{ordered.map((credential) => {
       const state = credentialState(credential);
+      const active = state.tone === "ok";
       return <li key={credential.id}>
-        <div className="credential-main">
-          <b>{credential.camera_id}</b>
-          <small>Emitida {observationDate(credential.created_at)} · vence {observationDate(credential.expires_at)}</small>
-        </div>
-        <span className={`outcome ${state.tone}`}><Icon name={state.icon} size={13}/>{state.label}</span>
-        {state.tone === "ok" && (confirming === credential.id
-          ? <div className="revoke-confirm" role="group" aria-label={`Confirmar revocación de ${credential.camera_id}`}>
-              <span>El nodo dejará de publicar.</span>
-              <button className="text-action" onClick={() => setConfirming("")} disabled={busy}>Cancelar</button>
-              <button className="danger-action" onClick={() => revoke(credential.id)} disabled={busy}>Revocar</button>
-            </div>
-          : <button className="text-action revoke-action" onClick={() => setConfirming(credential.id)} disabled={busy} aria-label={`Revocar credencial de ${credential.camera_id}`}>Revocar</button>)}
+        <b className="credential-camera">{credential.camera_id}</b>
+        <span className="credential-dates">Emitida {observationDate(credential.created_at)} · vence {observationDate(credential.expires_at)}</span>
+        <span className={`admin-pill wide ${active ? "ok" : "warn"}`}>{active && <Icon name="check" size={30}/>}{state.label}</span>
+        {active && confirming !== credential.id && <button className="admin-pill wide outline" onClick={() => setConfirming(credential.id)} disabled={busy} aria-label={`Revocar credencial de ${credential.camera_id}`}>Revocar</button>}
+        {active && confirming === credential.id && <div className="revoke-confirm" role="group" aria-label={`Confirmar revocación de ${credential.camera_id}`}>
+          <span>El nodo {credential.camera_id} dejará de publicar detecciones.</span>
+          <button className="admin-pill wide outline" onClick={() => setConfirming("")} disabled={busy}>Cancelar</button>
+          <button className="admin-pill wide ok" onClick={() => revoke(credential.id)} disabled={busy}>Revocar</button>
+        </div>}
       </li>;
     })}</ul>
-    {!credentials.length && !error && <div className="empty-state"><b>Sin credenciales</b><p>Emite una para que el nodo edge pueda publicar detecciones.</p></div>}
+    {!credentials.length && !error && <p className="admin-empty">Sin credenciales. Emite una para que el nodo edge pueda publicar detecciones.</p>}
   </article>;
 }
