@@ -78,20 +78,24 @@ function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; o
   }
 
   return <main className="login-shell">
-    <button type="button" className="round-button login-back" onClick={onBack} aria-label="Volver al inicio"><Icon name="back" size={22}/></button>
+    <button type="button" className="back-button login-back" onClick={onBack} aria-label="Volver al inicio"><Icon name="back" size={38}/></button>
     <section className="login-card" aria-labelledby="login-title">
-      <BrandMark size={52}/>
-      <h1 id="login-title">Inicia sesión</h1>
-      <p>Las consultas, el video de las cámaras y las exportaciones requieren una cuenta autorizada y quedan registradas.</p>
+      <BrandMark size={61}/>
+      <h1 id="login-title" className="figma-title">Inicia sesión</h1>
+      <p>Las consultas, los recortes y las exportaciones requieren una cuenta autorizada y quedan registradas. Las cuentas las crea un administrador.</p>
       <form onSubmit={submit}>
         <fieldset disabled={submitting}>
-          <label className="line-field">Correo<input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required/></label>
-          <label className="line-field">Contraseña<input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/></label>
-          <button className="pill-light wide" type="submit">{submitting ? <><span className="spinner"/>Validando…</> : <>Entrar<Icon name="arrow" size={17}/></>}</button>
+          <label className="login-field"><span>Correo</span>
+            <span className="login-input"><Icon name="user" size={30}/><input type="email" autoComplete="username" placeholder="nombre@dominio.co" value={email} onChange={(event) => setEmail(event.target.value)} required/></span>
+          </label>
+          <label className="login-field"><span>Contraseña</span>
+            <span className="login-input"><Icon name="lock" size={30}/><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required/></span>
+          </label>
+          <button className="pill-figma login-submit" type="submit">{submitting ? <><span className="spinner"/>Validando…</> : "Entrar"}</button>
         </fieldset>
       </form>
       {error && <p className="error-message" role="alert">{error}</p>}
-      {offline && <p className="form-help" role="status"><Icon name="alert" size={16}/>El servicio central no responde. Puedes revisar la consola con datos de ejemplo.</p>}
+      {offline && <p className="login-note" role="status"><Icon name="alert" size={22}/>El servicio central no responde. Puedes revisar la consola con datos de ejemplo.</p>}
       <button className="text-link login-demo" type="button" onClick={onDemo}>Explorar demo sin cuenta</button>
     </section>
   </main>;
