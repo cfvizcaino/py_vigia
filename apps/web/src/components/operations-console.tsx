@@ -397,6 +397,22 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       <div className="route-options" role="group" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={25}/>Ruta {route.rank}<small>{score(route.confidence)} /100</small></button>)}</div>
       {activeRoute.has_distant_gaps && <p className="route-caution"><Icon name="alert" size={22}/>Hay tramos distantes sin observaciones intermedias. Revisa las rutas alternativas.</p>}
       <hr className="route-rule"/>
+      {isAdmin && record?.source === "central" && <p className="route-caution"><Icon name="lock" size={22}/>Los recortes y las placas son datos personales: duran 7 días y cada vista queda en la auditoría.</p>}
+      {confirmError && <p className="error-message" role="alert">{confirmError}</p>}
+      <ol className="timeline">{activeRoute.detections.map((hop, index) => {
+        const row = <>
+          <span className="timeline-dot">{index + 1}</span>
+          <span className="hop-name">{result?.nearby_devices.find((device) => device.external_id === hop.camera_id)?.name ?? hop.camera_id}</span>
+          <span className="hop-time">{observationTime(hop.observed_at)} · {percent(hop.confidence)}</span>
+        </>;
+        // Admins review each step: closed by default, opening it shows the recorte and the question.
+        return <li key={hop.detection_id} className={hop.confirmation ?? ""}>
+          {isAdmin && record?.source === "central" ? <details className="hop-details">
+            <summary>{row}{hop.confirmation && <span className={`hop-verdict ${hop.confirmation}`}>{hop.confirmation === "match" ? "Confirmado" : "Descartado"}</span>}<Icon name="chevron" size={24}/></summary>
+            <HopEvidence hop={hop} busy={confirming !== ""} onVerdict={(verdict) => confirmHop(hop, verdict)}/>
+          </details> : <div className="hop-row">{row}</div>}
+        </li>;
+      })}</ol>
       <details className="route-evidence" key={activeRoute.id}>
         <summary><Icon name="why" size={50}/>¿Por qué aparece esta ruta?</summary>
         <p>Es un puntaje de compatibilidad, no una probabilidad de identificación. Compara tiempos, detecciones y alternativas viales.</p>
@@ -410,14 +426,6 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
           <p>Agregación geométrica de tramos + {score(activeRoute.explanation.coverage_bonus)} puntos por observaciones adicionales{unknownColorNote(activeRoute)}. Dirección de imagen no usada: falta calibrar cámaras.{activeRoute.explanation.search_pruned ? " Búsqueda acotada: pueden existir otras candidatas." : ""}</p>
         </>}
       </details>
-      {isAdmin && record?.source === "central" && <p className="route-caution"><Icon name="lock" size={22}/>Los recortes y las placas son datos personales: duran 7 días y cada vista queda en la auditoría.</p>}
-      {confirmError && <p className="error-message" role="alert">{confirmError}</p>}
-      <ol className="timeline">{activeRoute.detections.map((hop, index) => <li key={hop.detection_id} className={hop.confirmation ?? ""}>
-        <span className="timeline-dot">{index + 1}</span>
-        <span className="hop-name">{result?.nearby_devices.find((device) => device.external_id === hop.camera_id)?.name ?? hop.camera_id}</span>
-        <span className="hop-time">{observationTime(hop.observed_at)} · {percent(hop.confidence)}</span>
-        {isAdmin && record?.source === "central" && <HopEvidence hop={hop} busy={confirming !== ""} onVerdict={(verdict) => confirmHop(hop, verdict)}/>}
-      </li>)}</ol>
     </> : <div className="empty-state">
       <b>{searching ? "Reconstruyendo las señales" : result ? "Sin trayectorias para estos filtros" : "Cada señal cuenta una parte"}</b>
       <p>{result ? "Prueba otro color, amplía el radio o ajusta el horario. Una detección aislada puede no formar una ruta." : "Busca un vehículo para conectar sus detecciones y explorar sus posibles recorridos."}</p>
@@ -505,8 +513,8 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     <a className="skip-link" href="#workspace">Saltar al contenido</a>
     <aside className="rail">
       <button type="button" className="rail-brand" onClick={() => go("Resumen")} aria-label="VIGÍA, resumen"><BrandMark size={61}/></button>
-      {/* The gear is the administration entry (audit and node credentials: +2 sections). */}
-      {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/><span aria-hidden="true">+2</span></button> : <span className="rail-gear-space" aria-hidden="true"/>}
+      {/* The gear is the administration entry: audit and node credentials. */}
+      {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" title="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/></button> : <span className="rail-gear-space" aria-hidden="true"/>}
       <nav className="rail-nav" aria-label="Navegación principal">{navigation.map((item) => <button key={item.label} aria-current={view === item.label ? "page" : undefined} className={view === item.label ? "active" : ""} onClick={() => go(item.label)}>
         <span className="rail-icon"><Icon name={item.icon} size={30}/></span><span>{item.label}</span>
       </button>)}</nav>

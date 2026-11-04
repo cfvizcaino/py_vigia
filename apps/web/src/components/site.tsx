@@ -44,8 +44,6 @@ export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotro
       <MoreMenu current={current}/>
     </nav>
     <div className="site-actions">
-      {/* Accounts are created by an administrator: «Regístrate» leads to sign-in, which says so. */}
-      <Link className="site-register" href="/?entrar=1">Regístrate</Link>
       <SignInAction onSignIn={onSignIn} className="site-signin"/>
     </div>
   </header>;

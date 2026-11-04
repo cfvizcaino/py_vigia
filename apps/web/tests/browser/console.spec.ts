@@ -129,6 +129,7 @@ test("weighted route explains evidence and uses the evaluated geometry", async (
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await expect(page.locator(".routes-card > *").last()).toHaveClass(/route-evidence/);
   await page.getByText("¿Por qué aparece esta ruta?", { exact: true }).click();
   await expect(page.getByText("Es un puntaje de compatibilidad", { exact: false })).toBeVisible();
   await expect(page.getByText("CAM-01 → CAM-02 · alternativa 2")).toBeVisible();
@@ -297,6 +298,7 @@ test("on the scoring database a dataset case fills the whole query form", async 
 
 test("the public site links the about page back to sign-in and the demo", async ({ page }) => {
   await page.goto("/nosotros");
+  await expect(page.getByText("Regístrate")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Innovación que nace de un desafío real." })).toBeVisible();
   await page.getByRole("link", { name: "Explorar demo" }).click();
   await expect(page.getByText("Modo demostración · datos de ejemplo")).toBeVisible();
@@ -334,12 +336,16 @@ test("an admin searches by plate, sees the recortes and confirms steps that reca
   await page.getByLabel("Placa", { exact: true }).fill("abc-123");
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect.poll(() => sent).toMatchObject({ plate: "ABC123" });
+  // Steps start closed: the recorte and the question appear only after opening them.
+  await expect(page.getByRole("button", { name: "Sí", exact: true })).toHaveCount(0);
+  for (const step of await page.locator(".hop-details summary").all()) await step.click();
   await expect(page.getByLabel("Placa ABC123")).toBeVisible();
   await expect(page.getByText("Recorte vencido")).toBeVisible();
   await expect(page.getByText("Sin recorte").first()).toBeVisible();
   await page.getByRole("button", { name: "Sí", exact: true }).first().click();
   await expect.poll(() => verdict).toBe("match");
   await expect(page.getByRole("button", { name: "Sí", exact: true }).first()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".hop-verdict.match")).toHaveText("Confirmado");
   await expect(page.locator(".route-options button")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
