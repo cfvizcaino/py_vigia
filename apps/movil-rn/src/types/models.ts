@@ -80,6 +80,9 @@ export interface RouteDetection {
   direction: string;
   confidence: number;
   observed_at: string;
+  license_plate?: string | null | undefined;
+  confirmation?: 'match' | 'reject' | null | undefined;
+  has_thumbnail?: boolean | undefined;
 }
 
 export interface CandidateRoute {

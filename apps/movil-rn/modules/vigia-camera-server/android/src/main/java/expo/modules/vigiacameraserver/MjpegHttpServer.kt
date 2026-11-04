@@ -3,8 +3,6 @@ package expo.modules.vigiacameraserver
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.graphics.Matrix
-import android.net.Uri
-import android.util.Base64
 import androidx.exifinterface.media.ExifInterface
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -15,7 +13,10 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.URI
+import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import java.util.ArrayDeque
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
@@ -183,7 +184,12 @@ internal class MjpegHttpServer(
         respond(client, 405, "Method Not Allowed")
         return
       }
-      val uri = Uri.parse(request[1])
+      val uri = try {
+        URI(request[1])
+      } catch (_: Exception) {
+        respond(client, 400, "Bad Request")
+        return
+      }
       if (!authorized(uri, headers["authorization"])) {
         respond(client, 401, "Unauthorized", mapOf("WWW-Authenticate" to "Basic realm=\"VIGIA camera\""))
         return
@@ -244,13 +250,23 @@ internal class MjpegHttpServer(
     }
   }
 
-  private fun authorized(uri: Uri, header: String?): Boolean {
+  internal fun publishFrame(frame: ByteArray) {
+    check(running) { "El servidor MJPEG no está iniciado." }
+    publish(frame)
+  }
+
+  private fun authorized(uri: URI, header: String?): Boolean {
     val expected = accessKey
     if (expected.isNullOrEmpty()) return true
-    if (uri.getQueryParameter("key") == expected) return true
+    val queryKey = uri.rawQuery?.split('&')?.firstNotNullOfOrNull { item ->
+      val separator = item.indexOf('=')
+      if (separator < 0 || item.substring(0, separator) != "key") null
+      else URLDecoder.decode(item.substring(separator + 1), StandardCharsets.UTF_8.name())
+    }
+    if (queryKey == expected) return true
     if (header?.startsWith("Basic ", ignoreCase = true) != true) return false
     return try {
-      val decoded = String(Base64.decode(header.substringAfter(' '), Base64.DEFAULT), StandardCharsets.UTF_8)
+      val decoded = String(Base64.getDecoder().decode(header.substringAfter(' ')), StandardCharsets.UTF_8)
       decoded.substringAfter(':', "") == expected && ':' in decoded
     } catch (_: Exception) {
       false

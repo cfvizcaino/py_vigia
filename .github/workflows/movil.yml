@@ -16,6 +16,12 @@ on:
       - "packages/contracts/detection-envelope-1.1.schema.json"
       - ".github/workflows/movil.yml"
   workflow_dispatch:
+    inputs:
+      run_android_e2e:
+        description: "Ejecutar flujos Maestro en emulador Android"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -47,6 +53,8 @@ jobs:
       - run: npm test -- --runInBand
       - run: npm run doctor
       - run: npx expo prebuild --clean --platform android --non-interactive
+      - name: Run native module JVM tests
+        run: cd android && ./gradlew testDebugUnitTest --no-daemon
       - name: Build Android debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
@@ -90,3 +98,23 @@ jobs:
           name: vigia-ios-unsigned
           path: apps/movil-rn/ios/build/Vigia-iOS-sin-firma.zip
           retention-days: 14
+
+  android-e2e:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_android_e2e == true
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: vigia-android-debug
+          path: artifacts
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          script: |
+            adb install artifacts/app-debug.apk
+            curl -Ls "https://get.maestro.mobile.dev" | bash
+            export PATH="$HOME/.maestro/bin:$PATH"
+            maestro test apps/movil-rn/.maestro/flows

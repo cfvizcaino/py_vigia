@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { Share, Text, View } from 'react-native';
 
-import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen } from '../components/ui';
+import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
 import { RouteMap } from '../components/RouteMap';
 import { colorNamesEs } from '../edge/colors';
 import { useSession } from '../state/session';
 import { colors } from '../theme/colors';
 
 export function ResultsScreen() {
-  const { activeResult, devices, isDemo, exportResult, error } = useSession();
+  const { activeResult, devices, isDemo, user, exportResult, confirmDetection, clearDetectionConfirmation, error } = useSession();
+  const isAdmin = !isDemo && user?.role === 'admin';
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
+  const [confirmationBusyId, setConfirmationBusyId] = useState<string | null>(null);
   if (!activeResult) return <Screen scroll={false}><EmptyState title="Sin resultados" description="Ejecuta una consulta para ver las trayectorias candidatas." /></Screen>;
 
   const exportAndShare = async () => {
@@ -23,6 +26,19 @@ export function ResultsScreen() {
       setExportError(reason instanceof Error ? reason.message : 'No fue posible exportar el resultado.');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const setConfirmation = async (detectionId: string, verdict: 'match' | 'reject' | null) => {
+    setConfirmationBusyId(detectionId);
+    setConfirmationError(null);
+    try {
+      if (verdict) await confirmDetection(String(activeResult.query.id), detectionId, verdict);
+      else await clearDetectionConfirmation(String(activeResult.query.id), detectionId);
+    } catch (reason) {
+      setConfirmationError(reason instanceof Error ? reason.message : 'No fue posible guardar el veredicto.');
+    } finally {
+      setConfirmationBusyId(null);
     }
   };
 
@@ -53,14 +69,50 @@ export function ResultsScreen() {
                   <Text key={detection.detection_id || String(detectionIndex)} style={{ color: colors.muted, lineHeight: 20 }}>
                     {detection.sequence_order}. {formatDate(detection.observed_at)} · {cameraName} · {detection.direction} · {detection.vehicle_type}
                     {detection.color ? ` ${colorNamesEs[detection.color] ?? detection.color}` : ''} · confianza {Math.round(detection.confidence * 100)}%
+                    {isAdmin && detection.license_plate ? ` · placa ${detection.license_plate}` : ''}
+                    {isAdmin && detection.confirmation ? ` · ${detection.confirmation === 'match' ? 'confirmado' : 'rechazado'}` : ''}
                   </Text>
                 );
               })}
+              {isAdmin ? [...route.detections]
+                .sort((left, right) => left.sequence_order - right.sequence_order)
+                .map((detection) => (
+                  <View key={`confirm-${detection.detection_id}`} style={{ gap: 6 }}>
+                    <Text style={{ color: colors.muted }}>
+                      {detection.detection_id} · {detection.confirmation === 'match' ? 'Confirmado' : detection.confirmation === 'reject' ? 'Rechazado' : 'Sin veredicto'}
+                    </Text>
+                    {detection.confirmation ? (
+                      <SecondaryButton
+                        title="Quitar veredicto"
+                        disabled={confirmationBusyId === detection.detection_id}
+                        onPress={() => void setConfirmation(detection.detection_id, null)}
+                      />
+                    ) : (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          <SecondaryButton
+                            title="Confirmar paso"
+                            disabled={confirmationBusyId === detection.detection_id}
+                            onPress={() => void setConfirmation(detection.detection_id, 'match')}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <SecondaryButton
+                            title="Rechazar paso"
+                            disabled={confirmationBusyId === detection.detection_id}
+                            onPress={() => void setConfirmation(detection.detection_id, 'reject')}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )) : null}
             </View>
           </Card>
         );
       })}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      {confirmationError ? <ErrorMessage>{confirmationError}</ErrorMessage> : null}
       {exportError ? <ErrorMessage>{exportError}</ErrorMessage> : null}
       <PrimaryButton
         title={isDemo ? 'Exportación no disponible en demo' : 'Exportar y compartir JSON auditado'}

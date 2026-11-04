@@ -60,15 +60,64 @@ const envelope: DetectionEnvelope = {
   detections: [],
 };
 
-async function waitFor(predicate: () => boolean): Promise<void> {
+async function waitFor(predicate: () => boolean | Promise<boolean>): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (predicate()) return;
+    if (await predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error('Outbox operation did not complete in time.');
 }
 
 describe('outbox persistente', () => {
+  test('entrega por secuencia, acepta HTTP 202 y adjunta el token del dispositivo', async () => {
+    const storage = new MemoryOutboxStorage();
+    const delivered: number[] = [];
+    const fetcher: typeof fetch = async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as { sequenceNumber: number };
+      delivered.push(body.sequenceNumber);
+      expect(new Headers(init?.headers).get('X-Vigia-Device-Token')).toBe('edge-secret');
+      return new Response(null, { status: 202 });
+    };
+    const outbox = new Outbox({
+      storage,
+      serverUrl: 'https://vigia.example',
+      token: 'edge-secret',
+      fetcher,
+      initialBackoffMs: 1,
+    });
+    await outbox.enqueue({ ...envelope, sequenceNumber: 2, eventId: '4d38b920-6db0-4c48-9b68-967a1b8f94c2' });
+    await outbox.enqueue(envelope);
+    outbox.start();
+    await waitFor(async () => delivered.length === 2 && (await outbox.getStatus()).pending === 0);
+    await outbox.stop();
+    expect(delivered).toEqual([1, 2]);
+    expect(await outbox.getStatus()).toMatchObject({ delivered: 2, pending: 0 });
+  });
+
+  test('rechaza nuevos eventos cuando la cola está llena y persiste para una nueva instancia', async () => {
+    const storage = new MemoryOutboxStorage();
+    const queued = new Outbox({ storage, serverUrl: 'https://vigia.example', token: 'edge-secret', maxQueue: 1 });
+    expect(await queued.enqueue(envelope)).toBe(true);
+    expect(await queued.enqueue({
+      ...envelope,
+      sequenceNumber: 2,
+      eventId: '4d38b920-6db0-4c48-9b68-967a1b8f94c2',
+    })).toBe(false);
+    expect(await queued.getStatus()).toMatchObject({ pending: 1, lastError: 'OUTBOX_FULL' });
+
+    const restored = new Outbox({
+      storage,
+      serverUrl: 'https://vigia.example',
+      token: 'edge-secret',
+      fetcher: async () => new Response(null, { status: 202 }),
+      initialBackoffMs: 1,
+    });
+    restored.start();
+    await waitFor(async () => (await restored.getStatus()).pending === 0);
+    await restored.stop();
+    expect(await restored.getStatus()).toMatchObject({ delivered: 1, pending: 0 });
+  });
+
   test('rechaza envelopes con 400 y conserva el evento en rechazados', async () => {
     const storage = new MemoryOutboxStorage();
     const fetcher: typeof fetch = async () => ({ ok: false, status: 400 } as Response);

@@ -2,14 +2,14 @@
   "expo": {
     "name": "VIGÍA",
     "slug": "vigia-movil",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "co.vigia.movil",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "infoPlist": {
         "NSCameraUsageDescription": "VIGÍA usa la cámara solo para transmitir al nodo de visión local o detectar vehículos en este teléfono.",
         "NSLocationWhenInUseUsageDescription": "VIGÍA usa tu ubicación solo para registrar dónde queda un nuevo edge.",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "co.vigia.movil",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#1F3A31",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -80,7 +80,9 @@
         }
       ],
       "./plugins/withVigiaAndroid",
-      "expo-asset"
+      "expo-asset",
+      "@react-native-community/datetimepicker",
+      "expo-sharing"
     ],
     "experiments": {
       "tsconfigPaths": true

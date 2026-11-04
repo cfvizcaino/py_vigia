@@ -1,0 +1,12 @@
+appId: co.vigia.movil
+---
+- launchApp
+- assertVisible: Consola del operador
+- tapOn: Explorar demo
+- assertVisible: DEMOSTRACIÓN
+- tapOn: Consultar
+- assertVisible: Consultar trayectorias
+- tapOn: Consultar trayectorias
+- assertVisible: rutas candidatas
+- tapOn: Historial
+- assertVisible: consulta

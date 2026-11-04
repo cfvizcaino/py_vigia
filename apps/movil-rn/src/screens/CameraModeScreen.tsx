@@ -52,10 +52,6 @@ export function CameraModeScreen() {
   }, []);
 
   const start = useCallback(async () => {
-    if (Platform.OS !== 'android') {
-      setError('El servidor MJPEG nativo está disponible en Android. iOS conserva la interfaz compartida.');
-      return;
-    }
     if (!device) {
       setError('No se encontró una cámara trasera disponible en este teléfono.');
       return;
@@ -179,7 +175,7 @@ export function CameraModeScreen() {
           />
         ) : (
           <View style={styles.previewPlaceholder}>
-            <Text style={styles.note}>{Platform.OS === 'android' ? 'La cámara está detenida.' : 'El servidor MJPEG se habilitará en Android.'}</Text>
+            <Text style={styles.note}>La cámara está detenida.</Text>
           </View>
         )}
         {status?.running ? (

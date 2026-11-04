@@ -50,7 +50,7 @@ export class MjpegService {
 export function createMjpegService(): MjpegService {
   const native = requireOptionalNativeModule<NativeMjpegModule>('VigiaCameraServer');
   if (!native) {
-    throw new Error('El servidor MJPEG nativo solo está disponible en la compilación Android de VIGÍA.');
+    throw new Error('El servidor MJPEG nativo no está disponible en esta compilación de VIGÍA.');
   }
   return new MjpegService(native);
 }

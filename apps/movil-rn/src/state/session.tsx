@@ -38,6 +38,8 @@ interface SessionContextValue {
   search(input: QueryInput): Promise<boolean>;
   openResult(result: QueryResult): void;
   exportResult(result: QueryResult): Promise<string>;
+  confirmDetection(queryId: string, detectionId: string, verdict: 'match' | 'reject'): Promise<QueryResult>;
+  clearDetectionConfirmation(queryId: string, detectionId: string): Promise<QueryResult>;
   createEdge(input: { cameraId: string; name: string; lat: number; lng: number; cameraModel?: string }): Promise<Device>;
   relocateEdge(deviceId: string, lat: number, lng: number): Promise<Device>;
   recentDetections(deviceId: string): Promise<DeviceDetection[]>;
@@ -194,6 +196,22 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, [isDemo, user]);
 
+  const updateConfirmation = useCallback(async (
+    queryId: string,
+    detectionId: string,
+    verdict: 'match' | 'reject' | null,
+  ) => {
+    requireAdmin();
+    const updated = verdict
+      ? await api.confirmDetection(queryId, detectionId, verdict)
+      : await api.clearDetectionConfirmation(queryId, detectionId);
+    setActiveResult(updated);
+    setHistory((previous) => previous.map((item) =>
+      String(item.query.id) === String(updated.query.id) ? updated : item,
+    ));
+    return updated;
+  }, [api, requireAdmin]);
+
   const createEdge = useCallback(async (input: {
     cameraId: string; name: string; lat: number; lng: number; cameraModel?: string;
   }) => {
@@ -235,6 +253,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     login, exploreDemo, logout, saveApiUrl, search,
     openResult: setActiveResult,
     exportResult,
+    confirmDetection: (queryId, detectionId, verdict) => updateConfirmation(queryId, detectionId, verdict),
+    clearDetectionConfirmation: (queryId, detectionId) => updateConfirmation(queryId, detectionId, null),
     createEdge, relocateEdge, recentDetections, issueCredential, listCredentials, revokeCredential,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
