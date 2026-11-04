@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppIndex, CopyButton, type Section } from "@/components/app-download";
 import { Icon, type IconName } from "@/components/icon";
-import { SiteFooter, SiteHeader } from "@/components/site";
+import { SiteFooter, SiteHeader, SiteMotion } from "@/components/site";
 import { backendUrl } from "@/lib/backend-api";
 
 export const metadata: Metadata = {
@@ -53,7 +53,7 @@ const sizeLabel = (bytes: number) => `${(bytes / 1_000_000).toLocaleString("es-C
 const dateLabel = (value: string) => new Intl.DateTimeFormat("es-CO", { timeZone: "America/Bogota", day: "numeric", month: "long", year: "numeric" }).format(new Date(value));
 
 function GuideSection({ id, icon, title, children }: { id: string; icon: IconName; title: string; children: ReactNode }) {
-  return <section id={id} className="guide-section" aria-labelledby={`${id}-title`}>
+  return <section id={id} className="guide-section" aria-labelledby={`${id}-title`} data-reveal>
     <h2 id={`${id}-title`}><span className="guide-icon"><Icon name={icon} size={20}/></span>{title}</h2>
     {children}
   </section>;
@@ -73,16 +73,16 @@ export default async function AppPage() {
   const file = release?.apk_url ? new URL(release.apk_url).pathname : "/descargas/vigia.apk";
   const fileName = file.split("/").at(-1) ?? "vigia.apk";
 
-  return <div className="site">
+  return <SiteMotion>
     <SiteHeader current="app"/>
     <div className="guide">
       <AppIndex sections={SECTIONS}/>
       <main className="guide-body">
         <section id="descargar" className="guide-hero" aria-labelledby="app-title">
-          <h1 id="app-title">La app de VIGÍA, <span>en tu teléfono.</span></h1>
-          <p>Consulta cámaras y trayectorias estimadas, registra edges y convierte el teléfono en un edge que detecta vehículos por sí mismo, o en la cámara de un nodo.</p>
-          <a className="pill-light download-pill" href={file} download={fileName}><Icon name="download" size={18}/>Descargar para Android{release ? ` · v${release.latest}` : ""}</a>
-          <dl className="release-sheet">
+          <h1 id="app-title" data-enter>La app de VIGÍA, <span>en tu teléfono.</span></h1>
+          <p data-enter>Consulta cámaras y trayectorias estimadas, registra edges y convierte el teléfono en un edge que detecta vehículos por sí mismo, o en la cámara de un nodo.</p>
+          <a data-enter className="pill-light download-pill" href={file} download={fileName}><Icon name="download" size={18}/>Descargar para Android{release ? ` · v${release.latest}` : ""}</a>
+          <dl className="release-sheet" data-enter>
             <div><dt>Versión</dt><dd>{release?.latest ?? "Vigente"}</dd></div>
             {release?.size_bytes ? <div><dt>Tamaño</dt><dd>{sizeLabel(release.size_bytes)}</dd></div> : null}
             <div><dt>Requiere</dt><dd>Android 7.0+</dd></div>
@@ -161,5 +161,5 @@ export default async function AppPage() {
       </main>
     </div>
     <SiteFooter/>
-  </div>;
+  </SiteMotion>;
 }
