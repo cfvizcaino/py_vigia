@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { animate, utils } from "animejs";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AdminPanel } from "./admin-panel";
 import { BrandMark } from "./brand";
 import type { SessionUser } from "./console-gate";
@@ -9,6 +10,7 @@ import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
 import { COLORS, REPORTED_COLORS, STATUS_LABELS, normalizePlate, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type RouteHop, type Scenario } from "@/lib/monitoring";
+import { countTo, enter, liquidMove, reducedMotion } from "@/lib/motion";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Administración";
@@ -59,8 +61,21 @@ function HopEvidence({ hop, busy, onVerdict }: { hop: RouteHop; busy: boolean; o
   </div>;
 }
 
-function CountPill({ value, label, tone = "gradient" }: { value: ReactNode; label: string; tone?: "gradient" | "solid" }) {
-  return <div className="count-pill"><span className={`count-value ${tone}`}>{value}</span><span>{label}</span></div>;
+function CountPill({ value, label, tone = "gradient" }: { value: number; label: string; tone?: "gradient" | "solid" }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  // Numbers count up to their value instead of appearing.
+  useEffect(() => { countTo(ref.current, value); }, [value]);
+  return <div className="count-pill"><span className={`count-value ${tone}`} ref={ref}>{value}</span><span>{label}</span></div>;
+}
+
+/** The current view leaves (a short fade and sink) before the next one is drawn. */
+function swap(change: () => void) {
+  const stage = document.querySelector(".stage");
+  if (!stage || reducedMotion()) {
+    change();
+    return;
+  }
+  animate(stage, { opacity: [1, 0], translateY: [0, 14], filter: ["blur(0px)", "blur(6px)"], duration: 200, ease: "inQuad", onComplete: change });
 }
 
 /** `user` null means the anonymous demo: no request reaches the central service. */
@@ -212,21 +227,19 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   }
 
   function go(next: View) {
-    setView(next);
-    setDetail(null);
     setMenuOpen(false);
+    if (next === view && !detail) return;
+    swap(() => { setView(next); setDetail(null); });
   }
 
   function compose() {
-    setView("Resumen");
-    setDetail(null);
-    setComposing(true);
+    swap(() => { setView("Resumen"); setDetail(null); setComposing(true); });
   }
 
   function back() {
     if (view === "Consultas" && detail === "search") compose();
-    else if (view === "Consultas" && detail === "history") setDetail(null);
-    else if (view === "Resumen") setComposing(false);
+    else if (view === "Consultas" && detail === "history") swap(() => setDetail(null));
+    else if (view === "Resumen") swap(() => setComposing(false));
     else go("Resumen");
   }
 
@@ -254,9 +267,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       setRecord(next);
       setHistory((current) => [next, ...current].slice(0, 20));
       setRouteId(data.routes[0]?.id ?? "");
-      setView("Consultas");
-      setDetail("search");
-      window.scrollTo({ top: 0 });
+      swap(() => { setView("Consultas"); setDetail("search"); window.scrollTo({ top: 0 }); });
     } catch (error) {
       if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "No fue posible ejecutar la consulta.");
     } finally {
@@ -320,6 +331,76 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     window.location.reload();
   }
+
+  // ── Motion: every change of screen has a real flow instead of appearing at once ──
+  const railRef = useRef<HTMLElement>(null);
+  const railDropRef = useRef<HTMLSpanElement>(null);
+  const railPlaced = useRef(false);
+  const screenKey = `${view}|${detail ?? ""}|${composing}`;
+
+  // The new view comes in: the stage, then its pieces one after another, and the title.
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    const stage = document.querySelector(".stage");
+    if (stage) utils.set(stage, { opacity: 1, translateY: 0, filter: "blur(0px)" });
+    const pieces = enter(".stage-main > *, .stage-aside > *, .map-card, .stage.single > *", { step: 55, distance: 26, duration: 800 });
+    const title = animate(".title-row h1", { opacity: [0, 1], translateX: [-28, 0], duration: 800, ease: "outExpo" });
+    const rows = composing ? enter(".query-card .line-row, .query-card .radius-label, .query-card .range-ticks, .query-card .query-actions", { delay: 180, step: 45, distance: 14, duration: 650 }) : null;
+    return () => { pieces?.revert(); title.revert(); rows?.revert(); };
+  }, [screenKey, composing]);
+
+  // On first load the rail and the header slide in.
+  useLayoutEffect(() => {
+    if (reducedMotion()) return;
+    const rail = enter(".rail-brand, .rail-gear, .rail-nav > button", { step: 60, distance: 0, duration: 700 });
+    const railSlide = animate(".rail-brand, .rail-gear, .rail-nav > button", { translateX: [-24, 0], duration: 800, ease: "outExpo" });
+    const header = enter(".topbar .account > *, .back-button, .network-pill", { step: 70, distance: 16, duration: 800 });
+    return () => { rail?.revert(); railSlide.revert(); header?.revert(); };
+  }, []);
+
+  // The rail's violet drop flows to the active section (or to the gear for administration).
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    const drop = railDropRef.current;
+    const icon = rail?.querySelector<HTMLElement>(view === "Administración" ? ".rail-gear" : '.rail-nav [aria-current="page"] .rail-icon');
+    if (!rail || !drop || !icon) return;
+    // Offsets inside the rail ignore the transforms of the entrance animation.
+    const offset = (element: HTMLElement) => {
+      let left = 0, top = 0;
+      for (let node: HTMLElement | null = element; node && node !== rail; node = node.offsetParent as HTMLElement | null) {
+        left += node.offsetLeft;
+        top += node.offsetTop;
+      }
+      return { left, top };
+    };
+    const place = (instant: boolean) => {
+      const { left, top } = offset(icon);
+      const horizontal = getComputedStyle(rail).flexDirection === "row";
+      drop.style.width = `${icon.offsetWidth}px`;
+      drop.style.height = `${icon.offsetHeight}px`;
+      if (horizontal) {
+        drop.style.top = `${top}px`;
+        drop.style.left = "0px";
+        liquidMove(drop, "x", left, undefined, instant);
+      } else {
+        drop.style.left = `${left}px`;
+        drop.style.top = "0px";
+        liquidMove(drop, "y", top, undefined, instant);
+      }
+    };
+    place(!railPlaced.current);
+    railPlaced.current = true;
+    const onResize = () => place(true);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [view]);
+
+  // Choosing another candidate route replays its steps in order.
+  useEffect(() => {
+    if (!activeRoute) return;
+    const steps = enter(".timeline > li", { step: 70, distance: 12, duration: 650 });
+    return () => { steps?.revert(); };
+  }, [activeRoute?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isResumen = view === "Resumen";
   const title = view === "Cámaras" ? "Dispositivos de la red." : view === "Administración" ? "Auditoría y credenciales." : view === "Consultas" ? detail ? "Trayectorias estimadas." : "Registros de búsqueda." : composing ? "Nueva consulta" : "Resumen";
@@ -407,7 +488,11 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
         </>;
         // Admins review each step: closed by default, opening it shows the recorte and the question.
         return <li key={hop.detection_id} className={hop.confirmation ?? ""}>
-          {isAdmin && record?.source === "central" ? <details className="hop-details">
+          {isAdmin && record?.source === "central" ? <details className="hop-details" onToggle={(event) => {
+            // Opening a step unfolds the recorte and the question.
+            const evidence = event.currentTarget.querySelector(".hop-evidence");
+            if (event.currentTarget.open && evidence && !reducedMotion()) animate(evidence, { opacity: [0, 1], translateY: [-12, 0], scale: [.98, 1], duration: 520, ease: "outExpo" });
+          }}>
             <summary>{row}{hop.confirmation && <span className={`hop-verdict ${hop.confirmation}`}>{hop.confirmation === "match" ? "Confirmado" : "Descartado"}</span>}<Icon name="chevron" size={24}/></summary>
             <HopEvidence hop={hop} busy={confirming !== ""} onVerdict={(verdict) => confirmHop(hop, verdict)}/>
           </details> : <div className="hop-row">{row}</div>}
@@ -439,7 +524,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   });
   const historyPanel = <section className="history-card" aria-labelledby="history-title">
     <div className="history-title"><h2 id="history-title">Historial de consultas</h2><button type="button" className="icon-only" aria-label="Filtrar consultas" onClick={() => document.getElementById("history-filter")?.focus()}><Icon name="filters" size={34}/></button></div>
-    {history.length ? historyFiltered.length ? <div className="history-list">{historyFiltered.map((item) => <button key={item.result.query.id} className={record === item ? "selected" : ""} onClick={() => { setRecord(item); setRouteId(item.result.routes[0]?.id ?? ""); setDetail("history"); }}>
+    {history.length ? historyFiltered.length ? <div className="history-list">{historyFiltered.map((item) => <button key={item.result.query.id} className={record === item ? "selected" : ""} onClick={() => swap(() => { setRecord(item); setRouteId(item.result.routes[0]?.id ?? ""); setDetail("history"); })}>
       <Icon name={item.result.query.vehicle_type === "motorcycle" ? "motorcycle" : "car"} size={51}/>
       <span className="history-main"><b>{[item.result.query.vehicle_type ? vehicleLabel(item.result.query.vehicle_type) : "Todos los vehículos", colorLabel(item.result.query.color, "")].filter(Boolean).join(" | ")}</b><small>{observationDate(item.result.query.time_from)}. {observationTime(item.result.query.time_from)}–{observationTime(item.result.query.time_to)}</small></span>
       <span className="history-source">{item.source === "demo" ? "Demostración" : "Servicio central"}</span>
@@ -493,7 +578,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   </div>;
   else stage = <div className={`stage ${composing ? "" : "compact"}`}>
     <div className="stage-main">
-      <button type="button" className={`search-pill launcher ${composing ? "open" : ""}`} aria-expanded={composing} aria-controls="query-form" onClick={() => setComposing((open) => !open)}>
+      <button type="button" className={`search-pill launcher ${composing ? "open" : ""}`} aria-expanded={composing} aria-controls="query-form" onClick={() => swap(() => setComposing((open) => !open))}>
         <Icon name="search" size={38}/><span>Nueva consulta</span>
       </button>
       {composing && queryForm}
@@ -511,7 +596,8 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
 
   return <div className="app-shell">
     <a className="skip-link" href="#workspace">Saltar al contenido</a>
-    <aside className="rail">
+    <aside className="rail" ref={railRef}>
+      <span className="rail-drop" ref={railDropRef} aria-hidden="true"/>
       <button type="button" className="rail-brand" onClick={() => go("Resumen")} aria-label="VIGÍA, resumen"><BrandMark size={61}/></button>
       {/* The gear is the administration entry: audit and node credentials. */}
       {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" title="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/></button> : <span className="rail-gear-space" aria-hidden="true"/>}

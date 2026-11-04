@@ -1,26 +1,57 @@
 "use client";
 
+import { animate, onScroll, stagger, utils } from "animejs";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { enter, leave, liquidMove, reducedMotion, scrollToY } from "@/lib/motion";
 import { BrandMark } from "./brand";
 
 type Actions = { onSignIn?: () => void; onDemo?: () => void };
 
+/**
+ * A link that lets the page leave before the next one arrives. An anchor on the same
+ * page scrolls there smoothly instead of jumping.
+ */
+export function MotionLink({ href, className, children, ...rest }: { href: string; className?: string; children: ReactNode } & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href">) {
+  const router = useRouter();
+  const pathname = usePathname();
+  function onClick(event: React.MouseEvent<HTMLAnchorElement>) {
+    rest.onClick?.(event);
+    if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    const [path, hash] = href.split("#");
+    if (hash && (path || "/") === pathname) {
+      const target = document.getElementById(hash);
+      if (!target) return;
+      event.preventDefault();
+      scrollToY(target.getBoundingClientRect().top + window.scrollY - 24);
+      window.history.replaceState(null, "", `#${hash}`);
+      return;
+    }
+    if (reducedMotion() || (path || "/") === pathname) return;
+    event.preventDefault();
+    leave(".site main, .site-footer, .site-header .site-actions", () => router.push(href));
+  }
+  return <Link href={href} className={className} {...rest} onClick={onClick}>{children}</Link>;
+}
+
 /** Buttons when the console gate is mounted; links back to it from other pages. */
 function SignInAction({ onSignIn, className }: { onSignIn?: () => void; className: string }) {
-  return onSignIn ? <button type="button" className={className} onClick={onSignIn}>Inicia sesión</button> : <Link className={className} href="/?entrar=1">Inicia sesión</Link>;
+  return onSignIn ? <button type="button" className={className} onClick={onSignIn}>Inicia sesión</button> : <MotionLink className={className} href="/?entrar=1">Inicia sesión</MotionLink>;
 }
 function DemoAction({ onDemo, label = "Explorar demo" }: { onDemo?: () => void; label?: string }) {
-  return onDemo ? <button type="button" className="pill-figma" onClick={onDemo}>{label}</button> : <Link className="pill-figma" href="/?demo=1">{label}</Link>;
+  return onDemo ? <button type="button" className="pill-figma" onClick={onDemo} data-enter>{label}</button> : <MotionLink className="pill-figma" href="/?demo=1" data-enter>{label}</MotionLink>;
 }
 
 /** «Más» in the Figma navigation: holds the pages the design leaves out of the bar. */
 function MoreMenu({ current }: { current: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    if (listRef.current && !reducedMotion()) animate(listRef.current, { opacity: [0, 1], translateY: [-8, 0], scale: [.96, 1], duration: 380, ease: "outExpo" });
     const close = (event: MouseEvent | KeyboardEvent) => {
       if (event instanceof KeyboardEvent ? event.key === "Escape" : !ref.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -29,19 +60,54 @@ function MoreMenu({ current }: { current: string }) {
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
   }, [open]);
   return <div className="more-menu" ref={ref}>
-    <button type="button" aria-expanded={open} aria-controls="more-links" aria-current={current === "app" ? "page" : undefined} onClick={() => setOpen((value) => !value)}>Más</button>
-    {open && <div id="more-links"><Link href="/app">App Android</Link></div>}
+    <button type="button" data-nav aria-expanded={open} aria-controls="more-links" aria-current={current === "app" ? "page" : undefined} onClick={() => setOpen((value) => !value)}>Más</button>
+    {open && <div id="more-links" ref={listRef}><MotionLink href="/app">App Android</MotionLink></div>}
   </div>;
 }
 
+/** The navigation's drop: it rests under the current page and flows to whatever the pointer visits. */
+function useNavDrop() {
+  const navRef = useRef<HTMLElement>(null);
+  const dropRef = useRef<HTMLSpanElement>(null);
+  const restOn = (item: Element | null | undefined, instant = false) => {
+    const nav = navRef.current;
+    const drop = dropRef.current;
+    if (!nav || !drop) return;
+    if (!item) {
+      drop.style.opacity = "0";
+      return;
+    }
+    const box = (item as HTMLElement).getBoundingClientRect();
+    const origin = nav.getBoundingClientRect();
+    drop.style.opacity = "1";
+    liquidMove(drop, "x", box.left - origin.left, box.width, instant);
+  };
+  const current = () => navRef.current?.querySelector('[data-nav][aria-current="page"]');
+  useLayoutEffect(() => {
+    restOn(current(), true);
+    const onResize = () => restOn(current(), true);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const handlers = {
+    onPointerOver: (event: React.PointerEvent) => restOn((event.target as Element).closest("[data-nav]")),
+    onFocus: (event: React.FocusEvent) => restOn((event.target as Element).closest("[data-nav]")),
+    onPointerLeave: () => restOn(current()),
+    onBlur: () => restOn(current()),
+  };
+  return { navRef, dropRef, handlers };
+}
+
 export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotros" | "app" } & Actions) {
+  const { navRef, dropRef, handlers } = useNavDrop();
   return <header className="site-header">
-    <Link href="/" className="site-brand" aria-label="VIGÍA, inicio"><BrandMark size={61}/></Link>
-    <nav className="site-nav" aria-label="Sitio">
-      <Link href="/" aria-current={current === "inicio" ? "page" : undefined}>Home</Link>
-      <Link href="/nosotros" aria-current={current === "nosotros" ? "page" : undefined}>Nosotros</Link>
-      <Link href="/#soluciones">Soluciones</Link>
+    <MotionLink href="/" className="site-brand" aria-label="VIGÍA, inicio"><BrandMark size={61}/></MotionLink>
+    <nav className="site-nav" aria-label="Sitio" ref={navRef} {...handlers}>
+      <MotionLink href="/" data-nav aria-current={current === "inicio" ? "page" : undefined}>Home</MotionLink>
+      <MotionLink href="/nosotros" data-nav aria-current={current === "nosotros" ? "page" : undefined}>Nosotros</MotionLink>
+      <MotionLink href="/#soluciones" data-nav>Soluciones</MotionLink>
       <MoreMenu current={current}/>
+      <span className="nav-drop" ref={dropRef} aria-hidden="true"/>
     </nav>
     <div className="site-actions">
       <SignInAction onSignIn={onSignIn} className="site-signin"/>
@@ -49,11 +115,37 @@ export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotro
   </header>;
 }
 
+/**
+ * Brings a page in: elements marked data-enter rise one after another, and blocks marked
+ * data-reveal (their children, when it is "stagger") rise as they scroll into view.
+ */
+export function SiteMotion({ children, className = "site" }: { children: ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root || reducedMotion()) return;
+    const animations = [enter(root.querySelectorAll("[data-enter]"), { step: 110, distance: 36, duration: 1100 })];
+    const glow = root.querySelector(".hero-glow");
+    if (glow) animations.push(animate(glow, { opacity: [0, 1], scale: [.7, 1], duration: 1800, delay: 350, ease: "outExpo" }));
+    const observers = [...root.querySelectorAll<HTMLElement>("[data-reveal]")].map((block) => {
+      const targets = block.dataset.reveal === "stagger" ? [...block.children] : [block];
+      utils.set(targets, { opacity: 0, translateY: 56 });
+      return animate(targets, {
+        opacity: [0, 1], translateY: [56, 0], filter: ["blur(10px)", "blur(0px)"],
+        duration: 1100, delay: stagger(130), ease: "outExpo",
+        autoplay: onScroll({ target: block, enter: { target: "start", container: "end-=8%" } }),
+      });
+    });
+    return () => { animations.forEach((animation) => animation?.revert()); observers.forEach((animation) => animation.revert()); };
+  }, []);
+  return <div className={className} ref={ref}>{children}</div>;
+}
+
 export function SiteClosing({ onDemo }: Actions) {
-  return <section className="site-closing" aria-labelledby="closing-title">
+  return <section className="site-closing" aria-labelledby="closing-title" data-reveal="stagger">
     <h2 id="closing-title" className="gray-title">El siguiente movimiento es tuyo.</h2>
     <p>Descubre el potencial de VIGÍA y da el primer paso hacia una nueva forma de abordar la inteligencia vehicular.</p>
-    <DemoAction onDemo={onDemo}/>
+    {onDemo ? <button type="button" className="pill-figma" onClick={onDemo}>Explorar demo</button> : <MotionLink className="pill-figma" href="/?demo=1">Explorar demo</MotionLink>}
   </section>;
 }
 
@@ -61,7 +153,7 @@ export function SiteFooter() {
   return <footer className="site-footer">
     <div className="footer-top">
       <span className="footer-brand"><BrandMark size={22}/>VIGÍA · Piloto en Barranquilla, Colombia</span>
-      <nav aria-label="Pie de página"><Link href="/">Inicio</Link><Link href="/nosotros">Nosotros</Link><Link href="/app">App Android</Link></nav>
+      <nav aria-label="Pie de página"><MotionLink href="/">Inicio</MotionLink><MotionLink href="/nosotros">Nosotros</MotionLink><MotionLink href="/app">App Android</MotionLink></nav>
     </div>
     <LegalNotice/>
   </footer>;
@@ -85,60 +177,119 @@ const STEPS: { id: string; title: string; text: string; scene: ReactNode }[] = [
   { id: "exploracion", title: "Exploración", text: "La consola relaciona las observaciones y propone recorridos posibles, cada uno con su puntaje y su evidencia.", scene: <ExplorationScene/> },
 ];
 
-export function Landing({ onSignIn, onDemo }: Required<Actions>) {
+/**
+ * «De la cámara al análisis»: on wide screens the section stays in view while the page
+ * scrolls through it and each quarter of that scroll is one stage. The bar's drop flows
+ * from stage to stage. Clicking a stage scrolls to its quarter; elsewhere it just selects.
+ */
+function Process() {
   const [step, setStep] = useState(0);
+  const [pinned, setPinned] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLSpanElement>(null);
+  const stepsRef = useRef<HTMLDivElement>(null);
+  const screenRef = useRef<HTMLDivElement>(null);
+  const placed = useRef(false);
+
+  useEffect(() => {
+    const wide = window.matchMedia("(min-width: 1101px)");
+    const update = () => setPinned(wide.matches && !reducedMotion());
+    update();
+    wide.addEventListener("change", update);
+    return () => wide.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!pinned || !trackRef.current) return;
+    const observer = onScroll({
+      target: trackRef.current,
+      enter: { target: "start", container: "start" },
+      leave: { target: "end", container: "end" },
+      onUpdate: (self) => setStep(Math.min(STEPS.length - 1, Math.floor(self.progress * STEPS.length))),
+    });
+    return () => { observer.revert(); };
+  }, [pinned]);
+
+  useLayoutEffect(() => {
+    const button = stepsRef.current?.querySelectorAll<HTMLElement>("[role=tab]")[step];
+    if (!button) return;
+    liquidMove(dropRef.current, "y", button.offsetTop, button.offsetHeight, !placed.current);
+    placed.current = true;
+    if (screenRef.current && !reducedMotion()) animate(screenRef.current, { opacity: [0, 1], scale: [.96, 1], filter: ["blur(8px)", "blur(0px)"], duration: 700, ease: "outExpo" });
+  }, [step]);
+
+  function select(index: number) {
+    const track = trackRef.current;
+    if (!pinned || !track) {
+      setStep(index);
+      return;
+    }
+    const top = track.getBoundingClientRect().top + window.scrollY;
+    const range = track.offsetHeight - window.innerHeight;
+    scrollToY(top + range * (index + .5) / STEPS.length);
+  }
 
   function onStepKey(event: React.KeyboardEvent, index: number) {
     const next = event.key === "ArrowDown" || event.key === "ArrowRight" ? index + 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? index - 1 : null;
     if (next === null) return;
     event.preventDefault();
     const target = (next + STEPS.length) % STEPS.length;
+    select(target);
     setStep(target);
     document.getElementById(`step-tab-${STEPS[target].id}`)?.focus();
   }
 
-  return <div className="site">
+  return <section className={`process ${pinned ? "pinned" : ""}`} id="proceso" aria-labelledby="process-title">
+    <div className="process-track" ref={trackRef}>
+      <div className="process-pin">
+        <h2 id="process-title" className="gray-title">De la cámara al análisis.</h2>
+        <p className="process-lede">De cada imagen, una pista. De cada pista, una posible ruta.</p>
+        <div className="process-body">
+          <div className="process-steps" role="tablist" aria-orientation="vertical" aria-label="Etapas de VIGÍA" ref={stepsRef}>
+            <span className="process-drop" ref={dropRef} aria-hidden="true"/>
+            {STEPS.map((item, index) => <button key={item.id} id={`step-tab-${item.id}`} role="tab" type="button" aria-selected={step === index} aria-controls={`step-panel-${item.id}`} tabIndex={step === index ? 0 : -1} onClick={() => select(index)} onKeyDown={(event) => onStepKey(event, index)}>
+              <b>{item.title}</b><span>{item.text}</span>
+            </button>)}
+          </div>
+          <div className="process-stage" id={`step-panel-${STEPS[step].id}`} role="tabpanel" aria-labelledby={`step-tab-${STEPS[step].id}`}>
+            <div className="process-screen" key={STEPS[step].id} ref={screenRef}>{STEPS[step].scene}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>;
+}
+
+export function Landing({ onSignIn, onDemo }: Required<Actions>) {
+  return <SiteMotion>
     <SiteHeader current="inicio" onSignIn={onSignIn}/>
     <main>
       <section className="hero" aria-labelledby="hero-title">
-        <h1 id="hero-title">De observaciones aisladas a <span>recorridos posibles.</span></h1>
-        <p>VIGÍA convierte las detecciones de tus cámaras en trayectorias estimadas de vehículos, en segundos.</p>
+        <h1 id="hero-title" data-enter>De observaciones aisladas a <span>recorridos posibles.</span></h1>
+        <p data-enter>VIGÍA convierte las detecciones de tus cámaras en trayectorias estimadas de vehículos, en segundos.</p>
         <DemoAction onDemo={onDemo}/>
         <div className="hero-glow" aria-hidden="true"/>
-        <figure className="hero-frame">
+        <figure className="hero-frame" data-enter>
           <Image src="/landing/consola-figma.webp" alt="Consola de VIGÍA en modo demostración: trayectoria estimada de un automóvil blanco con dos rutas candidatas, su recorrido por cámaras y el mapa de Barranquilla" width={1600} height={773} priority sizes="(max-width: 900px) 100vw, 1200px"/>
         </figure>
       </section>
 
       <section className="solutions" id="soluciones" aria-labelledby="solutions-title">
-        <h2 id="solutions-title" className="gray-title">Inteligencia que conecta cada observación.</h2>
-        <a className="explore-link" href="#proceso">Explorar soluciones</a>
-        <div className="solution-grid">
+        <h2 id="solutions-title" className="gray-title" data-reveal>Inteligencia que conecta cada observación.</h2>
+        <MotionLink className="explore-link" href="/#proceso">Explorar soluciones</MotionLink>
+        <div className="solution-grid" data-reveal="stagger">
           <article className="solution detection"><div className="solution-visual"><DetectionVisual/></div><h3>Detección inteligente</h3><p>Identificamos vehículos y analizamos características como su tipo y color mediante modelos de visión por computador.</p></article>
           <article className="solution network"><div className="solution-visual framed"><NetworkVisual/></div><h3>Procesamiento distribuido</h3><p>Procesamos imágenes cerca de las cámaras y conectamos los eventos relevantes en una plataforma central.</p></article>
           <article className="solution routes"><div className="solution-visual framed"><RouteVisual/></div><h3>Análisis de recorridos</h3><p>Relacionamos observaciones para visualizar y explorar posibles trayectorias vehiculares.</p></article>
         </div>
       </section>
 
-      <section className="process" id="proceso" aria-labelledby="process-title">
-        <h2 id="process-title" className="gray-title">De la cámara al análisis.</h2>
-        <p className="process-lede">De cada imagen, una pista. De cada pista, una posible ruta.</p>
-        <div className="process-body">
-          <div className="process-steps" role="tablist" aria-orientation="vertical" aria-label="Etapas de VIGÍA">
-            {STEPS.map((item, index) => <button key={item.id} id={`step-tab-${item.id}`} role="tab" type="button" aria-selected={step === index} aria-controls={`step-panel-${item.id}`} tabIndex={step === index ? 0 : -1} onClick={() => setStep(index)} onKeyDown={(event) => onStepKey(event, index)}>
-              <b>{item.title}</b><span>{item.text}</span>
-            </button>)}
-          </div>
-          <div className="process-stage" id={`step-panel-${STEPS[step].id}`} role="tabpanel" aria-labelledby={`step-tab-${STEPS[step].id}`}>
-            <div className="process-screen" key={STEPS[step].id}>{STEPS[step].scene}</div>
-          </div>
-        </div>
-      </section>
+      <Process/>
 
       <SiteClosing onDemo={onDemo}/>
     </main>
     <SiteFooter/>
-  </div>;
+  </SiteMotion>;
 }
 
 /* Diagrams: exact geometry describing what each stage does, not pictures. */

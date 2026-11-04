@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SiteClosing, SiteFooter, SiteHeader } from "@/components/site";
+import { SiteClosing, SiteFooter, SiteHeader, SiteMotion } from "@/components/site";
 
 export const metadata: Metadata = {
   title: "Nosotros | VIGÍA",
@@ -13,21 +13,23 @@ const STORY = [
 ];
 
 export default function Nosotros() {
-  return <div className="site about">
+  return <SiteMotion className="site about">
     <SiteHeader current="nosotros"/>
     <main>
       <section className="hero about-hero" aria-labelledby="about-title">
-        <h1 id="about-title">Innovación que nace de un desafío real.</h1>
-        <p>Somos VIGÍA, un proyecto de ingeniería que combina inteligencia artificial y tecnología para desarrollar nuevas soluciones de análisis vehicular.</p>
+        <h1 id="about-title" data-enter>Innovación que nace de un desafío real.</h1>
+        <p data-enter>Somos VIGÍA, un proyecto de ingeniería que combina inteligencia artificial y tecnología para desarrollar nuevas soluciones de análisis vehicular.</p>
       </section>
       <section className="origin" aria-labelledby="origin-title">
+        <div data-reveal="stagger">
         <p className="section-label">Nuestro origen</p>
         <h2 id="origin-title" className="gray-title">Todo comenzó con una pregunta: <span>¿cómo conectar lo que las cámaras ven por separado?</span></h2>
-        <ol className="origin-steps">
+        </div>
+        <ol className="origin-steps" data-reveal="stagger">
           {STORY.map((item, index) => <li key={item.title} className={index === 1 ? "featured" : ""}><h3>{item.title}</h3><p>{item.text}</p></li>)}
         </ol>
       </section>
-      <section className="mission" aria-labelledby="mission-title">
+      <section className="mission" aria-labelledby="mission-title" data-reveal="stagger">
         <p className="section-label">Misión</p>
         <h2 id="mission-title" className="gray-title">Convertir información dispersa en <span>conocimiento útil.</span></h2>
         <p>Desarrollar tecnología que permita aprovechar observaciones vehiculares mediante inteligencia artificial, procesamiento distribuido y herramientas de análisis accesibles para operadores autorizados.</p>
@@ -35,5 +37,5 @@ export default function Nosotros() {
       <SiteClosing/>
     </main>
     <SiteFooter/>
-  </div>;
+  </SiteMotion>;
 }

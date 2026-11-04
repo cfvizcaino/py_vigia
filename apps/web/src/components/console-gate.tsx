@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { animate } from "animejs";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { enter, leave, reducedMotion } from "@/lib/motion";
 import { BrandMark } from "./brand";
 import { Icon } from "./icon";
 import { OperationsConsole } from "./operations-console";
@@ -48,9 +50,10 @@ export function ConsoleGate() {
   if (state.kind === "user") return <OperationsConsole user={state.user}/>;
   if (state.kind === "demo") return <OperationsConsole user={null}/>;
   if (state.kind === "loading") return <main className="splash" aria-busy="true"><BrandMark size={56} title="VIGÍA"/><span className="visually-hidden">Comprobando la sesión…</span></main>;
-  const openDemo = () => setState({ kind: "demo" });
-  if (screen === "login") return <LoginScreen offline={state.offline} onLogin={(user) => setState({ kind: "user", user })} onDemo={openDemo} onBack={() => setScreen("landing")}/>;
-  return <Landing onSignIn={() => { setScreen("login"); window.scrollTo(0, 0); }} onDemo={openDemo}/>;
+  // Each screen leaves before the next one comes in.
+  const openDemo = () => leave("main, .site-header, .site-footer", () => setState({ kind: "demo" }));
+  if (screen === "login") return <LoginScreen offline={state.offline} onLogin={(user) => leave(".login-shell", () => setState({ kind: "user", user }))} onDemo={openDemo} onBack={() => leave(".login-shell", () => setScreen("landing"))}/>;
+  return <Landing onSignIn={() => leave(".site", () => { setScreen("login"); window.scrollTo(0, 0); })} onDemo={openDemo}/>;
 }
 
 function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; onLogin: (user: SessionUser) => void; onDemo: () => void; onBack: () => void }) {
@@ -58,6 +61,23 @@ function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; o
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const cardRef = useRef<HTMLElement>(null);
+
+  // The card rises out of a blur, then its pieces follow one after another.
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    if (!card || reducedMotion()) return;
+    const rise = animate(card, { opacity: [0, 1], translateY: [48, 0], scale: [.96, 1], filter: ["blur(12px)", "blur(0px)"], duration: 1000, ease: "outExpo" });
+    const parts = enter(card.querySelectorAll(".brand-mark, h1, :scope > p, .login-field, .login-submit, .login-demo"), { delay: 180, step: 70, distance: 18, duration: 800 });
+    const back = animate(".login-back", { opacity: [0, 1], translateX: [-24, 0], duration: 800, delay: 300, ease: "outExpo" });
+    return () => { rise.revert(); parts?.revert(); back.revert(); };
+  }, []);
+
+  // A refused sign-in shakes the card, the way a door does not open.
+  useEffect(() => {
+    if (!error || !cardRef.current || reducedMotion()) return;
+    animate(cardRef.current, { translateX: [{ to: -14 }, { to: 12 }, { to: -8 }, { to: 5 }, { to: 0 }], duration: 520, ease: "inOutSine" });
+  }, [error]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,7 +99,7 @@ function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; o
 
   return <main className="login-shell">
     <button type="button" className="back-button login-back" onClick={onBack} aria-label="Volver al inicio"><Icon name="back" size={38}/></button>
-    <section className="login-card" aria-labelledby="login-title">
+    <section className="login-card" aria-labelledby="login-title" ref={cardRef}>
       <BrandMark size={61}/>
       <h1 id="login-title" className="figma-title">Inicia sesión</h1>
       <p>Las consultas, los recortes y las exportaciones requieren una cuenta autorizada y quedan registradas. Las cuentas las crea un administrador.</p>
