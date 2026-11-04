@@ -343,7 +343,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     if (reducedMotion()) return;
     const stage = document.querySelector(".stage");
     if (stage) utils.set(stage, { opacity: 1, translateY: 0, filter: "blur(0px)" });
-    const pieces = enter(".stage-main > *, .stage-aside > *, .map-card, .stage.single > *", { step: 55, distance: 26, duration: 800 });
+    const pieces = enter(".stage-main > *, .stage-aside > *, .map-card, .stage.single > :not(.admin-grid), .admin-grid > *", { step: 55, distance: 26, duration: 800 });
     const title = animate(".title-row h1", { opacity: [0, 1], translateX: [-28, 0], duration: 800, ease: "outExpo" });
     const rows = composing ? enter(".query-card .line-row, .query-card .radius-label, .query-card .range-ticks, .query-card .query-actions", { delay: 180, step: 45, distance: 14, duration: 650 }) : null;
     return () => { pieces?.revert(); title.revert(); rows?.revert(); };
@@ -403,7 +403,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   }, [activeRoute?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isResumen = view === "Resumen";
-  const title = view === "Cámaras" ? "Dispositivos de la red." : view === "Administración" ? "Auditoría y credenciales." : view === "Consultas" ? detail ? "Trayectorias estimadas." : "Registros de búsqueda." : composing ? "Nueva consulta" : "Resumen";
+  const title = view === "Cámaras" ? "Dispositivos de la red." : view === "Administración" ? "Control accesos." : view === "Consultas" ? detail ? "Trayectorias estimadas." : "Registros de búsqueda." : composing ? "Nueva consulta" : "Resumen";
   const canGoBack = view !== "Resumen" || composing;
   const [year, month, day] = (date || "--").split("-");
   const setDatePart = (part: 0 | 1 | 2, value: string) => {
@@ -556,7 +556,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   </>;
 
   let stage: ReactNode;
-  if (view === "Administración" && user?.role === "admin") stage = <div className="stage single"><AdminPanel cameras={cameras}/></div>;
+  if (view === "Administración" && user?.role === "admin") stage = <div className="stage single admin-stage"><AdminPanel cameras={cameras}/></div>;
   else if (view === "Cámaras") stage = <div className="stage">
     <div className="stage-main">
       <label className="search-pill"><Icon name="search" size={38}/><input aria-label="Filtrar cámaras" placeholder="Buscar nombre o identificador..." value={deviceFilter} onChange={(event) => setDeviceFilter(event.target.value)}/></label>
@@ -600,7 +600,7 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       <span className="rail-drop" ref={railDropRef} aria-hidden="true"/>
       <button type="button" className="rail-brand" onClick={() => go("Resumen")} aria-label="VIGÍA, resumen"><BrandMark size={61}/></button>
       {/* The gear is the administration entry: audit and node credentials. */}
-      {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" title="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/></button> : <span className="rail-gear-space" aria-hidden="true"/>}
+      {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" title="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/>{adminActive && <span className="rail-gear-label" aria-hidden="true">Administración</span>}</button> : <span className="rail-gear-space" aria-hidden="true"/>}
       <nav className="rail-nav" aria-label="Navegación principal">{navigation.map((item) => <button key={item.label} aria-current={view === item.label ? "page" : undefined} className={view === item.label ? "active" : ""} onClick={() => go(item.label)}>
         <span className="rail-icon"><Icon name={item.icon} size={30}/></span><span>{item.label}</span>
       </button>)}</nav>

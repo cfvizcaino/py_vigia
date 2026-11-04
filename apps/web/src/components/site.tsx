@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { enter, leave, liquidMove, reducedMotion, scrollToY } from "@/lib/motion";
+import { enter, glide, leave, liquidMove, reducedMotion, scrollToElement, scrollToY, startSmoothScroll } from "@/lib/motion";
 import { BrandMark } from "./brand";
 
 type Actions = { onSignIn?: () => void; onDemo?: () => void };
@@ -25,7 +25,7 @@ export function MotionLink({ href, className, children, ...rest }: { href: strin
       const target = document.getElementById(hash);
       if (!target) return;
       event.preventDefault();
-      scrollToY(target.getBoundingClientRect().top + window.scrollY - 24);
+      scrollToElement(target);
       window.history.replaceState(null, "", `#${hash}`);
       return;
     }
@@ -124,6 +124,7 @@ export function SiteMotion({ children, className = "site" }: { children: ReactNo
   useLayoutEffect(() => {
     const root = ref.current;
     if (!root || reducedMotion()) return;
+    const stopSmoothScroll = startSmoothScroll();
     const animations = [enter(root.querySelectorAll("[data-enter]"), { step: 110, distance: 36, duration: 1100 })];
     const glow = root.querySelector(".hero-glow");
     if (glow) animations.push(animate(glow, { opacity: [0, 1], scale: [.7, 1], duration: 1800, delay: 350, ease: "outExpo" }));
@@ -136,7 +137,7 @@ export function SiteMotion({ children, className = "site" }: { children: ReactNo
         autoplay: onScroll({ target: block, enter: { target: "start", container: "end-=8%" } }),
       });
     });
-    return () => { animations.forEach((animation) => animation?.revert()); observers.forEach((animation) => animation.revert()); };
+    return () => { stopSmoothScroll(); animations.forEach((animation) => animation?.revert()); observers.forEach((animation) => animation.revert()); };
   }, []);
   return <div className={className} ref={ref}>{children}</div>;
 }
@@ -213,9 +214,9 @@ function Process() {
   useLayoutEffect(() => {
     const button = stepsRef.current?.querySelectorAll<HTMLElement>("[role=tab]")[step];
     if (!button) return;
-    liquidMove(dropRef.current, "y", button.offsetTop, button.offsetHeight, !placed.current);
+    glide(dropRef.current, "y", button.offsetTop, button.offsetHeight, !placed.current);
     placed.current = true;
-    if (screenRef.current && !reducedMotion()) animate(screenRef.current, { opacity: [0, 1], scale: [.96, 1], filter: ["blur(8px)", "blur(0px)"], duration: 700, ease: "outExpo" });
+    if (screenRef.current && !reducedMotion()) animate(screenRef.current, { opacity: [0, 1], scale: [.98, 1], filter: ["blur(6px)", "blur(0px)"], duration: 620, ease: "outCubic" });
   }, [step]);
 
   function select(index: number) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { animate, createSpring, stagger, type JSAnimation } from "animejs";
+import { animate, spring, stagger, type JSAnimation } from "animejs";
+import Lenis from "lenis";
 
 /** Visitors who ask for less motion get the final state at once (the e2e tests run this way). */
 export function reducedMotion() {
@@ -8,7 +9,7 @@ export function reducedMotion() {
 }
 
 /** A soft spring with a little overshoot: the drop arrives, bulges and settles. */
-export const dropSpring = createSpring({ mass: 1, stiffness: 170, damping: 15 });
+export const dropSpring = spring({ mass: 1, stiffness: 170, damping: 15 });
 const EASE_OUT = "outExpo";
 
 /** Elements rise into place one after another, coming out of a slight blur. */
@@ -63,14 +64,80 @@ export function liquidMove(element: HTMLElement | null, axis: "x" | "y", to: num
   return animate(element, { [translate]: to, ...(size !== undefined ? { [sizeProperty]: size } : {}), ease: dropSpring });
 }
 
-/** Smoothly scrolls the page to a vertical position. */
-export function scrollToY(y: number) {
-  const root = document.scrollingElement ?? document.documentElement;
-  if (reducedMotion()) {
-    root.scrollTop = y;
+/**
+ * The same drop, for indicators that follow the page's scroll: it glides and stretches a
+ * little while moving but never overshoots, so scrolling does not feel like it bounces.
+ */
+export function glide(element: HTMLElement | null, axis: "x" | "y", to: number, size?: number, instant = false) {
+  if (!element) return;
+  const translate = axis === "x" ? "translateX" : "translateY";
+  const stretch = axis === "x" ? "scaleX" : "scaleY";
+  const sizeProperty = axis === "x" ? "width" : "height";
+  if (instant || reducedMotion()) {
+    element.style.transform = `${translate}(${to}px)`;
+    if (size !== undefined) element.style[sizeProperty] = `${size}px`;
     return;
   }
-  animate(root, { scrollTop: y, duration: 1100, ease: "inOutQuart" });
+  animate(element, { [stretch]: [{ to: 1.18, duration: 260, ease: "outSine" }, { to: 1, duration: 420, ease: "inOutSine" }] });
+  animate(element, { [translate]: to, ...(size !== undefined ? { [sizeProperty]: size } : {}), duration: 680, ease: "inOutCubic" });
+}
+
+// Ease in and out, no overshoot: the page accelerates gently and settles without a bounce.
+const easeInOutCubic = (t: number) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+let lenis: Lenis | null = null;
+
+/**
+ * Smooth scrolling for the public pages: the wheel glides with a soft inertia instead of
+ * jumping by steps, and in-page links travel there. Off for visitors who ask for less
+ * motion and on touch screens (their own scrolling already has momentum).
+ */
+export function startSmoothScroll() {
+  if (reducedMotion() || lenis) return () => {};
+  const instance = new Lenis({ lerp: .085, wheelMultiplier: .9, smoothWheel: true, autoRaf: true, allowNestedScroll: true, stopInertiaOnNavigate: true });
+  lenis = instance;
+  // Links to a section of this same page travel there instead of jumping (the section's
+  // scroll-margin-top is kept, so a sticky index never covers its heading).
+  const onClick = (event: MouseEvent) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = (event.target as Element | null)?.closest?.("a[href]");
+    if (!(link instanceof HTMLAnchorElement)) return;
+    const url = new URL(link.href);
+    if (!url.hash || url.origin !== location.origin || url.pathname !== location.pathname) return;
+    const target = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+    if (!target) return;
+    event.preventDefault();
+    scrollToElement(target);
+    history.replaceState(history.state, "", url.hash);
+  };
+  document.addEventListener("click", onClick);
+  return () => {
+    document.removeEventListener("click", onClick);
+    instance.destroy();
+    if (lenis === instance) lenis = null;
+  };
+}
+
+/** Scrolls to an element, keeping its scroll-margin-top (24 px when it has none). */
+export function scrollToElement(target: Element) {
+  const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 24;
+  // offsetTop ignores transforms, so a section still waiting for its reveal (moved down
+  // until it appears) is measured where it will end up.
+  let top = 0;
+  for (let node = target as HTMLElement | null; node; node = node.offsetParent as HTMLElement | null) top += node.offsetTop;
+  scrollToY(top - margin);
+}
+
+/** Smoothly scrolls the page to a vertical position. */
+export function scrollToY(y: number) {
+  if (reducedMotion()) {
+    window.scrollTo({ top: y, behavior: "instant" });
+    return;
+  }
+  if (lenis) {
+    lenis.scrollTo(y, { duration: 1.1, easing: easeInOutCubic });
+    return;
+  }
+  window.scrollTo({ top: y, behavior: "smooth" });
 }
 
 /** Counts a number up to its new value inside an element. */

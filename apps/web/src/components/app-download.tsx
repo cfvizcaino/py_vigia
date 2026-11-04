@@ -25,7 +25,12 @@ export function AppIndex({ sections }: { sections: Section[] }) {
   // On phones the index is a row of chips: keep the current one in view.
   useEffect(() => {
     if (!window.matchMedia("(max-width: 860px)").matches) return;
-    document.querySelector(`.app-index a[href="#${active}"]`)?.scrollIntoView({ inline: "nearest", block: "nearest" });
+    // Only the chip row moves sideways; the page itself keeps its own scroll.
+    const chip = document.querySelector<HTMLElement>(`.app-index a[href="#${active}"]`);
+    const row = chip?.closest("ol");
+    if (!chip || !row) return;
+    const left = chip.offsetLeft - row.offsetLeft;
+    if (left < row.scrollLeft || left + chip.offsetWidth > row.scrollLeft + row.clientWidth - 32) row.scrollTo({ left: Math.max(0, left - 16), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
   }, [active]);
   useEffect(() => {
     const visible = new Map<string, number>();
