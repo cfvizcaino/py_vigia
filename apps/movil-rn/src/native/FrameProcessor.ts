@@ -10,6 +10,7 @@ import { decodeYolo, intersectionOverUnion } from '../edge/detections';
 import { prepareCrop, prepareInput, prepareThumbnail } from '../edge/preprocess';
 import type { ThumbnailPixels } from '../edge/preprocess';
 import type { Box, Detection, FrameData } from '../edge/types';
+import { rotationForOrientation } from './orientation';
 
 // Module constants: VisionCamera memoizes the output on these values, so an
 // inline object would rebuild the camera session on every render.
@@ -181,14 +182,7 @@ function pickThumbnail(
 
 function readFrame(frame: Frame, extraRotation: number): FrameData {
   'worklet';
-  const orientationRotation = frame.orientation === 'right'
-    ? 90
-    : frame.orientation === 'down'
-      ? 180
-      : frame.orientation === 'left'
-        ? 270
-        : 0;
-  const rotation = (((orientationRotation + extraRotation) % 360 + 360) % 360) as 0 | 90 | 180 | 270;
+  const rotation = rotationForOrientation(frame.orientation, extraRotation);
   if (frame.isPlanar) {
     return {
       format: 'yuv420',

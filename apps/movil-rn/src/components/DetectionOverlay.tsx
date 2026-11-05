@@ -28,9 +28,13 @@ export function DetectionOverlay({ overlay, extraRotation }: { overlay: EdgeOver
               { left: `${box.x1 * 100}%`, top: `${box.y1 * 100}%`, width: `${(box.x2 - box.x1) * 100}%`, height: `${(box.y2 - box.y1) * 100}%` },
             ]}
           >
-            <Text style={styles.label} numberOfLines={1}>
-              {vehicleTypeName(track.label)}{color ? ` ${color}` : ''} {Math.round(track.score * 100)}%
-            </Text>
+            {/* The label row may be wider than a small box; the text keeps its own width.
+                Near the top edge it goes inside the box so it is not clipped. */}
+            <View style={[styles.labelRow, box.y1 < 0.05 ? styles.labelRowInside : null]}>
+              <Text style={styles.label} numberOfLines={1}>
+                {vehicleTypeName(track.label)}{color ? ` ${color}` : ''} {Math.round(track.score * 100)}%
+              </Text>
+            </View>
           </View>
         );
       })}
@@ -68,13 +72,7 @@ function unturn(x: number, y: number, width: number, height: number, rotation: n
 
 const styles = StyleSheet.create({
   box: { position: 'absolute', borderWidth: 2, borderColor: boxColor },
-  label: {
-    position: 'absolute',
-    top: -16,
-    left: -2,
-    backgroundColor: boxColor,
-    color: '#000',
-    fontSize: 11,
-    paddingHorizontal: 2,
-  },
+  labelRow: { position: 'absolute', top: -17, left: -2, width: 240, flexDirection: 'row' },
+  labelRowInside: { top: 0, left: 0 },
+  label: { backgroundColor: boxColor, color: '#000', fontSize: 11, paddingHorizontal: 3 },
 });
