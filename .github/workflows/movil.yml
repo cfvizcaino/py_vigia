@@ -53,11 +53,8 @@ jobs:
       - run: npm test -- --runInBand
       - run: npm run doctor
       - run: npx expo prebuild --clean --platform android --non-interactive
-<<<<<<< HEAD
       - name: Run native module JVM tests
         run: cd android && ./gradlew testDebugUnitTest --no-daemon
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
       - name: Build Android debug APK
         run: cd android && ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
