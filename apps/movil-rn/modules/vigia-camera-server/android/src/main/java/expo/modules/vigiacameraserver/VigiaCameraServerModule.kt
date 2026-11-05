@@ -12,7 +12,6 @@ import java.io.FileInputStream
 import java.security.MessageDigest
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kotlin.typedarray.Uint8Array
 
 class VigiaCameraServerModule : Module() {
   private var server: MjpegHttpServer?
@@ -33,11 +32,12 @@ class VigiaCameraServerModule : Module() {
 
     // Recorte of a vehicle for an admin to confirm by eye: RGB pixels from the
     // frame processor, encoded here because JPEG in JavaScript is too slow.
-    AsyncFunction("encodeRgbJpeg") { pixels: Uint8Array, width: Int, height: Int, quality: Int ->
+    // ByteArray, not Uint8Array: Expo copies the pixels on the JS thread. A
+    // Uint8Array would be read from this background queue while the JS GC may
+    // already have freed it (SIGSEGV seen on the OPPO CPH2599).
+    AsyncFunction("encodeRgbJpeg") { rgb: ByteArray, width: Int, height: Int, quality: Int ->
       require(width in 1..4096 && height in 1..4096) { "Tamaño de recorte inválido." }
-      require(pixels.byteLength == width * height * 3) { "El recorte no tiene width × height × 3 bytes." }
-      val rgb = ByteArray(pixels.byteLength)
-      pixels.read(rgb, 0, rgb.size)
+      require(rgb.size == width * height * 3) { "El recorte no tiene width × height × 3 bytes." }
       val colors = IntArray(width * height) { index ->
         val offset = index * 3
         (0xFF shl 24) or
