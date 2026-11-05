@@ -83,7 +83,15 @@
       "expo-asset",
       "@react-native-community/datetimepicker",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true

@@ -2,6 +2,64 @@ import type { Box, FrameData, Letterbox, ModelInput } from './types';
 
 const PAD_VALUE = 114 / 255;
 
+function clamp(value: number): number {
+  'worklet';
+  return Math.max(0, Math.min(255, value));
+}
+
+function readRgb(frame: FrameData, x: number, y: number): [number, number, number] {
+  'worklet';
+  if (frame.format === 'bgra8888' || frame.format === 'rgba8888' || frame.format === 'rgb888') {
+    const plane = frame.planes[0];
+    if (!plane) throw new RangeError('El frame BGRA no contiene plano.');
+    const bytesPerPixel = plane.bytesPerPixel ?? (frame.format === 'rgb888' ? 3 : 4);
+    const pixel = y * plane.bytesPerRow + x * bytesPerPixel;
+    if (frame.format === 'rgba8888' || frame.format === 'rgb888') {
+      return [plane.bytes[pixel] ?? 0, plane.bytes[pixel + 1] ?? 0, plane.bytes[pixel + 2] ?? 0];
+    }
+    return [plane.bytes[pixel + 2] ?? 0, plane.bytes[pixel + 1] ?? 0, plane.bytes[pixel] ?? 0];
+  }
+
+  const [luma, uPlane, vPlane] = frame.planes;
+  if (!luma || !uPlane || (frame.planes.length !== 2 && !vPlane)) {
+    throw new RangeError('El frame YUV420 no contiene planos suficientes.');
+  }
+  const yy = luma.bytes[y * luma.bytesPerRow + x] ?? 0;
+  const uvX = Math.floor(x / 2);
+  const uvY = Math.floor(y / 2);
+  const interleaved = frame.planes.length === 2;
+  const uPixelStride = interleaved ? 2 : (uPlane.bytesPerPixel ?? 1);
+  const vPixelStride = interleaved ? 2 : (vPlane?.bytesPerPixel ?? 1);
+  const uIndex = uvY * uPlane.bytesPerRow + uvX * uPixelStride;
+  const vIndex = interleaved ? uIndex + 1 : uvY * (vPlane?.bytesPerRow ?? 0) + uvX * vPixelStride;
+  const cb = (uPlane.bytes[uIndex] ?? 128) - 128;
+  const cr = ((interleaved ? uPlane.bytes[vIndex] : vPlane?.bytes[vIndex]) ?? 128) - 128;
+  return [
+    clamp(yy + ((91881 * cr) >> 16)),
+    clamp(yy - ((22554 * cb + 46802 * cr) >> 16)),
+    clamp(yy + ((116130 * cb) >> 16)),
+  ];
+}
+
+export function uprightToSensor(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation: number,
+): [number, number] {
+  'worklet';
+  if (rotation === 90) return [y, height - 1 - x];
+  if (rotation === 180) return [width - 1 - x, height - 1 - y];
+  if (rotation === 270) return [width - 1 - y, x];
+  return [x, y];
+}
+
+export function toUpright(letterbox: Letterbox, x: number, y: number): [number, number] {
+  'worklet';
+  return [(x - letterbox.padX) / letterbox.scale, (y - letterbox.padY) / letterbox.scale];
+}
+
 export function prepareInput(frame: FrameData, size: number, channelsFirst = false): ModelInput {
   'worklet';
   const rotation = ((frame.rotationDegrees ?? 0) % 360 + 360) % 360;
@@ -125,62 +183,4 @@ export function prepareThumbnail(frame: FrameData, box: Box, maxSide = 224, marg
     }
   }
   return { rgb, width: outWidth, height: outHeight };
-}
-
-export function uprightToSensor(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  rotation: number,
-): [number, number] {
-  'worklet';
-  if (rotation === 90) return [y, height - 1 - x];
-  if (rotation === 180) return [width - 1 - x, height - 1 - y];
-  if (rotation === 270) return [width - 1 - y, x];
-  return [x, y];
-}
-
-export function toUpright(letterbox: Letterbox, x: number, y: number): [number, number] {
-  'worklet';
-  return [(x - letterbox.padX) / letterbox.scale, (y - letterbox.padY) / letterbox.scale];
-}
-
-function readRgb(frame: FrameData, x: number, y: number): [number, number, number] {
-  'worklet';
-  if (frame.format === 'bgra8888' || frame.format === 'rgba8888' || frame.format === 'rgb888') {
-    const plane = frame.planes[0];
-    if (!plane) throw new RangeError('El frame BGRA no contiene plano.');
-    const bytesPerPixel = plane.bytesPerPixel ?? (frame.format === 'rgb888' ? 3 : 4);
-    const pixel = y * plane.bytesPerRow + x * bytesPerPixel;
-    if (frame.format === 'rgba8888' || frame.format === 'rgb888') {
-      return [plane.bytes[pixel] ?? 0, plane.bytes[pixel + 1] ?? 0, plane.bytes[pixel + 2] ?? 0];
-    }
-    return [plane.bytes[pixel + 2] ?? 0, plane.bytes[pixel + 1] ?? 0, plane.bytes[pixel] ?? 0];
-  }
-
-  const [luma, uPlane, vPlane] = frame.planes;
-  if (!luma || !uPlane || (frame.planes.length !== 2 && !vPlane)) {
-    throw new RangeError('El frame YUV420 no contiene planos suficientes.');
-  }
-  const yy = luma.bytes[y * luma.bytesPerRow + x] ?? 0;
-  const uvX = Math.floor(x / 2);
-  const uvY = Math.floor(y / 2);
-  const interleaved = frame.planes.length === 2;
-  const uPixelStride = interleaved ? 2 : (uPlane.bytesPerPixel ?? 1);
-  const vPixelStride = interleaved ? 2 : (vPlane?.bytesPerPixel ?? 1);
-  const uIndex = uvY * uPlane.bytesPerRow + uvX * uPixelStride;
-  const vIndex = interleaved ? uIndex + 1 : uvY * (vPlane?.bytesPerRow ?? 0) + uvX * vPixelStride;
-  const cb = (uPlane.bytes[uIndex] ?? 128) - 128;
-  const cr = ((interleaved ? uPlane.bytes[vIndex] : vPlane?.bytes[vIndex]) ?? 128) - 128;
-  return [
-    clamp(yy + ((91881 * cr) >> 16)),
-    clamp(yy - ((22554 * cb + 46802 * cr) >> 16)),
-    clamp(yy + ((116130 * cb) >> 16)),
-  ];
-}
-
-function clamp(value: number): number {
-  'worklet';
-  return Math.max(0, Math.min(255, value));
 }

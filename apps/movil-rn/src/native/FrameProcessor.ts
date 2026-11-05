@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFrameOutput } from 'react-native-vision-camera';
 import type { CameraFrameOutput, Frame } from 'react-native-vision-camera';
 import { scheduleOnRN } from 'react-native-worklets';
 import type { TfliteModel } from 'react-native-fast-tflite';
+import { NitroModules } from 'react-native-nitro-modules';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { decodeYolo, intersectionOverUnion } from '../edge/detections';
@@ -48,6 +49,11 @@ export function useVehicleFrameOutput(input: {
   const lastFrameTimestamp = useSharedValue(0);
   // null: the central keeps no recortes (or none wanted yet), so none are made.
   const thumbnailGates = useSharedValue<ThumbnailGate[] | null>(null);
+  // TfliteModel is a Nitro HybridObject (jsi::NativeState): captured as-is, the
+  // worklet runtime sees an object without methods ("undefined is not a
+  // function" on runSync). Boxing makes it a HostObject the worklet can unbox.
+  const boxedDetector = useMemo(() => (input.detector ? NitroModules.box(input.detector) : null), [input.detector]);
+  const boxedColorModel = useMemo(() => (input.colorModel ? NitroModules.box(input.colorModel) : null), [input.colorModel]);
   const output = useFrameOutput({
     targetResolution: frameResolution,
     pixelFormat: 'rgb',
@@ -63,12 +69,14 @@ export function useVehicleFrameOutput(input: {
       }
       lastFrameTimestamp.value = startedAt;
       try {
-        if (!input.detector) {
+        if (!boxedDetector) {
           return;
         }
+        const detector = boxedDetector.unbox();
+        const colorModel = boxedColorModel ? boxedColorModel.unbox() : null;
         const frameData = readFrame(frame, input.extraRotation);
         const modelInput = prepareInput(frameData, input.inputSize, true);
-        const rawOutput = input.detector.runSync([modelInput.pixels.buffer as ArrayBuffer])[0];
+        const rawOutput = detector.runSync([modelInput.pixels.buffer as ArrayBuffer])[0];
         if (!rawOutput) throw new Error('El detector no devolvió tensores de salida.');
         const detections = decodeYolo(
           new Float32Array(rawOutput),
@@ -79,14 +87,14 @@ export function useVehicleFrameOutput(input: {
         );
         const colorVotes: (Record<string, number> | null)[] = detections.map(() => null);
         let colorFailureCount = 0;
-        if (input.colorModel) {
+        if (colorModel) {
           let selected = 0;
           for (let index = 0; index < detections.length && selected < 3; index++) {
             const detection = detections[index];
             if (!detection || detection.box.x2 - detection.box.x1 < 24 || detection.box.y2 - detection.box.y1 < 24) continue;
             try {
               const crop = prepareCrop(frameData, detection.box, 128, true);
-              const output = input.colorModel.runSync([crop.buffer as ArrayBuffer])[0];
+              const output = colorModel.runSync([crop.buffer as ArrayBuffer])[0];
               if (!output) continue;
               const probabilities = new Float32Array(output);
               const votes: Record<string, number> = {};

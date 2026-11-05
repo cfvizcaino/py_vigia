@@ -6,6 +6,78 @@ export const vehicleLabels: Readonly<Record<number, Detection['label']>> = {
   3: 'motorcycle',
 };
 
+function clamp(value: number, max: number): number {
+  'worklet';
+  return Math.max(0, Math.min(max, value));
+}
+
+function boxArea(box: Box): number {
+  'worklet';
+  return Math.max(0, box.x2 - box.x1) * Math.max(0, box.y2 - box.y1);
+}
+
+function looksNormalized(output: Float32Array, rows: number, stride: number, columns: number[]): boolean {
+  'worklet';
+  let max = 0;
+  for (let row = 0; row < rows; row++) {
+    for (const column of columns) max = Math.max(max, Math.abs(output[row * stride + column] ?? 0));
+  }
+  return max <= 1.5;
+}
+
+function looksNormalizedChannelsFirst(output: Float32Array, anchors: number): boolean {
+  'worklet';
+  let max = 0;
+  for (let index = 0; index < 4 * anchors; index++) max = Math.max(max, Math.abs(output[index] ?? 0));
+  return max <= 1.5;
+}
+
+function convertDetection(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  score: number,
+  label: Detection['label'],
+  letterbox: Letterbox,
+): Detection {
+  'worklet';
+  const [uprightX1, uprightY1] = toUpright(letterbox, x1, y1);
+  const [uprightX2, uprightY2] = toUpright(letterbox, x2, y2);
+  return {
+    box: {
+      x1: clamp(uprightX1, letterbox.uprightWidth),
+      y1: clamp(uprightY1, letterbox.uprightHeight),
+      x2: clamp(uprightX2, letterbox.uprightWidth),
+      y2: clamp(uprightY2, letterbox.uprightHeight),
+    },
+    score,
+    label,
+  };
+}
+
+export function intersectionOverUnion(left: Box, right: Box): number {
+  'worklet';
+  const width = Math.min(left.x2, right.x2) - Math.max(left.x1, right.x1);
+  const height = Math.min(left.y2, right.y2) - Math.max(left.y1, right.y1);
+  if (width <= 0 || height <= 0) return 0;
+  const intersection = width * height;
+  const union = boxArea(left) + boxArea(right) - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+export function nonMaxSuppression(detections: Detection[], threshold = 0.5): Detection[] {
+  'worklet';
+  const sorted = [...detections].sort((a, b) => b.score - a.score);
+  const kept: Detection[] = [];
+  for (const candidate of sorted) {
+    if (kept.every((item) => item.label !== candidate.label || intersectionOverUnion(item.box, candidate.box) < threshold)) {
+      kept.push(candidate);
+    }
+  }
+  return kept;
+}
+
 export function decodeYolo(
   output: Float32Array,
   shape: number[],
@@ -72,76 +144,4 @@ export function decodeYolo(
     ));
   }
   return nonMaxSuppression(raw, iouThreshold);
-}
-
-export function intersectionOverUnion(left: Box, right: Box): number {
-  'worklet';
-  const width = Math.min(left.x2, right.x2) - Math.max(left.x1, right.x1);
-  const height = Math.min(left.y2, right.y2) - Math.max(left.y1, right.y1);
-  if (width <= 0 || height <= 0) return 0;
-  const intersection = width * height;
-  const union = boxArea(left) + boxArea(right) - intersection;
-  return union > 0 ? intersection / union : 0;
-}
-
-export function nonMaxSuppression(detections: Detection[], threshold = 0.5): Detection[] {
-  'worklet';
-  const sorted = [...detections].sort((a, b) => b.score - a.score);
-  const kept: Detection[] = [];
-  for (const candidate of sorted) {
-    if (kept.every((item) => item.label !== candidate.label || intersectionOverUnion(item.box, candidate.box) < threshold)) {
-      kept.push(candidate);
-    }
-  }
-  return kept;
-}
-
-function convertDetection(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  score: number,
-  label: Detection['label'],
-  letterbox: Letterbox,
-): Detection {
-  'worklet';
-  const [uprightX1, uprightY1] = toUpright(letterbox, x1, y1);
-  const [uprightX2, uprightY2] = toUpright(letterbox, x2, y2);
-  return {
-    box: {
-      x1: clamp(uprightX1, letterbox.uprightWidth),
-      y1: clamp(uprightY1, letterbox.uprightHeight),
-      x2: clamp(uprightX2, letterbox.uprightWidth),
-      y2: clamp(uprightY2, letterbox.uprightHeight),
-    },
-    score,
-    label,
-  };
-}
-
-function looksNormalized(output: Float32Array, rows: number, stride: number, columns: number[]): boolean {
-  'worklet';
-  let max = 0;
-  for (let row = 0; row < rows; row++) {
-    for (const column of columns) max = Math.max(max, Math.abs(output[row * stride + column] ?? 0));
-  }
-  return max <= 1.5;
-}
-
-function looksNormalizedChannelsFirst(output: Float32Array, anchors: number): boolean {
-  'worklet';
-  let max = 0;
-  for (let index = 0; index < 4 * anchors; index++) max = Math.max(max, Math.abs(output[index] ?? 0));
-  return max <= 1.5;
-}
-
-function clamp(value: number, max: number): number {
-  'worklet';
-  return Math.max(0, Math.min(max, value));
-}
-
-function boxArea(box: Box): number {
-  'worklet';
-  return Math.max(0, box.x2 - box.x1) * Math.max(0, box.y2 - box.y1);
 }
