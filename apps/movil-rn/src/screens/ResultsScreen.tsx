@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Share, Text, View } from 'react-native';
 
-import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
+import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen, SecondaryButton, vehicleTypeName } from '../components/ui';
 import { RouteMap } from '../components/RouteMap';
 import { colorNamesEs } from '../edge/colors';
 import { useSession } from '../state/session';
@@ -45,18 +45,22 @@ export function ResultsScreen() {
   return (
     <Screen>
       {isDemo ? <DemoBadge /> : null}
-      <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700' }}>{activeResult.routes.length} rutas candidatas</Text>
-      <Text style={{ color: colors.muted }}>{activeResult.candidate_detection_count} detecciones candidatas · consulta {String(activeResult.query.id)}</Text>
+      <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700' }}>
+        {activeResult.routes.length} ruta{activeResult.routes.length === 1 ? '' : 's'} candidata{activeResult.routes.length === 1 ? '' : 's'}
+      </Text>
+      <Text style={{ color: colors.muted }}>
+        {activeResult.candidate_detection_count} detección{activeResult.candidate_detection_count === 1 ? '' : 'es'} candidata{activeResult.candidate_detection_count === 1 ? '' : 's'} · consulta {String(activeResult.query.id)}
+      </Text>
       {activeResult.routes.map((route, index) => {
         const explanation = route.explanation as { weights?: Record<string, number> } | undefined;
         const cameras = Array.isArray(route.camera_ids) ? route.camera_ids.join(' → ') : 'Cámaras no disponibles';
         return (
           <Card key={String(route.id ?? index)}>
             <Text style={{ color: colors.accent, fontSize: 18, fontWeight: '800' }}>Ruta candidata {String(route.rank ?? index + 1)} · {Math.round(Number(route.confidence ?? 0) * 100)} pts</Text>
-            <Text style={{ color: colors.muted }}>{String(route.vehicle_type ?? 'Vehículo')} · {colorNamesEs[route.color ?? ''] ?? 'Color sin determinar'} · {cameras}</Text>
+            <Text style={{ color: colors.muted }}>{vehicleTypeName(String(route.vehicle_type ?? 'Vehículo'))} · {colorNamesEs[route.color ?? ''] ?? 'Color sin determinar'} · {cameras}</Text>
             {route.has_distant_gaps ? <Text style={{ color: colors.warning }}>Hay saltos distantes entre observaciones.</Text> : null}
             <Text style={{ color: colors.subtle }}>Es un puntaje de ranking, no una probabilidad de identificación.</Text>
-            {explanation?.weights ? <Text style={{ color: colors.muted }}>Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${key} ${Math.round(value * 100)}%`).join(' · ')}</Text> : null}
+            {explanation?.weights ? <Text style={{ color: colors.muted }}>Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${weightName(key)} ${Math.round(value * 100)}%`).join(' · ')}</Text> : null}
             <RouteMap route={route} devices={activeResult.nearby_devices} />
             {typeof route.road_geometry?.distance_m === 'number' ? (
               <Text style={{ color: colors.muted }}>Recorrido vial aproximado: {(route.road_geometry.distance_m / 1000).toFixed(2)} km</Text>
@@ -67,7 +71,7 @@ export function ResultsScreen() {
                 const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
                 return (
                   <Text key={detection.detection_id || String(detectionIndex)} style={{ color: colors.muted, lineHeight: 20 }}>
-                    {detection.sequence_order}. {formatDate(detection.observed_at)} · {cameraName} · {detection.direction} · {detection.vehicle_type}
+                    {detection.sequence_order}. {formatDate(detection.observed_at)} · {cameraName} · {detection.direction} · {vehicleTypeName(detection.vehicle_type)}
                     {detection.color ? ` ${colorNamesEs[detection.color] ?? detection.color}` : ''} · confianza {Math.round(detection.confidence * 100)}%
                     {isAdmin && detection.license_plate ? ` · placa ${detection.license_plate}` : ''}
                     {isAdmin && detection.confirmation ? ` · ${detection.confirmation === 'match' ? 'confirmado' : 'rechazado'}` : ''}
@@ -122,4 +126,14 @@ export function ResultsScreen() {
       />
     </Screen>
   );
+}
+
+function weightName(value: string): string {
+  const names: Record<string, string> = {
+    detection: 'detección',
+    time: 'tiempo',
+    appearance: 'apariencia',
+    road: 'vía',
+  };
+  return names[value] ?? value;
 }

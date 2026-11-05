@@ -44,12 +44,12 @@ export function CameraMap({ devices, height, center, point, onSelectPoint }: Cam
         logo
         onLongPress={(event) => onSelectPoint?.(event.nativeEvent.lngLat)}
       >
-        <Camera initialViewState={{ center: initialCenter, zoom: 12 }} />
+        <Camera key={initialCenter.join(',')} initialViewState={{ center: initialCenter, zoom: 12 }} />
         <GeoJSONSource id="vigia-cameras" data={cameraData}>
           <Layer
             id="vigia-camera-dots"
             type="circle"
-            paint={{ 'circle-color': colors.accent, 'circle-radius': 8, 'circle-stroke-color': '#102019', 'circle-stroke-width': 2 }}
+            paint={{ 'circle-color': colors.accent, 'circle-radius': 11, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 3 }}
           />
           <Layer
             id="vigia-camera-labels"

@@ -32,6 +32,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const [models, setModels] = useState<{ detector: LoadedModel; color: LoadedModel } | null>(null);
   const [stats, setStats] = useState<EdgeStats | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [cameraStarted, setCameraStarted] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const engineRef = useRef<EdgeEngine | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
@@ -64,7 +66,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
         setModels({ detector, color });
       } catch (reason) {
         if (!cancelled) {
-          setStartupError(reason instanceof Error ? reason.message : 'No fue posible iniciar Edge autónomo.');
+          console.error('No fue posible iniciar Edge autónomo.', reason);
+          setStartupError('No fue posible iniciar Edge autónomo. Revisa los permisos, la configuración y los modelos.');
         }
       }
     })();
@@ -86,19 +89,21 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
 
   useEffect(() => {
     const engine = engineRef.current;
-    if (!engine) return;
+    if (!engine || !device) return;
     if (foreground) {
       engine.start();
       void activateKeepAwakeAsync(keepAwakeTag).catch((reason: unknown) => {
-        setStartupError(reason instanceof Error ? reason.message : 'No fue posible mantener la pantalla activa.');
+        console.error('No fue posible mantener activa la pantalla de Edge.', reason);
+        setRuntimeError('No fue posible mantener la pantalla activa.');
       });
     } else {
       void engine.stop().catch((reason: unknown) => {
-        setStartupError(reason instanceof Error ? reason.message : 'No fue posible pausar Edge autónomo.');
+        console.error('No fue posible pausar Edge autónomo.', reason);
+        setRuntimeError('No fue posible pausar Edge autónomo.');
       });
       void deactivateKeepAwake(keepAwakeTag);
     }
-  }, [foreground, models]);
+  }, [device, foreground, models]);
 
   const { output: frameOutput, setThumbnailGates } = useVehicleFrameOutput({
     detector: models?.detector.model ?? null,
@@ -126,7 +131,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
       ) : null}
       {!models && !startupError ? <Text style={styles.body}>Preparando cámara y verificando los modelos TFLite…</Text> : null}
       {models && !device ? <Text style={styles.body}>No se encontró una cámara trasera disponible.</Text> : null}
-      {models && device ? (
+      {runtimeError ? <Text accessibilityRole="alert" style={styles.error}>{runtimeError}</Text> : null}
+      {models && device && !startupError ? (
         <>
           <View
             style={[
@@ -140,8 +146,22 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
               device={device}
               isActive={foreground && permissionGranted === true}
               outputs={outputs}
-              onError={(error) => engineRef.current?.reportError(error.message.split('\n')[0] ?? error.message)}
-              onStarted={() => setStartupError(null)}
+              onError={(error) => {
+                console.error('Error de cámara en Edge autónomo.', error);
+                if (!cameraStarted) {
+                  setStartupError('No fue posible iniciar la cámara de Edge. Revisa los permisos y vuelve a intentar.');
+                  void engineRef.current?.stop().catch((reason: unknown) => {
+                    console.error('No fue posible cerrar Edge después de un error de inicio.', reason);
+                  });
+                } else {
+                  engineRef.current?.reportError('Error de cámara durante el análisis.');
+                }
+              }}
+              onStarted={() => {
+                setCameraStarted(true);
+                setStartupError(null);
+                setRuntimeError(null);
+              }}
               style={StyleSheet.absoluteFill}
             />
             <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
@@ -157,7 +177,10 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           )}
         </>
       ) : null}
-      <SecondaryButton title="Detener Edge autónomo" onPress={onStop} />
+      <SecondaryButton
+        title={(startupError || (models && !device)) && !cameraStarted ? 'Volver a configuración' : 'Detener Edge autónomo'}
+        onPress={onStop}
+      />
     </Card>
   );
 }

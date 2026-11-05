@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { bogotaDateTime } from '../time/bogota';
 
-export function Screen({ children, scroll = true }: PropsWithChildren<{ scroll?: boolean }>) {
+export function Screen({ children, scroll = true, topInset = false }: PropsWithChildren<{ scroll?: boolean; topInset?: boolean }>) {
   const content = scroll ? (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {children}
@@ -15,7 +15,7 @@ export function Screen({ children, scroll = true }: PropsWithChildren<{ scroll?:
     <View style={[styles.content, { flex: 1 }]}>{children}</View>
   );
   return (
-    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={topInset ? ['top', 'left', 'right', 'bottom'] : ['left', 'right', 'bottom']}>
       {content}
       <SafetyBanner />
     </SafeAreaView>
@@ -154,6 +154,16 @@ export function EmptyState({ title, description }: { title: string; description:
 export function formatDate(value: unknown): string {
   const date = typeof value === 'string' ? new Date(value) : new Date();
   return Number.isNaN(date.getTime()) ? 'Fecha no disponible' : bogotaDateTime(date);
+}
+
+export function vehicleTypeName(value: string): string {
+  const names: Record<string, string> = {
+    car: 'Automóvil',
+    motorcycle: 'Motocicleta',
+    bus: 'Autobús',
+    truck: 'Camión',
+  };
+  return names[value] ?? value;
 }
 
 const styles = StyleSheet.create({

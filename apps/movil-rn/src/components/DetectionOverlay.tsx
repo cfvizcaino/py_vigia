@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colorNamesEs } from '../edge/colors';
 import type { EdgeOverlay } from '../edge/engine';
 import type { Box } from '../edge/types';
+import { vehicleTypeName } from './ui';
 
 const boxColor = '#69D4A8';
 
@@ -28,7 +29,7 @@ export function DetectionOverlay({ overlay, extraRotation }: { overlay: EdgeOver
             ]}
           >
             <Text style={styles.label} numberOfLines={1}>
-              {track.label}{color ? ` ${color}` : ''} {Math.round(track.score * 100)}%
+              {vehicleTypeName(track.label)}{color ? ` ${color}` : ''} {Math.round(track.score * 100)}%
             </Text>
           </View>
         );

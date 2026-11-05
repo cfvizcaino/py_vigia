@@ -164,7 +164,8 @@ export class EdgeEngine {
       // Without a recorte the vehicle is still reported; it just cannot be confirmed by eye.
       track.thumbnailArea = previousArea;
       this.thumbnailFailures++;
-      this.lastError = `Recorte: ${reason instanceof Error ? reason.message : String(reason)}`;
+      console.error('No fue posible codificar un recorte de Edge.', reason);
+      this.lastError = 'No fue posible preparar un recorte; la detección continúa.';
     }
   }
 
@@ -209,8 +210,9 @@ export class EdgeEngine {
   }
 
   reportError(message: string): void {
+    console.error('Fallo en el procesamiento de Edge.', message);
     this.failures++;
-    this.lastError = message;
+    this.lastError = 'No se pudo analizar el fotograma. Revisa la cámara y el registro.';
     this.publishStatus();
   }
 
@@ -258,7 +260,8 @@ export class EdgeEngine {
       await this.outbox.enqueue(envelope);
       if (this.encodeThumbnail) await this.queueThumbnails(now, force);
     } catch (reason) {
-      this.lastError = reason instanceof Error ? reason.message : 'No fue posible guardar el evento edge.';
+      console.error('No fue posible guardar un evento de Edge.', reason);
+      this.lastError = 'No fue posible guardar los eventos del edge.';
       this.publishStatus();
     }
     this.publishStatus();
@@ -269,7 +272,8 @@ export class EdgeEngine {
       this.outboxStatus = await this.outbox.getStatus();
       this.publishStatus();
     } catch (reason) {
-      this.lastError = reason instanceof Error ? reason.message : 'No fue posible consultar la outbox.';
+      console.error('No fue posible consultar el estado de sincronización de Edge.', reason);
+      this.lastError = 'No fue posible consultar el estado de sincronización.';
       this.publishStatus();
     }
   }

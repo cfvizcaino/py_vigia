@@ -20,10 +20,7 @@ export function BogotaDateTimeField({ label, date, time, mode, onChange }: Bogot
   const value = mode === 'date' ? date : time ?? '';
 
   const commit = () => {
-    const formatted = mode === 'date'
-      ? `${selected.getFullYear()}-${pad(selected.getMonth() + 1)}-${pad(selected.getDate())}`
-      : `${pad(selected.getHours())}:${pad(selected.getMinutes())}`;
-    onChange(formatted);
+    onChange(formatPickerValue(selected, mode));
     setVisible(false);
   };
 
@@ -43,6 +40,19 @@ export function BogotaDateTimeField({ label, date, time, mode, onChange }: Bogot
           <Text style={{ color: colors.text, fontSize: 16 }}>{value}</Text>
         </Pressable>
       </View>
+      {Platform.OS === 'android' ? (
+        visible ? (
+          <DateTimePicker
+            display="default"
+            mode={mode}
+            onChange={(event, nextDate) => {
+              setVisible(false);
+              if (event.type === 'set' && nextDate) onChange(formatPickerValue(nextDate, mode));
+            }}
+            value={selected}
+          />
+        ) : null
+      ) : (
       <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
         <View style={{ flex: 1, justifyContent: 'center', padding: 22, backgroundColor: '#000B' }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, gap: 12 }}>
@@ -65,8 +75,15 @@ export function BogotaDateTimeField({ label, date, time, mode, onChange }: Bogot
           </View>
         </View>
       </Modal>
+      )}
     </>
   );
+}
+
+function formatPickerValue(selected: Date, mode: PickerMode): string {
+  return mode === 'date'
+    ? `${selected.getFullYear()}-${pad(selected.getMonth() + 1)}-${pad(selected.getDate())}`
+    : `${pad(selected.getHours())}:${pad(selected.getMinutes())}`;
 }
 
 function pickerValue(date: string, time?: string): Date {

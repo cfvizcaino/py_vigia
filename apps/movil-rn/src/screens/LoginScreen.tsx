@@ -53,7 +53,7 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <Screen>
+    <Screen topInset>
       <View style={{ paddingTop: 22, gap: 18 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ width: 58, height: 58, backgroundColor: '#1F3A31', borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>

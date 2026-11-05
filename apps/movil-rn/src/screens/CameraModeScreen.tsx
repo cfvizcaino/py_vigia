@@ -39,7 +39,8 @@ export function CameraModeScreen() {
     try {
       await activeService?.stop();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No fue posible detener el servidor MJPEG.');
+      console.error('No fue posible detener el servidor MJPEG.', reason);
+      setError('No fue posible detener el servidor de cámara.');
     }
   }, []);
 
@@ -62,16 +63,15 @@ export function CameraModeScreen() {
       await activateKeepAwakeAsync(keepAwakeTag);
       setStreaming(true);
     } catch (reason) {
-      let message = reason instanceof Error ? reason.message : 'No fue posible iniciar la cámara y el servidor local.';
+      console.error('No fue posible iniciar la cámara y el servidor local.', reason);
       try {
         await nextService?.stop();
       } catch (cleanupReason) {
-        const cleanupMessage = cleanupReason instanceof Error ? cleanupReason.message : 'error desconocido';
-        message = `${message} Además, no se pudo cerrar el servidor: ${cleanupMessage}`;
+        console.error('No fue posible cerrar el servidor MJPEG después de un error de inicio.', cleanupReason);
       }
       serviceRef.current = null;
       setService(null);
-      setError(message);
+      setError('No fue posible iniciar la cámara. Revisa los permisos y vuelve a intentar.');
     } finally {
       setStarting(false);
     }
@@ -100,7 +100,8 @@ export function CameraModeScreen() {
       try {
         setStatus(service.getStatus());
       } catch (reason) {
-        setError(reason instanceof Error ? reason.message : 'No se pudo leer el estado del servidor MJPEG.');
+        console.error('No se pudo leer el estado del servidor MJPEG.', reason);
+        setError('No se pudo leer el estado de la cámara.');
       }
     }, 1000);
     return () => clearInterval(statusTimer);
@@ -140,7 +141,8 @@ export function CameraModeScreen() {
                 setStarting(false);
               }}
               onCameraError={(event) => {
-                setError(`No se pudo abrir la cámara: ${firstLine(event.nativeEvent.message)}`);
+                console.error('No se pudo abrir la cámara MJPEG.', event.nativeEvent.message);
+                setError('No se pudo abrir la cámara. Revisa los permisos y vuelve a intentar.');
                 void stop();
               }}
               style={StyleSheet.absoluteFill}
@@ -203,11 +205,6 @@ export function CameraModeScreen() {
       </Card>
     </Screen>
   );
-}
-
-/** Native errors can carry a whole stack trace; the operator needs the first line. */
-function firstLine(message: string): string {
-  return message.split('\n')[0]?.trim() || 'error desconocido';
 }
 
 function createAccessKey(): string {

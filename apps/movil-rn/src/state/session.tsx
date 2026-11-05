@@ -169,12 +169,24 @@ export function SessionProvider({ children }: PropsWithChildren) {
       let result: QueryResult;
       if (isDemo) {
         const createdAt = new Date().toISOString();
+        const start = Date.parse(input.time_from);
+        const end = Date.parse(input.time_to);
+        const detections = Array.from({ length: 7 }, (_, index) => ({
+          sequence_order: index + 1,
+          detection_id: `demo-detection-${index + 1}`,
+          camera_id: index < 3 ? 'CAM-01' : 'CAM-02',
+          vehicle_type: input.vehicle_type ?? 'car',
+          color: input.color ?? 'white',
+          direction: index < 3 ? 'izquierda-a-derecha' : 'arriba-a-abajo',
+          confidence: [0.93, 0.9, 0.88, 0.91, 0.87, 0.89, 0.92][index] ?? 0.9,
+          observed_at: new Date(start + (end - start) * index / 6).toISOString(),
+        }));
         result = {
           query: { id: `demo-${Date.now()}`, created_at: createdAt, ...input },
           nearby_devices: demoDevices.map((device) => ({ ...device, distance_m: 0 })),
           candidate_detection_count: 7,
           routes: [
-            { id: 'demo-route-1', rank: 1, confidence: 0.925, has_distant_gaps: false, vehicle_type: input.vehicle_type ?? 'car', color: input.color ?? 'white', camera_ids: ['CAM-01', 'CAM-02'], detections: [], explanation: { calibrated_probability: false, weights: { detection: 0.35, time: 0.4, appearance: 0.15, road: 0.1 }, segments: [] }, road_geometry: null },
+            { id: 'demo-route-1', rank: 1, confidence: 0.925, has_distant_gaps: false, vehicle_type: input.vehicle_type ?? 'car', color: input.color ?? 'white', camera_ids: ['CAM-01', 'CAM-02'], detections, explanation: { calibrated_probability: false, weights: { detection: 0.35, time: 0.4, appearance: 0.15, road: 0.1 }, segments: [] }, road_geometry: null },
           ],
         };
       } else {

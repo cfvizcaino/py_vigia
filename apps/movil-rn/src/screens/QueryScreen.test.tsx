@@ -136,9 +136,13 @@ describe('consulta de trayectorias', () => {
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
     expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Consultar trayectorias' }));
-    await waitFor(() => expect(screen.getByText('1 rutas candidatas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('1 ruta candidata')).toBeTruthy());
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
     expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: /Results, tab/ }));
+    expect(screen.getByText(/Automóvil\s*·\s*blanco/)).toBeTruthy();
+    expect(screen.getByText(/Explicación: detección 35% · tiempo 40% · apariencia 15% · vía 10%/)).toBeTruthy();
+    expect(screen.getAllByText(/confianza \d+%/)).toHaveLength(7);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

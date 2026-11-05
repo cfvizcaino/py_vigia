@@ -50,7 +50,8 @@ export function EdgeModeScreen() {
         setHasToken(configuration.hasToken);
       })
       .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : 'No fue posible leer la configuración Edge.');
+        console.error('No fue posible leer la configuración Edge.', reason);
+        if (active) setError('No fue posible leer la configuración Edge.');
       })
       .finally(() => {
         if (active) setBusy(false);
@@ -61,20 +62,27 @@ export function EdgeModeScreen() {
   }, []);
 
   const save = async () => {
+    const cleanCameraId = cameraId.trim();
+    const cleanServerUrl = serverUrl.trim().replace(/\/+$/, '');
+    if (!/^[A-Za-z0-9._-]{1,64}$/.test(cleanCameraId)) {
+      setError('El identificador de cámara solo puede contener letras, números, punto, guion y guion bajo.');
+      return;
+    }
+    const urlIssue = validateEdgeServerUrl(cleanServerUrl);
+    if (urlIssue) {
+      setError(urlIssue);
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
-      const cleanCameraId = cameraId.trim();
-      const cleanServerUrl = serverUrl.trim().replace(/\/+$/, '');
-      if (!/^[A-Za-z0-9._-]{1,64}$/.test(cleanCameraId)) {
-        throw new Error('El identificador de cámara solo puede contener letras, números, punto, guion y guion bajo.');
-      }
-      const urlIssue = validateEdgeServerUrl(cleanServerUrl);
-      if (urlIssue) throw new Error(urlIssue);
       const previous = await readEdgeConfiguration();
       const cleanToken = token.trim() || previous?.token || '';
-      if (!cleanToken) throw new Error('Ingresa el token de edge emitido por un administrador.');
+      if (!cleanToken) {
+        setError('Ingresa el token de edge emitido por un administrador.');
+        return;
+      }
       const configuration = { cameraId: cleanCameraId, serverUrl: cleanServerUrl, token: cleanToken };
       await verifyEdgeToken(configuration);
       await saveEdgeConfiguration(configuration);
@@ -83,7 +91,8 @@ export function EdgeModeScreen() {
       setToken('');
       setNotice('Token verificado mediante un envelope vacío y configuración guardada de forma segura.');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No fue posible verificar o guardar la configuración Edge.');
+      console.error('No fue posible verificar o guardar la configuración Edge.', reason);
+      setError('No fue posible verificar o guardar la configuración Edge. Revisa el servidor y el registro.');
     } finally {
       setSaving(false);
     }
