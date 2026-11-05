@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { VisionCamera } from 'react-native-vision-camera';
 
+import { ExpandablePreview } from '../components/ExpandablePreview';
 import { Card, ChoiceRow, ErrorMessage, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
 import { CameraStreamView, createMjpegService } from '../native/mjpeg';
 import type { CameraLink, MjpegService, MjpegStatus } from '../native/mjpeg';
@@ -14,6 +15,8 @@ const keepAwakeTag = 'vigia-camera-server';
 const accessAlphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
 
 export function CameraModeScreen() {
+  // Local const so the null check carries into the preview callback.
+  const StreamView = CameraStreamView;
   const [link, setLink] = useState<CameraLink>('usb');
   const [fps, setFps] = useState(8);
   const [rotation, setRotation] = useState(0);
@@ -130,24 +133,32 @@ export function CameraModeScreen() {
       </Card>
 
       <Card title="Vista previa">
-        {streaming && CameraStreamView ? (
-          <View style={styles.preview}>
-            <CameraStreamView
-              active={streaming && foreground}
-              fps={fps}
-              extraRotation={rotation}
-              onCameraStarted={() => {
-                setCameraReady(true);
-                setStarting(false);
-              }}
-              onCameraError={(event) => {
-                console.error('No se pudo abrir la cámara MJPEG.', event.nativeEvent.message);
-                setError('No se pudo abrir la cámara. Revisa los permisos y vuelve a intentar.');
-                void stop();
-              }}
-              style={StyleSheet.absoluteFill}
-            />
-          </View>
+        {streaming && StreamView ? (
+          <ExpandablePreview
+            // The camera delivers 1280 × 720; upright it is portrait unless turned 90° or 270°.
+            aspectRatio={rotation === 90 || rotation === 270 ? 16 / 9 : 9 / 16}
+            inlineMaxHeight={420}
+            footer={status?.running ? (
+              <Text style={styles.metric}>{status.fps.toFixed(1)} fps · {status.clients} clientes · {status.frames} frames</Text>
+            ) : null}
+            renderPreview={() => (
+              <StreamView
+                active={streaming && foreground}
+                fps={fps}
+                extraRotation={rotation}
+                onCameraStarted={() => {
+                  setCameraReady(true);
+                  setStarting(false);
+                }}
+                onCameraError={(event) => {
+                  console.error('No se pudo abrir la cámara MJPEG.', event.nativeEvent.message);
+                  setError('No se pudo abrir la cámara. Revisa los permisos y vuelve a intentar.');
+                  void stop();
+                }}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+          />
         ) : (
           <View style={styles.previewPlaceholder}>
             <Text style={styles.note}>La cámara está detenida.</Text>
@@ -217,6 +228,5 @@ const styles = StyleSheet.create({
   note: { color: colors.subtle, fontSize: 12, lineHeight: 18 },
   metric: { color: colors.accent, fontSize: 13, fontWeight: '700' },
   code: { color: colors.text, fontSize: 12, lineHeight: 18, fontFamily: Platform.select({ android: 'monospace', default: 'Courier' }) },
-  preview: { width: '100%', aspectRatio: 9 / 16, maxHeight: 420, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
   previewPlaceholder: { height: 180, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceRaised, borderRadius: 8, padding: 18 },
 });

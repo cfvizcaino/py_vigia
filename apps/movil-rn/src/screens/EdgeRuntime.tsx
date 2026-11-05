@@ -5,6 +5,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
 import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
+import { ExpandablePreview } from '../components/ExpandablePreview';
 import { Card, SecondaryButton } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
@@ -134,38 +135,45 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
       {runtimeError ? <Text accessibilityRole="alert" style={styles.error}>{runtimeError}</Text> : null}
       {models && device && !startupError ? (
         <>
-          <View
-            style={[
-              styles.camera,
-              stats?.overlay
-                ? { aspectRatio: previewAspectRatio(stats.overlay.frameWidth, stats.overlay.frameHeight, extraRotation) }
-                : null,
-            ]}
-          >
-            <Camera
-              device={device}
-              isActive={foreground && permissionGranted === true}
-              outputs={outputs}
-              onError={(error) => {
-                console.error('Error de cámara en Edge autónomo.', error);
-                if (!cameraStarted) {
-                  setStartupError('No fue posible iniciar la cámara de Edge. Revisa los permisos y vuelve a intentar.');
-                  void engineRef.current?.stop().catch((reason: unknown) => {
-                    console.error('No fue posible cerrar Edge después de un error de inicio.', reason);
-                  });
-                } else {
-                  engineRef.current?.reportError('Error de cámara durante el análisis.');
-                }
-              }}
-              onStarted={() => {
-                setCameraStarted(true);
-                setStartupError(null);
-                setRuntimeError(null);
-              }}
-              style={StyleSheet.absoluteFill}
-            />
-            <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
-          </View>
+          <ExpandablePreview
+            aspectRatio={stats?.overlay ? previewAspectRatio(stats.overlay.frameWidth, stats.overlay.frameHeight, extraRotation) : 3 / 4}
+            inlineMaxHeight={460}
+            footer={stats ? (
+              <Text style={styles.metric}>
+                {stats.fps.toFixed(1)} análisis/s · {stats.activeTracks} vehículo{stats.activeTracks === 1 ? '' : 's'} · {stats.outbox?.delivered ?? 0} eventos enviados
+              </Text>
+            ) : null}
+            renderPreview={() => (
+              <>
+                <Camera
+                  device={device}
+                  isActive={foreground && permissionGranted === true}
+                  outputs={outputs}
+                  onError={(error) => {
+                    console.error('Error de cámara en Edge autónomo.', error);
+                    if (!cameraStarted) {
+                      setStartupError('No fue posible iniciar la cámara de Edge. Revisa los permisos y vuelve a intentar.');
+                      void engineRef.current?.stop().catch((reason: unknown) => {
+                        console.error('No fue posible cerrar Edge después de un error de inicio.', reason);
+                      });
+                    } else {
+                      engineRef.current?.reportError('Error de cámara durante el análisis.');
+                    }
+                  }}
+                  onStarted={() => {
+                    setCameraStarted(true);
+                    setStartupError(null);
+                    setRuntimeError(null);
+                  }}
+                  // TextureView: the default SurfaceView draws over the boxes.
+                  implementationMode="compatible"
+                  resizeMode="contain"
+                  style={StyleSheet.absoluteFill}
+                />
+                <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
+              </>
+            )}
+          />
           {foreground ? (
             stats ? (
               <EdgeStatusCard stats={stats} updateLevel={updateLevel} onUpdate={showUpdate} />
@@ -256,7 +264,6 @@ function labelsForColors(model: LoadedModel | undefined): Record<number, string>
 }
 
 const styles = StyleSheet.create({
-  camera: { width: '100%', aspectRatio: 3 / 4, maxHeight: 460, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
   body: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   metric: { color: colors.text, fontSize: 13, lineHeight: 19 },
   error: { color: '#FFB4AB', fontSize: 14, lineHeight: 20 },
