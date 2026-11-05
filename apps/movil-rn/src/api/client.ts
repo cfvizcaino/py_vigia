@@ -71,12 +71,9 @@ const routeDetectionSchema = z.object({
   direction: z.string(),
   confidence: z.number(),
   observed_at: z.string(),
-<<<<<<< HEAD
   has_thumbnail: z.boolean().optional(),
   license_plate: z.string().nullable().optional(),
   confirmation: z.enum(['match', 'reject']).nullable().optional(),
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 });
 const candidateRouteSchema = z.object({
   id: z.string(),
@@ -268,7 +265,6 @@ export class VigiaApiClient {
     ));
   }
 
-<<<<<<< HEAD
   async confirmDetection(queryId: string, detectionId: string, verdict: 'match' | 'reject'): Promise<QueryResult> {
     return parse(queryResultSchema, await this.request(
       `/api/v1/queries/${encodeURIComponent(queryId)}/confirmations/${encodeURIComponent(detectionId)}`,
@@ -283,8 +279,6 @@ export class VigiaApiClient {
     ));
   }
 
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   private async request(
     path: string,
     options: {
@@ -359,11 +353,7 @@ function messageForStatus(status: number, loginRequest: boolean): string {
   if (status === 403) return 'Tu rol no permite realizar esta acción.';
   if (status === 429) return 'Demasiados intentos. Espera 15 minutos antes de volver a intentar.';
   if (status === 404) return 'No se encontró el recurso solicitado.';
-<<<<<<< HEAD
   if (status === 409) return 'El registro ya existe o el paso fue confirmado previamente. Actualiza la información e inténtalo de nuevo.';
-=======
-  if (status === 409) return 'Ya existe un registro con ese identificador.';
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   if (status === 400 || status === 422) return 'El servidor rechazó los datos. Revisa los filtros e inténtalo de nuevo.';
   if (status >= 500) return 'El servidor central encontró un error. Intenta nuevamente.';
   return `Error del servidor (${status}).`;

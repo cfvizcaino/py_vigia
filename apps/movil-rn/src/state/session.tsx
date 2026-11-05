@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { PropsWithChildren } from 'react';
 
 import { ApiError, validateBackendUrl, VigiaApiClient } from '../api/client';
+import { migrateFlutterData } from '../storage/flutterMigration';
 import { preferences } from '../storage/preferences';
 import { secureStorage } from '../storage/secure';
 import type { AppUser, Device, DeviceDetection, EdgeCredential, IssuedCredential, QueryInput, QueryResult, Scenario } from '../types/models';
@@ -38,11 +39,8 @@ interface SessionContextValue {
   search(input: QueryInput): Promise<boolean>;
   openResult(result: QueryResult): void;
   exportResult(result: QueryResult): Promise<string>;
-<<<<<<< HEAD
   confirmDetection(queryId: string, detectionId: string, verdict: 'match' | 'reject'): Promise<QueryResult>;
   clearDetectionConfirmation(queryId: string, detectionId: string): Promise<QueryResult>;
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   createEdge(input: { cameraId: string; name: string; lat: number; lng: number; cameraModel?: string }): Promise<Device>;
   relocateEdge(deviceId: string, lat: number, lng: number): Promise<Device>;
   recentDetections(deviceId: string): Promise<DeviceDetection[]>;
@@ -81,6 +79,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
     let active = true;
     void (async () => {
       try {
+        try {
+          await migrateFlutterData();
+        } catch (reason) {
+          // Not fatal: the user can sign in again; it is retried on the next start.
+          console.warn('No fue posible migrar los datos de la app anterior.', reason);
+        }
         const savedUrl = await preferences.getApiUrl();
         if (!active) return;
         setBaseUrl(savedUrl);
@@ -199,7 +203,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, [isDemo, user]);
 
-<<<<<<< HEAD
   const updateConfirmation = useCallback(async (
     queryId: string,
     detectionId: string,
@@ -216,8 +219,6 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return updated;
   }, [api, requireAdmin]);
 
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   const createEdge = useCallback(async (input: {
     cameraId: string; name: string; lat: number; lng: number; cameraModel?: string;
   }) => {
@@ -234,10 +235,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return updated;
   }, [api, requireAdmin]);
 
+  // Every operator sees a camera's recent detections, as in Flutter; the backend enforces roles.
   const recentDetections = useCallback(async (deviceId: string) => {
-    requireAdmin();
+    if (isDemo) return [];
     return api.recentDetections(deviceId);
-  }, [api, requireAdmin]);
+  }, [api, isDemo]);
 
   const issueCredential = useCallback(async (cameraId: string, days = 90) => {
     requireAdmin();
@@ -259,11 +261,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
     login, exploreDemo, logout, saveApiUrl, search,
     openResult: setActiveResult,
     exportResult,
-<<<<<<< HEAD
     confirmDetection: (queryId, detectionId, verdict) => updateConfirmation(queryId, detectionId, verdict),
     clearDetectionConfirmation: (queryId, detectionId) => updateConfirmation(queryId, detectionId, null),
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
     createEdge, relocateEdge, recentDetections, issueCredential, listCredentials, revokeCredential,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

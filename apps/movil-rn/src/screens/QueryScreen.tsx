@@ -2,12 +2,8 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useState } from 'react';
 import { Text } from 'react-native';
 
-<<<<<<< HEAD
 import { BogotaDateTimeField } from '../components/BogotaDateTimeField';
 import { LocationPicker } from '../components/LocationPicker';
-=======
-import { CameraMap } from '../components/CameraMap';
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 import { ChoiceRow, DemoBadge, ErrorMessage, Field, PrimaryButton, Screen } from '../components/ui';
 import { bogotaDateTime, bogotaToUtc } from '../time/bogota';
 import { useSession } from '../state/session';
@@ -89,20 +85,11 @@ export function QueryScreen({ navigation }: Props) {
           choices={[{ label: 'Punto manual', value: '' }, ...devices.map((device) => ({ label: device.external_id, value: device.id }))]}
         />
       ) : null}
-<<<<<<< HEAD
       <LocationPicker
         devices={devices}
         height={240}
         point={point}
         onChange={(coordinate) => {
-=======
-      <CameraMap
-        devices={devices}
-        height={240}
-        point={point}
-        center={point}
-        onSelectPoint={(coordinate) => {
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
           setPoint(coordinate);
           setSelectedCameraId('');
           setLng(String(coordinate[0]));
@@ -125,15 +112,9 @@ export function QueryScreen({ navigation }: Props) {
       <Field label="Latitud" value={lat} onChangeText={setLat} keyboardType="numeric" />
       <Field label="Longitud" value={lng} onChangeText={setLng} keyboardType="numeric" />
       <Field label="Radio (m)" value={radius} onChangeText={setRadius} keyboardType="numeric" />
-<<<<<<< HEAD
       <BogotaDateTimeField label="Fecha (Bogotá)" mode="date" date={date} onChange={setDate} />
       <BogotaDateTimeField label="Desde (hora Bogotá)" mode="time" date={date} time={from} onChange={setFrom} />
       <BogotaDateTimeField label="Hasta (hora Bogotá)" mode="time" date={date} time={to} onChange={setTo} />
-=======
-      <Field label="Fecha (AAAA-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-10-28" />
-      <Field label="Desde (hora Bogotá)" value={from} onChangeText={setFrom} placeholder="14:20" />
-      <Field label="Hasta (hora Bogotá)" value={to} onChangeText={setTo} placeholder="15:30" />
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
       <ChoiceRow label="Tipo" value={vehicle} onChange={setVehicle} choices={[{ label: 'Automóvil', value: 'car' }, { label: 'Motocicleta', value: 'motorcycle' }]} />
       <ChoiceRow label="Color" value={color} onChange={setColor} choices={[{ label: 'Blanco', value: 'white' }, { label: 'Negro', value: 'black' }, { label: 'Gris', value: 'gray' }, { label: 'Rojo', value: 'red' }, { label: 'Azul', value: 'blue' }, { label: 'Café', value: 'brown' }]} />
       {formError ? <ErrorMessage>{formError}</ErrorMessage> : null}

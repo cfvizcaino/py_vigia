@@ -1,19 +1,9 @@
 import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
-<<<<<<< HEAD
 import { useMemo } from 'react';
 import { View } from 'react-native';
 
 import type { Device } from '../types/models';
 import { colors } from '../theme/colors';
-=======
-import * as Location from 'expo-location';
-import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-
-import type { Device } from '../types/models';
-import { colors } from '../theme/colors';
-import { ErrorMessage } from './ui';
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 
 const mapStyle = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -26,10 +16,6 @@ interface CameraMapProps {
 }
 
 export function CameraMap({ devices, height, center, point, onSelectPoint }: CameraMapProps) {
-<<<<<<< HEAD
-=======
-  const [locationError, setLocationError] = useState<string | null>(null);
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   const cameraData = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: devices.map((device) => ({
@@ -49,24 +35,6 @@ export function CameraMap({ devices, height, center, point, onSelectPoint }: Cam
   }), [point]);
   const initialCenter = center ?? (devices[0] ? [devices[0].lng, devices[0].lat] as [number, number] : [-74.8172, 11.0131]);
 
-<<<<<<< HEAD
-=======
-  const locate = async () => {
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (!permission.granted) {
-        setLocationError('Permite el acceso a la ubicación para usar el GPS.');
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLocationError(null);
-      onSelectPoint?.([position.coords.longitude, position.coords.latitude]);
-    } catch {
-      setLocationError('No fue posible obtener la ubicación del dispositivo.');
-    }
-  };
-
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   return (
     <View style={{ height, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.surface }}>
       <Map
@@ -86,7 +54,7 @@ export function CameraMap({ devices, height, center, point, onSelectPoint }: Cam
           <Layer
             id="vigia-camera-labels"
             type="symbol"
-            layout={{ 'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, 1.4], 'text-anchor': 'top' }}
+            layout={{ 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-offset': [0, 1.4], 'text-anchor': 'top' }}
             paint={{ 'text-color': '#14221B', 'text-halo-color': '#F7F9F8', 'text-halo-width': 1 }}
           />
         </GeoJSONSource>
@@ -98,20 +66,6 @@ export function CameraMap({ devices, height, center, point, onSelectPoint }: Cam
           />
         </GeoJSONSource>
       </Map>
-<<<<<<< HEAD
-=======
-      {onSelectPoint ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Usar mi ubicación actual"
-          onPress={() => void locate()}
-          style={{ position: 'absolute', right: 12, top: 12, backgroundColor: colors.surface, borderRadius: 8, padding: 10 }}
-        >
-          <Text style={{ color: colors.text, fontWeight: '700' }}>Usar mi ubicación</Text>
-        </Pressable>
-      ) : null}
-      {locationError ? <View style={{ padding: 8 }}><ErrorMessage>{locationError}</ErrorMessage></View> : null}
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
     </View>
   );
 }

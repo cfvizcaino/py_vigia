@@ -8,32 +8,25 @@ import type { RootStackParamList } from '../types/navigation';
 import { LoginScreen } from './LoginScreen';
 import { CamerasScreen } from './CamerasScreen';
 
-<<<<<<< HEAD
 const mockSecureStore = new Map<string, string>();
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(async (key: string) => mockSecureStore.get(key) ?? null),
   setItemAsync: jest.fn(async (key: string, value: string) => { mockSecureStore.set(key, value); }),
   deleteItemAsync: jest.fn(async (key: string) => { mockSecureStore.delete(key); }),
-=======
-jest.mock('expo-secure-store', () => ({
-  getItemAsync: jest.fn(async () => null),
-  setItemAsync: jest.fn(async () => undefined),
-  deleteItemAsync: jest.fn(async () => undefined),
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 }));
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async () => null),
   setItem: jest.fn(async () => undefined),
   removeItem: jest.fn(async () => undefined),
 }));
+jest.mock('@expo/vector-icons/MaterialIcons', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
+  return { __esModule: true, default: ({ name }: { name: string }) => React.createElement(Text, null, name) };
+});
 jest.mock('@maplibre/maplibre-react-native', () => {
-<<<<<<< HEAD
   const React = jest.requireActual<typeof import('react')>('react');
   const { View } = jest.requireActual<typeof import('react-native')>('react-native');
-=======
-  const React = require('react') as typeof import('react');
-  const { View } = require('react-native') as typeof import('react-native');
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   const MockMapElement = ({ children }: import('react').PropsWithChildren) =>
     React.createElement(View, null, children);
   return {
@@ -48,10 +41,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 afterEach(() => {
   jest.restoreAllMocks();
-<<<<<<< HEAD
   mockSecureStore.clear();
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 });
 
 function TestApp() {
@@ -79,11 +69,8 @@ describe('sesión y navegación móvil', () => {
     await waitFor(() => expect(screen.getByText('Consola del operador')).toBeTruthy());
     await fireEvent.press(screen.getByRole('button', { name: 'Explorar demo' }));
     await waitFor(() => expect(screen.getByText('4 cámaras registradas')).toBeTruthy());
-<<<<<<< HEAD
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
     expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   });
 
   it('presenta errores de autenticación en español y no cambia a demo', async () => {
@@ -92,18 +79,12 @@ describe('sesión y navegación móvil', () => {
     );
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
     await waitFor(() => expect(screen.getByText('Consola del operador')).toBeTruthy());
-<<<<<<< HEAD
     await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'persona@example.org');
     await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'mal');
-=======
-    fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'persona@example.org');
-    fireEvent.changeText(screen.getByLabelText('Contraseña'), 'mal');
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
     await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
     await waitFor(() => expect(screen.getByText('Correo o contraseña incorrectos.')).toBeTruthy());
     expect(screen.queryByText('DEMOSTRACIÓN')).toBeNull();
   });
-<<<<<<< HEAD
 
   it.each(['operator', 'admin'] as const)('solo muestra Agregar edge al rol %s', async (role) => {
     jest.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
@@ -131,6 +112,4 @@ describe('sesión y navegación móvil', () => {
       expect(screen.queryByText('Agregar edge')).toBeNull();
     }
   });
-=======
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
 });

@@ -1,15 +1,9 @@
 {
-<<<<<<< HEAD
   "platforms": ["android", "ios"],
   "android": {
     "modules": ["expo.modules.vigiacameraserver.VigiaCameraServerModule"]
   },
   "ios": {
     "modules": ["VigiaCameraServerModule"]
-=======
-  "platforms": ["android"],
-  "android": {
-    "modules": ["expo.modules.vigiacameraserver.VigiaCameraServerModule"]
->>>>>>> df0453cade982a2911157addaf8931f9efe04285
   }
 }
