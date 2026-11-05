@@ -71,6 +71,62 @@ export function prepareCrop(frame: FrameData, box: Box, size: number, channelsFi
   return out;
 }
 
+export interface ThumbnailPixels {
+  rgb: Uint8Array;
+  width: number;
+  height: number;
+}
+
+/**
+ * The recorte an admin sees to confirm a detection, as in the Flutter app: the
+ * vehicle's box plus a 10 % margin, upright, longest side at most [maxSide].
+ * Each output pixel averages a block of the frame, so a large box stays sharp.
+ * Returns raw RGB; the JPEG is encoded natively.
+ */
+export function prepareThumbnail(frame: FrameData, box: Box, maxSide = 224, margin = 0.1): ThumbnailPixels {
+  'worklet';
+  const rotation = ((frame.rotationDegrees ?? 0) % 360 + 360) % 360;
+  const turned = rotation === 90 || rotation === 270;
+  const uprightWidth = turned ? frame.height : frame.width;
+  const uprightHeight = turned ? frame.width : frame.height;
+  const padX = (box.x2 - box.x1) * margin;
+  const padY = (box.y2 - box.y1) * margin;
+  const left = Math.max(0, Math.min(uprightWidth - 1, Math.floor(box.x1 - padX)));
+  const top = Math.max(0, Math.min(uprightHeight - 1, Math.floor(box.y1 - padY)));
+  const right = Math.max(left + 1, Math.min(uprightWidth, Math.ceil(box.x2 + padX)));
+  const bottom = Math.max(top + 1, Math.min(uprightHeight, Math.ceil(box.y2 + padY)));
+  const width = right - left;
+  const height = bottom - top;
+  const step = Math.max(1, Math.ceil(Math.max(width, height) / maxSide));
+  const outWidth = Math.max(1, Math.floor(width / step));
+  const outHeight = Math.max(1, Math.floor(height / step));
+  const rgb = new Uint8Array(outWidth * outHeight * 3);
+  const scale = 1 / (step * step);
+  for (let oy = 0; oy < outHeight; oy++) {
+    for (let ox = 0; ox < outWidth; ox++) {
+      let red = 0;
+      let green = 0;
+      let blue = 0;
+      for (let dy = 0; dy < step; dy++) {
+        const uy = top + oy * step + dy;
+        for (let dx = 0; dx < step; dx++) {
+          const ux = left + ox * step + dx;
+          const [sx, sy] = uprightToSensor(ux, uy, frame.width, frame.height, rotation);
+          const [r, g, b] = readRgb(frame, sx, sy);
+          red += r;
+          green += g;
+          blue += b;
+        }
+      }
+      const offset = (oy * outWidth + ox) * 3;
+      rgb[offset] = Math.round(red * scale);
+      rgb[offset + 1] = Math.round(green * scale);
+      rgb[offset + 2] = Math.round(blue * scale);
+    }
+  }
+  return { rgb, width: outWidth, height: outHeight };
+}
+
 export function uprightToSensor(
   x: number,
   y: number,

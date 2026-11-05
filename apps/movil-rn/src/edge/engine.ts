@@ -1,10 +1,30 @@
 import * as Crypto from 'expo-crypto';
 
-import { buildEnvelope, uuidV4 } from './envelope';
+import { buildEnvelope, isoUtc, uuidV4 } from './envelope';
 import { Outbox } from './outbox';
 import { IouTracker } from './tracker';
-import type { FrameProcessingResult } from '../native/FrameProcessor';
+import type { FrameProcessingResult, ThumbnailGate } from '../native/FrameProcessor';
 import type { OutboxStatus } from './outbox';
+import type { ThumbnailPixels } from './preprocess';
+import type { Track } from './tracker';
+import type { Box } from './types';
+
+/** Encodes a recorte's RGB pixels as JPEG (natively on the phone). */
+export type EncodeThumbnail = (pixels: ThumbnailPixels) => Promise<Uint8Array>;
+
+/** A recorte is re-taken only when the box grows this much, at most this many times per track. */
+export const thumbnailGrowth = 1.2;
+export const maxThumbnailEncodes = 4;
+/** The view stops improving once the vehicle has been gone this long, or in view this long. */
+export const thumbnailSettleMs = 1000;
+export const thumbnailMaxWaitMs = 10_000;
+
+/** Vehicles seen in the latest frame, for the boxes drawn over the preview. */
+export interface EdgeOverlay {
+  frameWidth: number;
+  frameHeight: number;
+  tracks: { id: number; box: Box; label: string; color: string | null; score: number }[];
+}
 
 export interface EdgeStats {
   framesProcessed: number;
@@ -15,6 +35,8 @@ export interface EdgeStats {
   outbox: OutboxStatus | null;
   failures: number;
   colorFailures: number;
+  thumbnailFailures: number;
+  overlay: EdgeOverlay | null;
   lastError: string | null;
 }
 
@@ -29,6 +51,8 @@ export class EdgeEngine {
   private lastSnapshotAt: number | null = null;
   private failures = 0;
   private colorFailures = 0;
+  private thumbnailFailures = 0;
+  private overlay: EdgeOverlay | null = null;
   private lastError: string | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
@@ -41,6 +65,8 @@ export class EdgeEngine {
     readonly model: { name: string; digest: string },
     private readonly outbox: Outbox,
     private readonly onStatus: (stats: EdgeStats) => void,
+    private readonly encodeThumbnail: EncodeThumbnail | null = null,
+    private readonly onThumbnailGates: (gates: ThumbnailGate[] | null) => void = () => undefined,
   ) {}
 
   get running(): boolean {
@@ -57,6 +83,8 @@ export class EdgeEngine {
       outbox: this.outboxStatus,
       failures: this.failures,
       colorFailures: this.colorFailures,
+      thumbnailFailures: this.thumbnailFailures,
+      overlay: this.overlay,
       lastError: this.lastError,
     };
   }
@@ -90,7 +118,94 @@ export class EdgeEngine {
     this.previousFrameAt = now;
     this.lastError = result.colorFailureCount ? `${result.colorFailureCount} fallos al clasificar color.` : null;
     this.colorFailures += result.colorFailureCount;
+    const thumbnail = result.thumbnail;
+    if (thumbnail) {
+      const track = matches[thumbnail.detectionIndex];
+      if (track) void this.sampleThumbnail(track, thumbnail);
+    }
+    this.updateThumbnailGates(now);
+    this.overlay = {
+      frameWidth: result.frameSize.width,
+      frameHeight: result.frameSize.height,
+      tracks: this.tracker.active(now)
+        .filter((track) => track.lastSeen === now)
+        .map((track) => ({
+          id: track.id,
+          box: track.box,
+          label: track.label,
+          color: track.colorVotes.color,
+          score: track.score,
+        })),
+    };
     this.publishStatus();
+  }
+
+  /** Keeps the track's largest view: only when its box grew enough, a few encodes per track. */
+  private async sampleThumbnail(track: Track, pixels: ThumbnailPixels): Promise<void> {
+    const encode = this.encodeThumbnail;
+    if (!encode || !this.outbox.thumbnailsAccepted) return;
+    const area = boxArea(track.box);
+    if (
+      track.hits < this.tracker.minHits ||
+      track.thumbnailQueued ||
+      track.thumbnailEncodes >= maxThumbnailEncodes ||
+      area < track.thumbnailArea * thumbnailGrowth
+    ) {
+      return;
+    }
+    track.thumbnailEncodes++;
+    // Reserve the area now so the next frames do not encode the same view.
+    const previousArea = track.thumbnailArea;
+    track.thumbnailArea = area;
+    try {
+      const jpeg = await encode(pixels);
+      if (!track.thumbnailQueued) track.thumbnail = jpeg;
+    } catch (reason) {
+      // Without a recorte the vehicle is still reported; it just cannot be confirmed by eye.
+      track.thumbnailArea = previousArea;
+      this.thumbnailFailures++;
+      this.lastError = `Recorte: ${reason instanceof Error ? reason.message : String(reason)}`;
+    }
+  }
+
+  /** Tells the frame processor which tracks still want a better view. */
+  private updateThumbnailGates(now: number): void {
+    if (!this.encodeThumbnail || !this.outbox.thumbnailsAccepted) {
+      this.onThumbnailGates(null);
+      return;
+    }
+    this.onThumbnailGates(
+      this.tracker.active(now).map((track) => ({
+        box: track.box,
+        minArea: track.thumbnailQueued || track.thumbnailEncodes >= maxThumbnailEncodes
+          ? Number.MAX_VALUE
+          : track.thumbnailArea * thumbnailGrowth,
+      })),
+    );
+  }
+
+  /** Recortes go after the envelope that published their track, once the view stopped improving. */
+  private async queueThumbnails(now: number, force: boolean): Promise<void> {
+    for (const track of this.tracker.active(now)) {
+      const jpeg = track.thumbnail;
+      if (!jpeg || track.thumbnailQueued) continue;
+      const settled =
+        force ||
+        track.thumbnailEncodes >= maxThumbnailEncodes ||
+        now - track.lastSeen >= thumbnailSettleMs ||
+        now - track.firstSeen >= thumbnailMaxWaitMs;
+      if (!settled) continue;
+      track.thumbnailQueued = true;
+      track.thumbnail = null;
+      await this.outbox.enqueueThumbnail({
+        cameraId: this.config.cameraId,
+        sessionId: this.sessionId,
+        sequenceNumber: this.sequence,
+        trackId: track.id,
+        firstSeen: isoUtc(track.firstSeen),
+        jpeg,
+      });
+    }
   }
 
   reportError(message: string): void {
@@ -141,6 +256,7 @@ export class EdgeEngine {
         eventId: uuidV4(Crypto.getRandomBytes(16)),
       });
       await this.outbox.enqueue(envelope);
+      if (this.encodeThumbnail) await this.queueThumbnails(now, force);
     } catch (reason) {
       this.lastError = reason instanceof Error ? reason.message : 'No fue posible guardar el evento edge.';
       this.publishStatus();
@@ -161,4 +277,8 @@ export class EdgeEngine {
   private publishStatus(): void {
     this.onStatus(this.stats);
   }
+}
+
+function boxArea(box: { x1: number; y1: number; x2: number; y2: number }): number {
+  return Math.max(0, box.x2 - box.x1) * Math.max(0, box.y2 - box.y1);
 }

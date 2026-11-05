@@ -160,6 +160,11 @@ export class Outbox {
     return true;
   }
 
+  /** False once the central answers that it keeps no recortes (501). */
+  get thumbnailsAccepted(): boolean {
+    return this.acceptsThumbnails;
+  }
+
   async enqueueThumbnail(item: ThumbnailItem): Promise<boolean> {
     if (!this.acceptsThumbnails) return false;
     if (item.jpeg.byteLength > 64 * 1024) {
@@ -369,7 +374,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return encoded;
 }
 
-function base64ToBytes(encoded: string): Uint8Array {
+export function base64ToBytes(encoded: string): Uint8Array {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const clean = encoded.replace(/=+$/, '');
   const output = new Uint8Array(Math.floor(clean.length * 3 / 4));

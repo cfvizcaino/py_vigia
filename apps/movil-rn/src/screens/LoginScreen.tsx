@@ -1,6 +1,7 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Modal, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 
 import { ErrorMessage, Field, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
 import { useSession } from '../state/session';
@@ -54,13 +55,22 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <Screen>
       <View style={{ paddingTop: 22, gap: 18 }}>
-        <SecondaryButton title="Configurar URL del servidor" onPress={() => {
-          setUrl(baseUrl);
-          setUrlError(null);
-          setUrlDialogVisible(true);
-        }} />
-        <View style={{ width: 58, height: 58, backgroundColor: '#1F3A31', borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: colors.accent, fontSize: 26, fontWeight: '900' }}>V</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ width: 58, height: 58, backgroundColor: '#1F3A31', borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: colors.accent, fontSize: 26, fontWeight: '900' }}>V</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Configurar URL del servidor"
+            hitSlop={12}
+            onPress={() => {
+              setUrl(baseUrl);
+              setUrlError(null);
+              setUrlDialogVisible(true);
+            }}
+          >
+            <MaterialIcons name="link" size={28} color={colors.muted} />
+          </Pressable>
         </View>
         <View style={{ gap: 6 }}>
           <Text style={{ color: colors.text, fontSize: 26, fontWeight: '800' }}>Consola del operador</Text>
@@ -81,7 +91,7 @@ export function LoginScreen({ navigation }: Props) {
         <View style={{ flex: 1, justifyContent: 'center', padding: 22, backgroundColor: '#000B' }}>
           <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 20, gap: 14 }}>
             <Text style={{ color: colors.text, fontSize: 19, fontWeight: '700' }}>URL del backend</Text>
-            <Field label="Dirección del servidor" value={url} onChangeText={setUrl} keyboardType="url" placeholder="https://servidor.vigia" />
+            <Field label="Dirección del servidor" value={url} onChangeText={setUrl} keyboardType="url" autoCapitalize="none" placeholder="https://servidor.vigia" />
             <Text style={{ color: colors.subtle, fontSize: 12 }}>Emulador Android: http://10.0.2.2:8000. HTTP solo se permite en localhost y redes locales.</Text>
             {urlError ? <ErrorMessage>{urlError}</ErrorMessage> : null}
             <PrimaryButton title="Guardar" onPress={() => void persistUrl()} loading={savingUrl} />

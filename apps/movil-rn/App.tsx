@@ -1,3 +1,4 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -6,6 +7,10 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SessionProvider, useSession } from './src/state/session';
+import { AddEdgeScreen } from './src/screens/AddEdgeScreen';
+import { CameraDetailScreen } from './src/screens/CameraDetailScreen';
+import { IssuedTokenScreen } from './src/screens/IssuedTokenScreen';
+import { RelocateEdgeScreen } from './src/screens/RelocateEdgeScreen';
 import { CameraModeScreen } from './src/screens/CameraModeScreen';
 import { CamerasScreen } from './src/screens/CamerasScreen';
 import { EdgeModeScreen } from './src/screens/EdgeModeScreen';
@@ -33,6 +38,16 @@ const navigationTheme = {
   },
 };
 
+type IconName = keyof typeof MaterialIcons.glyphMap;
+
+/** Same Material icons as the Flutter navigation bar. */
+function tabIcon(name: IconName) {
+  function TabIcon({ color, size }: { color: string; size: number }) {
+    return <MaterialIcons name={name} color={color} size={size} />;
+  }
+  return TabIcon;
+}
+
 function OperatorTabs() {
   return (
     <Tabs.Navigator
@@ -44,11 +59,11 @@ function OperatorTabs() {
         tabBarInactiveTintColor: colors.muted,
       }}
     >
-      <Tabs.Screen name="Cameras" component={CamerasScreen} options={{ title: 'Cámaras', tabBarLabel: 'Cámaras' }} />
-      <Tabs.Screen name="Query" component={QueryScreen} options={{ title: 'Nueva consulta', tabBarLabel: 'Consultar' }} />
-      <Tabs.Screen name="Results" component={ResultsScreen} options={{ title: 'Resultados', tabBarLabel: 'Resultados' }} />
-      <Tabs.Screen name="History" component={HistoryScreen} options={{ title: 'Historial', tabBarLabel: 'Historial' }} />
-      <Tabs.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ajustes', tabBarLabel: 'Ajustes' }} />
+      <Tabs.Screen name="Cameras" component={CamerasScreen} options={{ title: 'Cámaras', tabBarLabel: 'Cámaras', tabBarIcon: tabIcon('videocam') }} />
+      <Tabs.Screen name="Query" component={QueryScreen} options={{ title: 'Nueva consulta', tabBarLabel: 'Consultar', tabBarIcon: tabIcon('search') }} />
+      <Tabs.Screen name="Results" component={ResultsScreen} options={{ title: 'Resultados', tabBarLabel: 'Resultados', tabBarIcon: tabIcon('alt-route') }} />
+      <Tabs.Screen name="History" component={HistoryScreen} options={{ title: 'Historial', tabBarLabel: 'Historial', tabBarIcon: tabIcon('history') }} />
+      <Tabs.Screen name="Settings" component={SettingsScreen} options={{ title: 'Ajustes', tabBarLabel: 'Ajustes', tabBarIcon: tabIcon('settings') }} />
     </Tabs.Navigator>
   );
 }
@@ -70,6 +85,10 @@ function AppNavigation() {
       {user ? (
         <>
           <Stack.Screen name="Operator" component={OperatorTabs} options={{ headerShown: false }} />
+          <Stack.Screen name="CameraDetail" component={CameraDetailScreen} options={{ title: 'Cámara' }} />
+          <Stack.Screen name="AddEdge" component={AddEdgeScreen} options={{ title: 'Agregar edge' }} />
+          <Stack.Screen name="RelocateEdge" component={RelocateEdgeScreen} options={{ title: 'Ubicación' }} />
+          <Stack.Screen name="IssuedToken" component={IssuedTokenScreen} options={{ title: 'Token' }} />
           <Stack.Screen name="CameraMode" component={CameraModeScreen} options={{ title: 'Modo cámara' }} />
           <Stack.Screen name="EdgeMode" component={EdgeModeScreen} options={{ title: 'Edge autónomo' }} />
         </>

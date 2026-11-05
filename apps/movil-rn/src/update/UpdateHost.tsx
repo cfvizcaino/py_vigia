@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Modal, Platform, Text, View } from 'react-native';
 import type { PropsWithChildren } from 'react';
 
@@ -13,9 +13,23 @@ const dismissedVersionKey = 'vigia_update_dismissed_version';
 const dismissedAtKey = 'vigia_update_dismissed_at';
 const checkIntervalMs = 24 * 60 * 60 * 1000;
 
+/** What the published release asks of this install, and a way to open the update dialog. */
+interface UpdateState {
+  available: UpdateLevel;
+  showUpdate: () => void;
+}
+
+const UpdateContext = createContext<UpdateState>({ available: 'none', showUpdate: () => undefined });
+
+/** For screens that run unattended (edge autónomo): a notice instead of the dialog. */
+export function useAppUpdate(): UpdateState {
+  return useContext(UpdateContext);
+}
+
 export function UpdateHost({ children }: PropsWithChildren) {
   const [release, setRelease] = useState<AppRelease | null>(null);
   const [level, setLevel] = useState<UpdateLevel>('none');
+  const [available, setAvailable] = useState<UpdateLevel>('none');
   const [installed, setInstalled] = useState(readInstalledVersion());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +46,7 @@ export function UpdateHost({ children }: PropsWithChildren) {
         const nextLevel = classifyUpdate(appVersion, nextRelease.latest, nextRelease.minimum);
         setInstalled(appVersion);
         setRelease(nextRelease);
+        setAvailable(nextLevel);
         setError(null);
         if (nextLevel === 'optional' && nextRelease.latest) {
           const [dismissedVersion, dismissedAt] = await Promise.all([
@@ -105,7 +120,7 @@ export function UpdateHost({ children }: PropsWithChildren) {
   const visible = level !== 'none' && release !== null;
 
   return (
-    <>
+    <UpdateContext.Provider value={{ available, showUpdate: () => setLevel(available) }}>
       {children}
       <Modal
         animationType="fade"
@@ -146,6 +161,6 @@ export function UpdateHost({ children }: PropsWithChildren) {
           </View>
         </View>
       </Modal>
-    </>
+    </UpdateContext.Provider>
   );
 }

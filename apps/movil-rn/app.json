@@ -82,7 +82,8 @@
       "./plugins/withVigiaAndroid",
       "expo-asset",
       "@react-native-community/datetimepicker",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ],
     "experiments": {
       "tsconfigPaths": true
