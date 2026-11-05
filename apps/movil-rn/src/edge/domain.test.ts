@@ -4,9 +4,15 @@ import addFormats from 'ajv-formats';
 import schema from '../../../../packages/contracts/detection-envelope-1.1.schema.json';
 
 import { ColorVotes } from './colors';
+<<<<<<< HEAD
 import { decodeYolo, nonMaxSuppression } from './detections';
 import { buildEnvelope, uuidV4 } from './envelope';
 import { prepareCrop, prepareInput, uprightToSensor } from './preprocess';
+=======
+import { decodeYolo } from './detections';
+import { buildEnvelope, uuidV4 } from './envelope';
+import { prepareInput, uprightToSensor } from './preprocess';
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 import { IouTracker } from './tracker';
 import type { Detection, FrameData, Letterbox } from './types';
 
@@ -20,6 +26,7 @@ const letterbox: Letterbox = {
 };
 
 describe('procesamiento Edge', () => {
+<<<<<<< HEAD
   test('convierte YUV420 gris y rojo a RGB', () => {
     const gray: FrameData = {
       format: 'yuv420',
@@ -52,6 +59,8 @@ describe('procesamiento Edge', () => {
     expect(redRgb[2]).toBeLessThan(0.02);
   });
 
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   test('convierte BGRA en RGB float32 NCHW para el modelo', () => {
     const frame: FrameData = {
       format: 'bgra8888',
@@ -63,14 +72,18 @@ describe('procesamiento Edge', () => {
     expect(input.pixels[0]).toBeCloseTo(10 / 255);
     expect(input.pixels[1]).toBeCloseTo(20 / 255);
     expect(input.pixels[2]).toBeCloseTo(30 / 255);
+<<<<<<< HEAD
     const nhwc = prepareInput(frame, 1, false);
     expect(Array.from(nhwc.pixels)).toEqual(Array.from(input.pixels));
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   });
 
   test('mapea coordenadas para rotación de 90 grados', () => {
     expect(uprightToSensor(1, 0, 3, 2, 90)).toEqual([0, 0]);
   });
 
+<<<<<<< HEAD
   test('reduce la imagen, deja padding gris 114 y rota los píxeles', () => {
     const frame: FrameData = {
       format: 'rgb888',
@@ -121,6 +134,8 @@ describe('procesamiento Edge', () => {
     expect(Array.from(rotated.slice(0, 3))).toEqual([0, 1, 0]);
   });
 
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   test('decodifica YOLO26 [1,300,6] y YOLO clásico NCHW', () => {
     const packed = new Float32Array(300 * 6);
     packed.set([40, 50, 180, 210, 0.91, 2]);
@@ -144,6 +159,7 @@ describe('procesamiento Edge', () => {
     expect(classicDetections[0]?.score).toBeCloseTo(0.82);
   });
 
+<<<<<<< HEAD
   test('rechaza formas desconocidas y NMS conserva etiquetas distintas', () => {
     expect(() => decodeYolo(new Float32Array(10), [1, 4, 10], letterbox)).toThrow(/no soportada/);
     expect(() => decodeYolo(new Float32Array(10), [2, 10, 1], letterbox)).toThrow(/no soportada/);
@@ -206,6 +222,8 @@ describe('procesamiento Edge', () => {
     expect(votes.color).toBe('red');
   });
 
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   test('crea tracks después de dos observaciones y vota el color con fallo seguro', () => {
     const tracker = new IouTracker();
     const detection = (): Detection => ({

@@ -60,15 +60,22 @@ const envelope: DetectionEnvelope = {
   detections: [],
 };
 
+<<<<<<< HEAD
 async function waitFor(predicate: () => boolean | Promise<boolean>): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt++) {
     if (await predicate()) return;
+=======
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (predicate()) return;
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   throw new Error('Outbox operation did not complete in time.');
 }
 
 describe('outbox persistente', () => {
+<<<<<<< HEAD
   test('entrega por secuencia, acepta HTTP 202 y adjunta el token del dispositivo', async () => {
     const storage = new MemoryOutboxStorage();
     const delivered: number[] = [];
@@ -118,6 +125,8 @@ describe('outbox persistente', () => {
     expect(await restored.getStatus()).toMatchObject({ delivered: 1, pending: 0 });
   });
 
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   test('rechaza envelopes con 400 y conserva el evento en rechazados', async () => {
     const storage = new MemoryOutboxStorage();
     const fetcher: typeof fetch = async () => ({ ok: false, status: 400 } as Response);

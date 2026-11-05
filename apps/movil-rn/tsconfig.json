@@ -3,7 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
+<<<<<<< HEAD
     "types": ["jest", "node"],
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true

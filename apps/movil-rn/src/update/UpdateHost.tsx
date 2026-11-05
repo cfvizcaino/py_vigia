@@ -125,11 +125,14 @@ export function UpdateHost({ children }: PropsWithChildren) {
                 ? `La versión instalada (${installed}) quedó por debajo del mínimo. Actualiza para seguir usando VIGÍA.`
                 : `Versión instalada ${installed}; versión publicada ${release?.latest ?? 'disponible'}.`}
             </Text>
+<<<<<<< HEAD
             {release?.size_bytes ? (
               <Text style={{ color: colors.subtle, lineHeight: 19 }}>
                 Tamaño del APK: {release.size_bytes.toLocaleString('es-CO')} bytes ({(release.size_bytes / 1_048_576).toFixed(1)} MB).
               </Text>
             ) : null}
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
             {release?.notes ? <Text style={{ color: colors.text, lineHeight: 20 }}>{release.notes}</Text> : null}
             {Platform.OS === 'ios' ? (
               <Text style={{ color: colors.warning, lineHeight: 20 }}>

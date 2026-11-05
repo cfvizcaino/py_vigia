@@ -1,0 +1,9 @@
+expo.modules.vigiacameraserver.vigia-camera-server-pngs-0 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\generated\res\pngs\debug
+expo.modules.vigiacameraserver.vigia-camera-server-updated_navigation_xml-1 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\generated\updated_navigation_xml\debug
+expo.modules.vigiacameraserver.vigia-camera-server-mergeDebugResources-2 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
+expo.modules.vigiacameraserver.vigia-camera-server-mergeDebugResources-3 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+expo.modules.vigiacameraserver.vigia-camera-server-debug-4 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\intermediates\merged_res\debug\mergeDebugResources
+expo.modules.vigiacameraserver.vigia-camera-server-debug-5 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\build\intermediates\packaged_res\debug\packageDebugResources
+expo.modules.vigiacameraserver.vigia-camera-server-debug-6 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\src\debug\res
+expo.modules.vigiacameraserver.vigia-camera-server-main-7 C:\Users\User\Proyecto_Final\py_vigia\apps\movil-rn\modules\vigia-camera-server\android\src\main\res
+gradleHome-0 C:\Users\User\.gradle

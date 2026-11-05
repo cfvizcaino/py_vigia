@@ -1,19 +1,29 @@
 import { useState } from 'react';
 import { Share, Text, View } from 'react-native';
 
+<<<<<<< HEAD
 import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen, SecondaryButton } from '../components/ui';
+=======
+import { Card, DemoBadge, EmptyState, ErrorMessage, formatDate, PrimaryButton, Screen } from '../components/ui';
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 import { RouteMap } from '../components/RouteMap';
 import { colorNamesEs } from '../edge/colors';
 import { useSession } from '../state/session';
 import { colors } from '../theme/colors';
 
 export function ResultsScreen() {
+<<<<<<< HEAD
   const { activeResult, devices, isDemo, user, exportResult, confirmDetection, clearDetectionConfirmation, error } = useSession();
   const isAdmin = !isDemo && user?.role === 'admin';
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const [confirmationBusyId, setConfirmationBusyId] = useState<string | null>(null);
+=======
+  const { activeResult, devices, isDemo, exportResult, error } = useSession();
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   if (!activeResult) return <Screen scroll={false}><EmptyState title="Sin resultados" description="Ejecuta una consulta para ver las trayectorias candidatas." /></Screen>;
 
   const exportAndShare = async () => {
@@ -29,6 +39,7 @@ export function ResultsScreen() {
     }
   };
 
+<<<<<<< HEAD
   const setConfirmation = async (detectionId: string, verdict: 'match' | 'reject' | null) => {
     setConfirmationBusyId(detectionId);
     setConfirmationError(null);
@@ -42,6 +53,8 @@ export function ResultsScreen() {
     }
   };
 
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
   return (
     <Screen>
       {isDemo ? <DemoBadge /> : null}
@@ -69,6 +82,7 @@ export function ResultsScreen() {
                   <Text key={detection.detection_id || String(detectionIndex)} style={{ color: colors.muted, lineHeight: 20 }}>
                     {detection.sequence_order}. {formatDate(detection.observed_at)} · {cameraName} · {detection.direction} · {detection.vehicle_type}
                     {detection.color ? ` ${colorNamesEs[detection.color] ?? detection.color}` : ''} · confianza {Math.round(detection.confidence * 100)}%
+<<<<<<< HEAD
                     {isAdmin && detection.license_plate ? ` · placa ${detection.license_plate}` : ''}
                     {isAdmin && detection.confirmation ? ` · ${detection.confirmation === 'match' ? 'confirmado' : 'rechazado'}` : ''}
                   </Text>
@@ -107,12 +121,20 @@ export function ResultsScreen() {
                     )}
                   </View>
                 )) : null}
+=======
+                  </Text>
+                );
+              })}
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
             </View>
           </Card>
         );
       })}
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+<<<<<<< HEAD
       {confirmationError ? <ErrorMessage>{confirmationError}</ErrorMessage> : null}
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
       {exportError ? <ErrorMessage>{exportError}</ErrorMessage> : null}
       <PrimaryButton
         title={isDemo ? 'Exportación no disponible en demo' : 'Exportar y compartir JSON auditado'}

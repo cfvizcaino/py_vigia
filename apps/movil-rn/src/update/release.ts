@@ -10,13 +10,20 @@ const releaseSchema = z.object({
   sha256: z.string().nullable(),
   notes: z.string().default(''),
   published_at: z.string().nullable().optional(),
+<<<<<<< HEAD
   size_bytes: z.number().int().positive().nullable().optional(),
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 });
 
 export type AppRelease = z.infer<typeof releaseSchema>;
 export type UpdateLevel = 'none' | 'optional' | 'required';
 
+<<<<<<< HEAD
 export const installedAppVersionFallback = '1.5.0';
+=======
+export const installedAppVersionFallback = '1.4.0';
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 
 export function compareVersions(left: string, right: string): number {
   const parse = (version: string): number[] | null => {

@@ -3,6 +3,11 @@ package expo.modules.vigiacameraserver
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.graphics.Matrix
+<<<<<<< HEAD
+=======
+import android.net.Uri
+import android.util.Base64
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 import androidx.exifinterface.media.ExifInterface
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
@@ -13,10 +18,14 @@ import java.net.InetSocketAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
+<<<<<<< HEAD
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+=======
+import java.nio.charset.StandardCharsets
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 import java.util.ArrayDeque
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
@@ -184,12 +193,16 @@ internal class MjpegHttpServer(
         respond(client, 405, "Method Not Allowed")
         return
       }
+<<<<<<< HEAD
       val uri = try {
         URI(request[1])
       } catch (_: Exception) {
         respond(client, 400, "Bad Request")
         return
       }
+=======
+      val uri = Uri.parse(request[1])
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
       if (!authorized(uri, headers["authorization"])) {
         respond(client, 401, "Unauthorized", mapOf("WWW-Authenticate" to "Basic realm=\"VIGIA camera\""))
         return
@@ -250,6 +263,7 @@ internal class MjpegHttpServer(
     }
   }
 
+<<<<<<< HEAD
   internal fun publishFrame(frame: ByteArray) {
     check(running) { "El servidor MJPEG no está iniciado." }
     publish(frame)
@@ -267,6 +281,15 @@ internal class MjpegHttpServer(
     if (header?.startsWith("Basic ", ignoreCase = true) != true) return false
     return try {
       val decoded = String(Base64.getDecoder().decode(header.substringAfter(' ')), StandardCharsets.UTF_8)
+=======
+  private fun authorized(uri: Uri, header: String?): Boolean {
+    val expected = accessKey
+    if (expected.isNullOrEmpty()) return true
+    if (uri.getQueryParameter("key") == expected) return true
+    if (header?.startsWith("Basic ", ignoreCase = true) != true) return false
+    return try {
+      val decoded = String(Base64.decode(header.substringAfter(' '), Base64.DEFAULT), StandardCharsets.UTF_8)
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
       decoded.substringAfter(':', "") == expected && ':' in decoded
     } catch (_: Exception) {
       false

@@ -62,7 +62,11 @@ describe('VigiaApiClient', () => {
   it.each([
     [400, 'El servidor rechazó los datos. Revisa los filtros e inténtalo de nuevo.'],
     [403, 'Tu rol no permite realizar esta acción.'],
+<<<<<<< HEAD
     [409, 'El registro ya existe o el paso fue confirmado previamente. Actualiza la información e inténtalo de nuevo.'],
+=======
+    [409, 'Ya existe un registro con ese identificador.'],
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
     [422, 'El servidor rechazó los datos. Revisa los filtros e inténtalo de nuevo.'],
     [429, 'Demasiados intentos. Espera 15 minutos antes de volver a intentar.'],
     [503, 'El servidor central encontró un error. Intenta nuevamente.'],
@@ -85,6 +89,7 @@ describe('VigiaApiClient', () => {
       expect.objectContaining({ method: 'POST' }),
     );
   });
+<<<<<<< HEAD
 
   it('presenta un conflicto duplicado con instrucciones claras', async () => {
     const client = new VigiaApiClient('https://api.example.org', undefined, createTokenStore());
@@ -160,6 +165,8 @@ describe('VigiaApiClient', () => {
       jest.useRealTimers();
     }
   });
+=======
+>>>>>>> df0453cade982a2911157addaf8931f9efe04285
 });
 
 describe('URL del backend', () => {
