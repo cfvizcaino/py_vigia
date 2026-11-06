@@ -1,6 +1,8 @@
 import { describe, expect, jest, test } from '@jest/globals';
 
 import { EdgeEngine, percentiles } from './engine';
+import { buildEnvelope } from './envelope';
+import { Track } from './tracker';
 import { Outbox } from './outbox';
 import type { OutboxStorage, QueueFile, ThumbnailItem } from './outbox';
 import type { FrameProcessingResult } from '../native/FrameProcessor';
@@ -262,7 +264,7 @@ describe('tiempos por etapa', () => {
     for (let index = 0; index < 60; index++) {
       engine.process({
         ...frame({ x1: 0, y1: 0, x2: 100, y2: 100 }, false),
-        timings: { prepare: 20, detect: 60, decode: 1, color: index % 2 ? 40 : 0, colorCrops: index % 2, thumbnail: 2, total: 83 + (index % 2 ? 40 : 0), finishedAt: Date.now() },
+        timings: { prepare: 20, detect: 60, decode: 1, color: index % 2 ? 40 : 0, colorCrops: index % 2, thumbnail: 2, plate: 0, total: 83 + (index % 2 ? 40 : 0), finishedAt: Date.now() },
       });
     }
     const timings = engine.stats.timings;
@@ -273,5 +275,70 @@ describe('tiempos por etapa', () => {
     expect(log).toHaveBeenCalledWith('VIGIA-TIEMPOS', expect.any(String));
     log.mockRestore();
     void engine.stop();
+  });
+});
+
+describe('placas en el motor', () => {
+  test('vota la placa por track y ofrece compuertas solo mientras hace falta', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const { outbox } = fakeOutbox(false);
+    const gates: { box: Box }[][] = [];
+    const engine = new EdgeEngine(
+      { cameraId: 'CEL-05', serverUrl: 'https://vigia.example', token: 't' },
+      { name: 'vehicles', digest: 'abc' },
+      outbox,
+      () => undefined,
+      null,
+      () => undefined,
+      () => undefined,
+      (value) => gates.push(value),
+    );
+    engine.start();
+    const tick = (plate: FrameProcessingResult['plate'] = null) => {
+      engine.process({ ...frame({ x1: 0, y1: 0, x2: 300, y2: 200 }, false), plate, cameraSize: { width: 1920, height: 1440 } });
+      jest.advanceTimersByTime(900);
+    };
+    const read = (text: string) => ({ detectionIndex: 0, areaPx: 60_000, attempt: { status: 'read' as const, widthPx: 70, text, confidence: 0.9 } });
+
+    tick();
+    expect(gates.at(-1)).toEqual([]); // Sin confirmar: ninguna compuerta.
+    tick();
+    expect(gates.at(-1)).toHaveLength(1);
+    tick({ detectionIndex: 0, areaPx: 60_000, attempt: { status: 'small', widthPx: 30 } });
+    tick(read('ABC123'));
+    expect(engine.stats.overlay?.tracks[0]?.plate).toBeNull();
+    tick(read('ABC123'));
+    expect(engine.stats.overlay?.tracks[0]?.plate).toBe('ABC123');
+    expect(engine.stats.plates).toMatchObject({ enabled: true, attempts: 3, small: 1, reads: 2, voted: 1, widestPx: 70 });
+
+    void engine.stop();
+    jest.useRealTimers();
+  });
+
+  test('sin modelos de placa no publica compuertas y lo informa', () => {
+    const { outbox } = fakeOutbox(false);
+    const engine = new EdgeEngine(
+      { cameraId: 'CEL-06', serverUrl: 'https://vigia.example', token: 't' },
+      { name: 'vehicles', digest: 'abc' },
+      outbox,
+      () => undefined,
+    );
+    expect(engine.stats.plates.enabled).toBe(false);
+  });
+});
+
+describe('sobre con placa', () => {
+  test('licensePlate lleva la placa votada del track, o null', () => {
+    const track = new Track(7, { box: { x1: 0, y1: 0, x2: 10, y2: 10 }, score: 0.9, label: 'car' }, 0);
+    const envelope = () => buildEnvelope({
+      cameraId: 'CEL-07', sessionId: 's', sequenceNumber: 1, frameNumber: 1, modelName: 'm', modelDigest: null,
+      tracks: [track], generatedAt: 0, eventId: 'e',
+    });
+    expect(envelope().detections[0]?.licensePlate).toBeNull();
+    const read = { status: 'read' as const, widthPx: 60, text: 'XYZ98A', confidence: 0.8 };
+    track.plateReads.add(read, 100, 1);
+    track.plateReads.add(read, 100, 2);
+    expect(envelope().detections[0]?.licensePlate).toBe('XYZ98A');
   });
 });

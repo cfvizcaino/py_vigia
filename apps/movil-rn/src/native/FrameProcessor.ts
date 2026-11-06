@@ -7,7 +7,9 @@ import { NitroModules } from 'react-native-nitro-modules';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { decodeYolo, intersectionOverUnion } from '../edge/detections';
-import { prepareCrop, prepareInput, prepareThumbnail } from '../edge/preprocess';
+import { decodeBestPlate, decodePlateText, minPlateWidthPx, plateDetectorMinScore, vehicleMargin } from '../edge/plates';
+import type { PlateAttempt } from '../edge/plates';
+import { prepareCrop, prepareInput, preparePlate, prepareRegion, prepareThumbnail } from '../edge/preprocess';
 import type { ThumbnailPixels } from '../edge/preprocess';
 import type { Box, Detection, FrameData } from '../edge/types';
 import { rotationForOrientation } from './orientation';
@@ -15,7 +17,36 @@ import { rotationForOrientation } from './orientation';
 // Module constants: VisionCamera memoizes the output on these values, so an
 // inline object would rebuild the camera session on every render.
 const frameResolution = { width: 640, height: 480 };
+/**
+ * With the plate models loaded the camera delivers 1920×1440: the detector
+ * still samples only its 320×320 input, but a plate gets ~3× more pixels
+ * (the OCR needs ≥ 45 px; at 640 px a plate a few metres away is 8–15 px).
+ */
+const plateFrameResolution = { width: 1920, height: 1440 };
+/**
+ * Boxes, tracks and every pixel threshold (colour 24 px, recorte 32 px, the
+ * 25 px direction dead zone) live in a 640 px "analysis space", whatever the
+ * camera resolution; crops are scaled back to the full frame.
+ */
+const analysisLongSide = 640;
 const thumbnailMinSidePx = 32;
+
+/** At most one plate attempt this often, so vehicle detection keeps its pace. */
+const plateIntervalMs = 400;
+/** A plate of ≥ 45 px needs a vehicle about this wide (a plate is ~22 % of it). */
+const plateMinVehicleWidthPx = 200;
+
+/** A confirmed vehicle whose plate is still wanted: where its box is expected. */
+export interface PlateGate {
+  box: Box;
+}
+
+/** Plate model output names, from the OCR manifest. */
+export interface PlateOcrConfig {
+  alphabet: string;
+  padChar: string;
+  slots: number;
+}
 
 /** A vehicle that still needs a colour vote: where its box is expected. */
 export interface ColorGate {
@@ -46,6 +77,8 @@ export interface StageTimings {
   colorCrops: number;
   /** Recorte pixels for the admin's confirmation. */
   thumbnail: number;
+  /** Plate search + OCR on one vehicle (0 on frames without an attempt). */
+  plate: number;
   /** Whole frame, from reading it to handing the result over. */
   total: number;
   /** Wall clock when the worklet finished, to measure the hand-over to JS. */
@@ -63,11 +96,19 @@ export interface FrameProcessingResult {
   frameSize: { width: number; height: number };
   /** Recorte of one detection (by index), when its view improved. */
   thumbnail: (ThumbnailPixels & { detectionIndex: number }) | null;
+  /** Plate attempt on one detection (by index), at most one per frame. */
+  plate?: { detectionIndex: number; areaPx: number; attempt: PlateAttempt } | null;
+  /** Camera frame size, upright (before scaling to the analysis space). */
+  cameraSize?: { width: number; height: number };
 }
 
 export function useVehicleFrameOutput(input: {
   detector: TfliteModel | null;
   colorModel: TfliteModel | null;
+  /** Both null: no plates, and the camera stays at 640×480. */
+  plateModel: TfliteModel | null;
+  plateOcrModel: TfliteModel | null;
+  plateOcr: PlateOcrConfig | null;
   inputSize: number;
   detectorShape: number[];
   detectorLabels: Readonly<Record<number, Detection['label']>>;
@@ -80,22 +121,28 @@ export function useVehicleFrameOutput(input: {
   output: CameraFrameOutput;
   setThumbnailGates: (gates: ThumbnailGate[] | null) => void;
   setColorGates: (gates: ColorGate[]) => void;
+  setPlateGates: (gates: PlateGate[]) => void;
 } {
   const lastFrameTimestamp = useSharedValue(0);
   // null: the central keeps no recortes (or none wanted yet), so none are made.
   const thumbnailGates = useSharedValue<ThumbnailGate[] | null>(null);
   // Empty until the engine confirms a vehicle: no colour work before that.
   const colorGates = useSharedValue<ColorGate[]>([]);
+  const plateGates = useSharedValue<PlateGate[]>([]);
+  const lastPlateAt = useSharedValue(0);
   // TfliteModel is a Nitro HybridObject (jsi::NativeState): captured as-is, the
   // worklet runtime sees an object without methods ("undefined is not a
   // function" on runSync). Boxing makes it a HostObject the worklet can unbox.
   const boxedDetector = useMemo(() => (input.detector ? NitroModules.box(input.detector) : null), [input.detector]);
   const boxedColorModel = useMemo(() => (input.colorModel ? NitroModules.box(input.colorModel) : null), [input.colorModel]);
+  const boxedPlateModel = useMemo(() => (input.plateModel ? NitroModules.box(input.plateModel) : null), [input.plateModel]);
+  const boxedOcrModel = useMemo(() => (input.plateOcrModel ? NitroModules.box(input.plateOcrModel) : null), [input.plateOcrModel]);
+  const readsPlates = !!(input.plateModel && input.plateOcrModel && input.plateOcr);
   const output = useFrameOutput({
-    targetResolution: frameResolution,
+    targetResolution: readsPlates ? plateFrameResolution : frameResolution,
     pixelFormat: 'rgb',
     dropFramesWhileBusy: true,
-    enablePreviewSizedOutputBuffers: true,
+    enablePreviewSizedOutputBuffers: !readsPlates,
     onFrame(frame) {
       'worklet';
       const startedAt = Date.now();
@@ -118,13 +165,19 @@ export function useVehicleFrameOutput(input: {
         const rawOutput = detector.runSync([modelInput.pixels.buffer as ArrayBuffer])[0];
         const tDetected = performance.now();
         if (!rawOutput) throw new Error('El detector no devolvió tensores de salida.');
-        const detections = decodeYolo(
+        const cameraDetections = decodeYolo(
           new Float32Array(rawOutput),
           input.detectorShape,
           modelInput.letterbox,
           input.detectorLabels,
           0.1,
         );
+        const cameraWidth = modelInput.letterbox.uprightWidth;
+        const cameraHeight = modelInput.letterbox.uprightHeight;
+        const analysisScale = Math.max(1, Math.max(cameraWidth, cameraHeight) / analysisLongSide);
+        const detections = analysisScale === 1
+          ? cameraDetections
+          : cameraDetections.map((detection) => ({ ...detection, box: scaleBox(detection.box, 1 / analysisScale) }));
         const tDecoded = performance.now();
         let colorCrops = 0;
         const colorVotes: (Record<string, number> | null)[] = detections.map(() => null);
@@ -136,7 +189,7 @@ export function useVehicleFrameOutput(input: {
             if (!detection) continue;
             colorCrops++;
             try {
-              const crop = prepareCrop(frameData, detection.box, 128, true);
+              const crop = prepareCrop(frameData, scaleBox(detection.box, analysisScale), 128, true);
               const output = colorModel.runSync([crop.buffer as ArrayBuffer])[0];
               if (!output) continue;
               const probabilities = new Float32Array(output);
@@ -155,7 +208,31 @@ export function useVehicleFrameOutput(input: {
         }
         const tColored = performance.now();
         const gates = thumbnailGates.value;
-        const thumbnail = gates ? pickThumbnail(frameData, detections, gates) : null;
+        const thumbnail = gates ? pickThumbnail(frameData, detections, gates, analysisScale) : null;
+        const tThumbnail = performance.now();
+        let plate: FrameProcessingResult['plate'] = null;
+        const plateOcr = input.plateOcr;
+        if (boxedPlateModel && boxedOcrModel && plateOcr && startedAt - lastPlateAt.value >= plateIntervalMs) {
+          const index = pickPlateDetection(detections, plateGates.value, analysisScale);
+          const detection = detections[index];
+          if (detection) {
+            lastPlateAt.value = startedAt;
+            const vehicle = scaleBox(detection.box, analysisScale);
+            // A plate failure must not cost the frame: the vehicle is still
+            // reported, just without plate (as with colour).
+            let attempt: PlateAttempt;
+            try {
+              attempt = readPlate(frameData, vehicle, cameraWidth, cameraHeight, boxedPlateModel.unbox(), boxedOcrModel.unbox(), plateOcr);
+            } catch (reason) {
+              attempt = { status: 'error', message: reason instanceof Error ? reason.message : 'Fallo al leer la placa.' };
+            }
+            plate = {
+              detectionIndex: index,
+              areaPx: (detection.box.x2 - detection.box.x1) * (detection.box.y2 - detection.box.y1),
+              attempt,
+            };
+          }
+        }
         const tDone = performance.now();
         const elapsedMs = Date.now() - startedAt;
         const timings: StageTimings = {
@@ -164,7 +241,8 @@ export function useVehicleFrameOutput(input: {
           decode: tDecoded - tDetected,
           color: tColored - tDecoded,
           colorCrops,
-          thumbnail: tDone - tColored,
+          thumbnail: tThumbnail - tColored,
+          plate: tDone - tThumbnail,
           total: tDone - t0,
           finishedAt: Date.now(),
         };
@@ -178,11 +256,10 @@ export function useVehicleFrameOutput(input: {
             elapsedMs,
             timings,
             frameNumber: startedAt,
-            frameSize: {
-              width: modelInput.letterbox.uprightWidth,
-              height: modelInput.letterbox.uprightHeight,
-            },
+            frameSize: { width: cameraWidth / analysisScale, height: cameraHeight / analysisScale },
+            cameraSize: { width: cameraWidth, height: cameraHeight },
             thumbnail,
+            plate,
           });
         }
       } catch (error) {
@@ -201,7 +278,75 @@ export function useVehicleFrameOutput(input: {
   const setColorGates = useCallback((gates: ColorGate[]) => {
     colorGates.set(gates);
   }, [colorGates]);
-  return { output, setThumbnailGates, setColorGates };
+  const setPlateGates = useCallback((gates: PlateGate[]) => {
+    plateGates.set(gates);
+  }, [plateGates]);
+  return { output, setThumbnailGates, setColorGates, setPlateGates };
+}
+
+function scaleBox(box: Box, factor: number): Box {
+  'worklet';
+  return { x1: box.x1 * factor, y1: box.y1 * factor, x2: box.x2 * factor, y2: box.y2 * factor };
+}
+
+/**
+ * The detection to search a plate in: the first gate (fewest reads first) that
+ * matches a detection wide enough, in camera pixels, to hold a 45 px plate.
+ */
+export function pickPlateDetection(detections: Detection[], gates: PlateGate[], analysisScale: number): number {
+  'worklet';
+  for (const gate of gates) {
+    let bestIndex = -1;
+    let bestOverlap = gateMatchIou;
+    for (let index = 0; index < detections.length; index++) {
+      const detection = detections[index];
+      if (!detection || (detection.box.x2 - detection.box.x1) * analysisScale < plateMinVehicleWidthPx) continue;
+      const overlap = intersectionOverUnion(gate.box, detection.box);
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestIndex = index;
+      }
+    }
+    if (bestIndex >= 0) return bestIndex;
+  }
+  return -1;
+}
+
+/**
+ * The PC node's cascade on one vehicle (apps/vision/vigia_vision/plates.py and
+ * plate_ocr.py): the vehicle plus a 4 % margin into the plate detector, its best
+ * plate back to camera pixels and, if at least 45 px wide, into the OCR.
+ */
+function readPlate(
+  frame: FrameData,
+  vehicle: Box,
+  cameraWidth: number,
+  cameraHeight: number,
+  plateModel: TfliteModel,
+  ocrModel: TfliteModel,
+  ocr: PlateOcrConfig,
+): PlateAttempt {
+  'worklet';
+  const marginX = (vehicle.x2 - vehicle.x1) * vehicleMargin;
+  const marginY = (vehicle.y2 - vehicle.y1) * vehicleMargin;
+  const left = Math.max(0, Math.round(vehicle.x1 - marginX));
+  const top = Math.max(0, Math.round(vehicle.y1 - marginY));
+  const right = Math.min(cameraWidth, Math.round(vehicle.x2 + marginX));
+  const bottom = Math.min(cameraHeight, Math.round(vehicle.y2 + marginY));
+  if (right - left < 40 || bottom - top < 25) return { status: 'none' };
+  const input = prepareRegion(frame, { left, top, width: right - left, height: bottom - top }, 320, true);
+  const raw = plateModel.runSync([input.pixels.buffer as ArrayBuffer])[0];
+  if (!raw) return { status: 'none' };
+  const found = decodeBestPlate(new Float32Array(raw), input.letterbox, plateDetectorMinScore);
+  if (!found) return { status: 'none' };
+  const plateBox = { x1: left + found.x1, y1: top + found.y1, x2: left + found.x2, y2: top + found.y2 };
+  const widthPx = Math.round(plateBox.x2 - plateBox.x1);
+  if (widthPx < minPlateWidthPx) return { status: 'small', widthPx };
+  const pixels = preparePlate(frame, plateBox, 128, 64);
+  const out = ocrModel.runSync([pixels.buffer as ArrayBuffer])[0];
+  if (!out) return { status: 'none' };
+  const { text, confidence } = decodePlateText(new Float32Array(out), ocr.alphabet, ocr.slots, ocr.padChar);
+  return { status: 'read', widthPx, text, confidence };
 }
 
 /**
@@ -238,6 +383,7 @@ export function pickThumbnail(
   frame: FrameData,
   detections: Detection[],
   gates: ThumbnailGate[],
+  analysisScale = 1,
 ): (ThumbnailPixels & { detectionIndex: number }) | null {
   'worklet';
   let bestIndex = -1;
@@ -262,7 +408,7 @@ export function pickThumbnail(
   }
   const chosen = detections[bestIndex];
   if (!chosen) return null;
-  return { ...prepareThumbnail(frame, chosen.box), detectionIndex: bestIndex };
+  return { ...prepareThumbnail(frame, scaleBox(chosen.box, analysisScale)), detectionIndex: bestIndex };
 }
 
 function readFrame(frame: Frame, extraRotation: number): FrameData {

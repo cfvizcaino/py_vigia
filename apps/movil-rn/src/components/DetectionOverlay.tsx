@@ -32,7 +32,7 @@ export function DetectionOverlay({ overlay, extraRotation }: { overlay: EdgeOver
                 Near the top edge it goes inside the box so it is not clipped. */}
             <View style={[styles.labelRow, box.y1 < 0.05 ? styles.labelRowInside : null]}>
               <Text style={styles.label} numberOfLines={1}>
-                {vehicleTypeName(track.label)}{color ? ` ${color}` : ''} {Math.round(track.score * 100)}%
+                {vehicleTypeName(track.label)}{color ? ` ${color}` : ''}{track.plate ? ` · ${track.plate}` : ''} {Math.round(track.score * 100)}%
               </Text>
             </View>
           </View>
