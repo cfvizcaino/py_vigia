@@ -95,7 +95,11 @@ internal class MjpegHttpServer(
     synchronized(frameLock) { frameLock.notifyAll() }
     closeQuietly(socket)
     socket = null
-    clients.toList().forEach(::closeQuietly)
+    // Itera directamente sobre el set concurrente. `toList()` consulta primero
+    // su tamaño y, si ve un solo cliente, llama `next()` sin volver a comprobar;
+    // el hilo del stream puede retirarlo entre ambas operaciones y provocar un
+    // NoSuchElementException durante el apagado.
+    clients.forEach(::closeQuietly)
     clients.clear()
     requests.shutdownNow()
     watchdog.shutdownNow()
