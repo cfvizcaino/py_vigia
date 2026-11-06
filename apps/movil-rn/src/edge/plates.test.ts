@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { decodeBestPlate, decodePlateText, PlateReads, validPlate } from './plates';
+import { decodeBestPlate, decodePlateText, plateDetectorMinScore, PlateReads, validPlate } from './plates';
 import { preparePlate, prepareRegion } from './preprocess';
 import type { FrameData } from './types';
 
@@ -70,8 +70,8 @@ describe('decodificación', () => {
     output.set([100, 140, 140, 160, 0.5, 0], 0); // Débil.
     output.set([200, 240, 260, 260, 0.9, 0], 6);
     output.set([10, 10, 20, 20, 0.3, 0], 12); // Bajo el umbral.
-    expect(decodeBestPlate(output, letterbox)).toEqual({ x1: 400, y1: 400, x2: 520, y2: 440, score: expect.closeTo(0.9, 5) });
-    expect(decodeBestPlate(new Float32Array(300 * 6), letterbox)).toBeNull();
+    expect(decodeBestPlate(output, letterbox, plateDetectorMinScore)).toEqual({ x1: 400, y1: 400, x2: 520, y2: 440, score: expect.closeTo(0.9, 5) });
+    expect(decodeBestPlate(new Float32Array(300 * 6), letterbox, plateDetectorMinScore)).toBeNull();
   });
 });
 

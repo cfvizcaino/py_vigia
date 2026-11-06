@@ -33,7 +33,8 @@ export function validPlate(text: string): boolean {
 export type PlateAttempt =
   | { status: 'none' }
   | { status: 'small'; widthPx: number }
-  | { status: 'read'; widthPx: number; text: string; confidence: number };
+  | { status: 'read'; widthPx: number; text: string; confidence: number }
+  | { status: 'error'; message: string };
 
 export class PlateReads {
   private readonly texts = new Map<string, number>();
@@ -74,7 +75,10 @@ export class PlateReads {
  * Best plate of a [1, 300, 6] end-to-end YOLO output (x1, y1, x2, y2, score,
  * class in model-input pixels or normalized), mapped back to region pixels.
  */
-export function decodeBestPlate(output: Float32Array, letterbox: Letterbox, minScore = plateDetectorMinScore): (Box & { score: number }) | null {
+export function decodeBestPlate(output: Float32Array, letterbox: Letterbox, minScore: number): (Box & { score: number }) | null {
+  // No default value from a module constant here: the worklets plugin does not
+  // capture identifiers used only in default parameters ("Property
+  // 'plateDetectorMinScore' doesn't exist" on the phone).
   'worklet';
   const rows = Math.floor(output.length / 6);
   let maxCoordinate = 0;

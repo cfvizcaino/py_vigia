@@ -7,7 +7,7 @@ import { NitroModules } from 'react-native-nitro-modules';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { decodeYolo, intersectionOverUnion } from '../edge/detections';
-import { decodeBestPlate, decodePlateText, minPlateWidthPx, vehicleMargin } from '../edge/plates';
+import { decodeBestPlate, decodePlateText, minPlateWidthPx, plateDetectorMinScore, vehicleMargin } from '../edge/plates';
 import type { PlateAttempt } from '../edge/plates';
 import { prepareCrop, prepareInput, preparePlate, prepareRegion, prepareThumbnail } from '../edge/preprocess';
 import type { ThumbnailPixels } from '../edge/preprocess';
@@ -218,10 +218,18 @@ export function useVehicleFrameOutput(input: {
           if (detection) {
             lastPlateAt.value = startedAt;
             const vehicle = scaleBox(detection.box, analysisScale);
+            // A plate failure must not cost the frame: the vehicle is still
+            // reported, just without plate (as with colour).
+            let attempt: PlateAttempt;
+            try {
+              attempt = readPlate(frameData, vehicle, cameraWidth, cameraHeight, boxedPlateModel.unbox(), boxedOcrModel.unbox(), plateOcr);
+            } catch (reason) {
+              attempt = { status: 'error', message: reason instanceof Error ? reason.message : 'Fallo al leer la placa.' };
+            }
             plate = {
               detectionIndex: index,
               areaPx: (detection.box.x2 - detection.box.x1) * (detection.box.y2 - detection.box.y1),
-              attempt: readPlate(frameData, vehicle, cameraWidth, cameraHeight, boxedPlateModel.unbox(), boxedOcrModel.unbox(), plateOcr),
+              attempt,
             };
           }
         }
@@ -329,7 +337,7 @@ function readPlate(
   const input = prepareRegion(frame, { left, top, width: right - left, height: bottom - top }, 320, true);
   const raw = plateModel.runSync([input.pixels.buffer as ArrayBuffer])[0];
   if (!raw) return { status: 'none' };
-  const found = decodeBestPlate(new Float32Array(raw), input.letterbox);
+  const found = decodeBestPlate(new Float32Array(raw), input.letterbox, plateDetectorMinScore);
   if (!found) return { status: 'none' };
   const plateBox = { x1: left + found.x1, y1: top + found.y1, x2: left + found.x2, y2: top + found.y2 };
   const widthPx = Math.round(plateBox.x2 - plateBox.x1);

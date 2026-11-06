@@ -226,7 +226,8 @@ function describePlates(stats: EdgeStats): string {
   if (!p.enabled) return 'Placas: desactivadas (modelos no disponibles)';
   const camera = p.cameraSize ? ` · cámara ${p.cameraSize.width}×${p.cameraSize.height}` : '';
   if (!p.attempts) return `Placas: esperando un vehículo cercano${camera}`;
-  return `Placas: ${p.voted} confirmadas · ${p.reads} lecturas · ${p.small} pequeñas (< 45 px) · máx. ${p.widestPx} px${camera}`;
+  return `Placas: ${p.voted} confirmadas · ${p.reads} lecturas · ${p.small} pequeñas (< 45 px) · máx. ${p.widestPx} px`
+    + `${p.failures ? ` · ${p.failures} fallidas` : ''}${camera}`;
 }
 
 /** Whole-frame time (not only the model), then where it goes. */

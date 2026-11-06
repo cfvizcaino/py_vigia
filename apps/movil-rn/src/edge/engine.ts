@@ -68,6 +68,7 @@ export interface PlateStats {
   attempts: number;
   small: number;
   reads: number;
+  failures: number;
   /** Vehicles whose plate was voted (a text repeated). */
   voted: number;
   /** Widest plate seen, in camera pixels: tells whether the camera is close enough. */
@@ -114,7 +115,7 @@ export class EdgeEngine {
   private overlay: EdgeOverlay | null = null;
   private readonly recentTimings: (StageTimings & { handoff: number })[] = [];
   private timingSummary: TimingSummary | null = null;
-  private readonly plateStats: PlateStats = { enabled: false, attempts: 0, small: 0, reads: 0, voted: 0, widestPx: 0, cameraSize: null };
+  private readonly plateStats: PlateStats = { enabled: false, attempts: 0, small: 0, reads: 0, failures: 0, voted: 0, widestPx: 0, cameraSize: null };
   private readonly votedPlateTracks = new Set<number>();
   private lastError: string | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
@@ -249,11 +250,16 @@ export class EdgeEngine {
 
   private recordPlate(track: Track, plate: NonNullable<FrameProcessingResult['plate']>, now: number): void {
     const { attempt } = plate;
+    if (attempt.status === 'error') {
+      this.plateStats.failures++;
+      console.error('No fue posible leer una placa; la detección continúa.', attempt.message);
+      return;
+    }
     track.plateReads.add(attempt, plate.areaPx, now);
     this.plateStats.attempts++;
     if (attempt.status === 'small') this.plateStats.small++;
     if (attempt.status === 'read') this.plateStats.reads++;
-    if (attempt.status !== 'none') this.plateStats.widestPx = Math.max(this.plateStats.widestPx, attempt.widthPx);
+    if (attempt.status === 'small' || attempt.status === 'read') this.plateStats.widestPx = Math.max(this.plateStats.widestPx, attempt.widthPx);
     if (track.plateReads.plate && !this.votedPlateTracks.has(track.id)) {
       this.votedPlateTracks.add(track.id);
       this.plateStats.voted++;
