@@ -15,12 +15,14 @@ type Props = BottomTabScreenProps<TabParamList, 'Query'>;
 
 export function QueryScreen({ navigation }: Props) {
   const { devices, scenarios, isDemo, busy, error, search } = useSession();
+  const now = new Date();
+  const previousHour = new Date(now.getTime() - 60 * 60 * 1000);
   const [lat, setLat] = useState(String(devices[0]?.lat ?? 11.0131));
   const [lng, setLng] = useState(String(devices[0]?.lng ?? -74.8172));
   const [radius, setRadius] = useState('2000');
-  const [date, setDate] = useState(() => bogotaDateTime(new Date()).slice(0, 10));
-  const [from, setFrom] = useState(() => bogotaDateTime(new Date(Date.now() - 60 * 60 * 1000)).slice(11));
-  const [to, setTo] = useState(() => bogotaDateTime(new Date()).slice(11));
+  const [date, setDate] = useState(() => bogotaDateTime(previousHour).slice(0, 10));
+  const [from, setFrom] = useState(() => bogotaDateTime(previousHour).slice(11));
+  const [to, setTo] = useState(() => bogotaDateTime(now).slice(11));
   const [vehicle, setVehicle] = useState('car');
   const [color, setColor] = useState('white');
   const [selectedCameraId, setSelectedCameraId] = useState('');
@@ -44,6 +46,7 @@ export function QueryScreen({ navigation }: Props) {
     try {
       timeFrom = bogotaToUtc(date, from);
       timeTo = bogotaToUtc(date, to);
+      if (to < from) timeTo = new Date(Date.parse(timeTo) + 24 * 60 * 60 * 1000).toISOString();
     } catch (reason) {
       setFormError(reason instanceof Error ? reason.message : 'Fecha u hora inválida.');
       return;

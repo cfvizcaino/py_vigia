@@ -86,11 +86,18 @@ describe('consulta de trayectorias', () => {
       }
       if (url.endsWith('/api/v1/scenarios')) {
         return new Response(JSON.stringify({
-          items: [{
-            id: 'S01', title: 'Entrada norte', camera_id: 'CAM-01', radius_m: 750,
-            date: '2026-03-01', time_from: '10:15', time_to: '11:15',
-            vehicle_type: 'motorcycle', color: 'red',
-          }],
+          items: [
+            {
+              id: 'S01', title: 'Entrada norte', camera_id: 'CAM-01', radius_m: 750,
+              date: '2026-03-01', time_from: '10:15', time_to: '11:15',
+              vehicle_type: 'motorcycle', color: 'red',
+            },
+            {
+              id: 'S02', title: 'Cruce nocturno', camera_id: 'CAM-01', radius_m: 750,
+              date: '2026-03-01', time_from: '23:30', time_to: '00:30',
+              vehicle_type: 'car', color: 'white',
+            },
+          ],
         }), { status: 200 });
       }
       if (url.includes('/api/v1/queries?')) {
@@ -125,6 +132,15 @@ describe('consulta de trayectorias', () => {
     expect(requestUrl.searchParams.get('time_to')).toBe('2026-03-01T16:15:00.000Z');
     expect(requestUrl.searchParams.get('vehicle_type')).toBe('motorcycle');
     expect(requestUrl.searchParams.get('color')).toBe('red');
+
+    await fireEvent.press(screen.getByRole('button', { name: /Query, tab/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'S02 · Cruce nocturno' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Consultar trayectorias' }));
+    await waitFor(() => expect(fetch.mock.calls.filter(([input]) => String(input).includes('/api/v1/queries?'))).toHaveLength(2));
+    const overnightCall = fetch.mock.calls.filter(([input]) => String(input).includes('/api/v1/queries?'))[1];
+    const overnightUrl = new URL(String(overnightCall?.[0]));
+    expect(overnightUrl.searchParams.get('time_from')).toBe('2026-03-02T04:30:00.000Z');
+    expect(overnightUrl.searchParams.get('time_to')).toBe('2026-03-02T05:30:00.000Z');
   });
 
   it('permite consultar el dataset en demo sin red y conserva avisos visibles', async () => {
