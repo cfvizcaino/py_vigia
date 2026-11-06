@@ -78,8 +78,9 @@ describe('fast packed-RGB preprocessing', () => {
         expect(thumbnail.width).toBe(3);
         const [r, g, b] = [0, 1, 2].map((channel) => {
           let sum = 0;
-          for (let dy = 0; dy < 4; dy++) for (let dx = 0; dx < 4; dx++) sum += referenceRgb(frame, 1 + dx, 1 + dy)[channel]!;
-          return Math.round(sum / 16);
+          // Bloques de 4 px: 2×2 muestras (0 y 2).
+          for (const dy of [0, 2]) for (const dx of [0, 2]) sum += referenceRgb(frame, 1 + dx, 1 + dy)[channel]!;
+          return Math.round(sum / 4);
         });
         expect(Array.from(thumbnail.rgb.slice(0, 3))).toEqual([r, g, b]);
       });

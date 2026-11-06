@@ -10,6 +10,8 @@ const mockLoad = jest.fn(async (_source: unknown, _delegates: unknown) => ({
 
 jest.mock('../../assets/models/vehicles.tflite', () => 1);
 jest.mock('../../assets/models/colors.tflite', () => 2);
+jest.mock('../../assets/models/plates.tflite', () => 3);
+jest.mock('../../assets/models/plate-ocr.tflite', () => 4);
 jest.mock('react-native-fast-tflite', () => ({
   loadTensorflowModel: (source: unknown, delegates: unknown) => mockLoad(source, delegates),
 }));
@@ -39,7 +41,7 @@ jest.mock('./modelManifest', () => ({
 
 describe('carga del modelo TFLite', () => {
   test('carga el mismo archivo local cuya huella verificó (no el id del módulo)', async () => {
-    await loadModel({ assetId: 42, manifestData: {}, expectedTask: 'detect' });
+    await loadModel({ assetId: 42, manifestData: {}, kind: 'vehicles' });
     expect(mockLoad).toHaveBeenCalledWith({ url: 'file:///data/user/0/co.vigia.movil/cache/vehicles.tflite' }, []);
   });
 });
