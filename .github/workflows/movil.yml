@@ -34,6 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  CI: "1"
+  EXPO_NO_TELEMETRY: "1"
   FLUTTER_VERSION: "3.47.7"
   VIGIA_DEFAULT_API: https://vigia-5dfe.mexicocentral.cloudapp.azure.com
   # La app RN toma el servidor por defecto de esta variable al empaquetar el JS.
@@ -42,6 +44,7 @@ env:
 jobs:
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: apps/movil-rn
@@ -59,23 +62,25 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test -- --runInBand
+      - run: npm test
       - run: npm run doctor
       - run: npx expo prebuild --clean --platform android --no-install
       - name: Pruebas JVM del módulo nativo
-        run: cd android && ./gradlew :vigia-camera-server:testDebugUnitTest --no-daemon
+        run: cd android && ./gradlew :vigia-camera-server:testDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.parallel=false
       # Release con el JS empaquetado (no necesita Metro); sin llave, firma de depuración.
       # x86_64 va incluido para que el APK corra en el emulador de los flujos Maestro.
       - name: APK de prueba
-        run: cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+        run: cd android && ./gradlew assembleRelease --no-daemon --max-workers=2 -Dorg.gradle.parallel=false -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: vigia-rn-android-prueba
           path: apps/movil-rn/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
           retention-days: 14
 
   ios-unsigned:
     runs-on: macos-latest
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: apps/movil-rn
@@ -88,12 +93,21 @@ jobs:
           cache-dependency-path: apps/movil-rn/package-lock.json
       - run: npm ci
       # prebuild instala los pods, así que el proyecto se compila desde el .xcworkspace.
-      - run: npx expo prebuild --clean --platform ios --non-interactive
+      - run: npx expo prebuild --clean --platform ios
       - name: Compilar para iPhone sin firma
         shell: bash
         run: |
+          set -euo pipefail
           workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
-          scheme="$(xcodebuild -list -json -workspace "$workspace" | jq -r '.workspace.schemes[] | select(test("^Pods") | not)' | head -n 1)"
+          project="$(find ios -maxdepth 1 -name '*.xcodeproj' ! -name 'Pods.xcodeproj' -print -quit)"
+          test -n "$workspace" || { echo "No se encontró el workspace iOS de la app" >&2; exit 1; }
+          test -n "$project" || { echo "No se encontró el proyecto Xcode de la app" >&2; exit 1; }
+          # El primer scheme del workspace puede ser de una dependencia (compila en un
+          # minuto y no produce .app): se usa el scheme compartido del proyecto de la app.
+          scheme_file="$(find "$project/xcshareddata/xcschemes" -maxdepth 1 -name '*.xcscheme' -print -quit)"
+          test -n "$scheme_file" || { echo "No se encontró el scheme iOS compartido de la app" >&2; exit 1; }
+          scheme="$(basename "$scheme_file" .xcscheme)"
+          echo "Compilando scheme de la app: $scheme"
           xcodebuild \
             -workspace "$workspace" \
             -scheme "$scheme" \
@@ -104,17 +118,20 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
           app="$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app" || { echo "La compilación no produjo el .app esperado" >&2; exit 1; }
           ditto -c -k --sequesterRsrc --keepParent "$app" ios/build/Vigia-iOS-sin-firma.zip
       - uses: actions/upload-artifact@v4
         with:
           name: vigia-rn-ios-sin-firma
           path: apps/movil-rn/ios/build/Vigia-iOS-sin-firma.zip
+          if-no-files-found: error
           retention-days: 14
 
   android-e2e:
     if: github.event_name == 'workflow_dispatch' && inputs.run_android_e2e == true
     needs: android
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4

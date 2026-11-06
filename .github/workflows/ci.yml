@@ -5,10 +5,10 @@ name: ci
 
 on:
   pull_request:
-    paths-ignore: ["apps/movil/**", "docs/**", "**/*.md"]
+    paths-ignore: ["apps/movil/**", "apps/movil-rn/**", "docs/**", "**/*.md"]
   push:
     branches: [main]
-    paths-ignore: ["apps/movil/**", "docs/**", "**/*.md"]
+    paths-ignore: ["apps/movil/**", "apps/movil-rn/**", "docs/**", "**/*.md"]
   workflow_dispatch:
 
 permissions:
