@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 
-import { EdgeEngine } from './engine';
+import { EdgeEngine, percentiles } from './engine';
 import { Outbox } from './outbox';
 import type { OutboxStorage, QueueFile, ThumbnailItem } from './outbox';
 import type { FrameProcessingResult } from '../native/FrameProcessor';
@@ -205,5 +205,73 @@ describe('motor Edge', () => {
     });
     expect(engine.stats).toMatchObject({ failures: 1, framesProcessed: 1 });
     await engine.stop();
+  });
+});
+
+describe('color solo para vehículos que lo necesitan', () => {
+  test('ofrece los tracks confirmados con menos votos y deja de ofrecerlos al completar la votación', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const { outbox } = fakeOutbox(false);
+    const gates: { box: Box }[][] = [];
+    const engine = new EdgeEngine(
+      { cameraId: 'CEL-03', serverUrl: 'https://vigia.example', token: 't' },
+      { name: 'vehicles', digest: 'abc' },
+      outbox,
+      () => undefined,
+      null,
+      () => undefined,
+      (value) => gates.push(value),
+    );
+    engine.start();
+    const white = { white: 0.9, black: 0.1 };
+    const tick = (votes: (Record<string, number> | null)[]) => {
+      engine.process({ ...frame({ x1: 0, y1: 0, x2: 100, y2: 100 }, false), colorVotes: votes });
+      jest.advanceTimersByTime(600);
+    };
+
+    tick([null]);
+    expect(gates.at(-1)).toEqual([]); // Un solo hit: aún no confirmado.
+    tick([null]);
+    expect(gates.at(-1)).toHaveLength(1);
+    for (let vote = 0; vote < 5; vote++) tick([white]);
+    expect(gates.at(-1)).toEqual([]); // Cinco votos: el color ya está decidido.
+    expect(engine.stats.overlay?.tracks[0]?.color).toBe('white');
+    void engine.stop();
+    jest.useRealTimers();
+  });
+});
+
+describe('tiempos por etapa', () => {
+  test('percentiles p50 y p95', () => {
+    const values = Array.from({ length: 100 }, (_, index) => index + 1);
+    expect(percentiles(values)).toEqual({ p50: 51, p95: 96 });
+    expect(percentiles([])).toEqual({ p50: 0, p95: 0 });
+  });
+
+  test('resume las etapas de los últimos frames', () => {
+    const { outbox } = fakeOutbox(false);
+    const engine = new EdgeEngine(
+      { cameraId: 'CEL-04', serverUrl: 'https://vigia.example', token: 't' },
+      { name: 'vehicles', digest: 'abc' },
+      outbox,
+      () => undefined,
+    );
+    engine.start();
+    const log = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    for (let index = 0; index < 60; index++) {
+      engine.process({
+        ...frame({ x1: 0, y1: 0, x2: 100, y2: 100 }, false),
+        timings: { prepare: 20, detect: 60, decode: 1, color: index % 2 ? 40 : 0, colorCrops: index % 2, thumbnail: 2, total: 83 + (index % 2 ? 40 : 0), finishedAt: Date.now() },
+      });
+    }
+    const timings = engine.stats.timings;
+    expect(timings?.samples).toBe(50);
+    expect(timings?.detect).toEqual({ p50: 60, p95: 60 });
+    expect(timings?.total.p95).toBe(123);
+    expect(timings?.colorCropsPerFrame).toBe(0.5);
+    expect(log).toHaveBeenCalledWith('VIGIA-TIEMPOS', expect.any(String));
+    log.mockRestore();
+    void engine.stop();
   });
 });

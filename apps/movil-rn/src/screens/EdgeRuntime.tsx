@@ -11,7 +11,7 @@ import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
 import { loadColorModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
-import type { ThumbnailGate } from '../native/FrameProcessor';
+import type { ColorGate, ThumbnailGate } from '../native/FrameProcessor';
 import { createThumbnailEncoder } from '../native/thumbnail';
 import type { EdgeConfiguration } from '../edge/config';
 import type { EdgeStats } from '../edge/engine';
@@ -38,6 +38,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const engineRef = useRef<EdgeEngine | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
+  const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
   const device = useCameraDevice('back');
   const { available: updateLevel, showUpdate } = useAppUpdate();
 
@@ -63,6 +64,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           setStats,
           createThumbnailEncoder(),
           (gates) => gatesRef.current(gates),
+          (gates) => colorGatesRef.current(gates),
         );
         setModels({ detector, color });
       } catch (reason) {
@@ -106,7 +108,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
     }
   }, [device, foreground, models]);
 
-  const { output: frameOutput, setThumbnailGates } = useVehicleFrameOutput({
+  const { output: frameOutput, setThumbnailGates, setColorGates } = useVehicleFrameOutput({
     detector: models?.detector.model ?? null,
     colorModel: models?.color.model ?? null,
     inputSize: 320,
@@ -120,7 +122,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   });
   useEffect(() => {
     gatesRef.current = setThumbnailGates;
-  }, [setThumbnailGates]);
+    colorGatesRef.current = setColorGates;
+  }, [setThumbnailGates, setColorGates]);
   // A new array on every render would reconfigure the camera session.
   const outputs = useMemo(() => [frameOutput], [frameOutput]);
 
@@ -193,6 +196,14 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   );
 }
 
+/** Whole-frame time (not only the model), then where it goes. */
+function describeTimings(stats: EdgeStats): string {
+  const t = stats.timings;
+  if (!t) return `Ciclo total ${stats.inferenceMs} ms`;
+  return `Ciclo total ${t.total.p50} ms (p95 ${t.total.p95}) · preparar ${t.prepare.p50} · detector ${t.detect.p50}`
+    + ` · color ${t.color.p50} (${t.colorCropsPerFrame}/frame) · recorte ${t.thumbnail.p50}`;
+}
+
 /** Same status as the Flutter card: pace, events, colour, recortes, connection (E05) and app version (G04). */
 function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; updateLevel: UpdateLevel; onUpdate: () => void }) {
   const outbox = stats.outbox;
@@ -206,7 +217,7 @@ function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; up
         </Text>
       </View>
       <Text style={styles.muted}>
-        Inferencia {stats.inferenceMs} ms · {stats.snapshots} eventos generados · {outbox?.delivered ?? 0} enviados · {outbox?.pending ?? 0} en cola
+        {describeTimings(stats)} · {stats.snapshots} eventos generados · {outbox?.delivered ?? 0} enviados · {outbox?.pending ?? 0} en cola
         {outbox?.rejected ? ` · ${outbox.rejected} rechazados` : ''}
       </Text>
       <Text style={styles.muted}>
