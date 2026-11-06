@@ -3,7 +3,8 @@ import * as Crypto from 'expo-crypto';
 import { buildEnvelope, isoUtc, uuidV4 } from './envelope';
 import { Outbox } from './outbox';
 import { IouTracker } from './tracker';
-import type { FrameProcessingResult, ThumbnailGate } from '../native/FrameProcessor';
+import { ColorVotes } from './colors';
+import type { ColorGate, FrameProcessingResult, StageTimings, ThumbnailGate } from '../native/FrameProcessor';
 import type { OutboxStatus } from './outbox';
 import type { ThumbnailPixels } from './preprocess';
 import type { Track } from './tracker';
@@ -18,12 +19,47 @@ export const maxThumbnailEncodes = 4;
 /** The view stops improving once the vehicle has been gone this long, or in view this long. */
 export const thumbnailSettleMs = 1000;
 export const thumbnailMaxWaitMs = 10_000;
+/**
+ * Colour gates are read by the next frame, ~100–400 ms later: a track whose
+ * next vote is due within this margin is already offered, so the vote is not
+ * pushed back a whole frame.
+ */
+export const colorGateLookaheadMs = 200;
 
 /** Vehicles seen in the latest frame, for the boxes drawn over the preview. */
 export interface EdgeOverlay {
   frameWidth: number;
   frameHeight: number;
   tracks: { id: number; box: Box; label: string; color: string | null; score: number }[];
+}
+
+/** p50 / p95 in milliseconds over the latest frames. */
+export interface Percentiles {
+  p50: number;
+  p95: number;
+}
+
+/** Where a frame's time goes, over the latest [timingWindow] frames. */
+export interface TimingSummary {
+  samples: number;
+  total: Percentiles;
+  prepare: Percentiles;
+  detect: Percentiles;
+  decode: Percentiles;
+  color: Percentiles;
+  thumbnail: Percentiles;
+  /** From the worklet finishing to the engine receiving the result. */
+  handoff: Percentiles;
+  colorCropsPerFrame: number;
+}
+
+export const timingWindow = 50;
+
+export function percentiles(values: number[]): Percentiles {
+  if (!values.length) return { p50: 0, p95: 0 };
+  const sorted = [...values].sort((left, right) => left - right);
+  const at = (q: number) => sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] ?? 0;
+  return { p50: Math.round(at(0.5)), p95: Math.round(at(0.95)) };
 }
 
 export interface EdgeStats {
@@ -37,6 +73,7 @@ export interface EdgeStats {
   colorFailures: number;
   thumbnailFailures: number;
   overlay: EdgeOverlay | null;
+  timings: TimingSummary | null;
   lastError: string | null;
 }
 
@@ -53,6 +90,8 @@ export class EdgeEngine {
   private colorFailures = 0;
   private thumbnailFailures = 0;
   private overlay: EdgeOverlay | null = null;
+  private readonly recentTimings: (StageTimings & { handoff: number })[] = [];
+  private timingSummary: TimingSummary | null = null;
   private lastError: string | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
@@ -67,6 +106,7 @@ export class EdgeEngine {
     private readonly onStatus: (stats: EdgeStats) => void,
     private readonly encodeThumbnail: EncodeThumbnail | null = null,
     private readonly onThumbnailGates: (gates: ThumbnailGate[] | null) => void = () => undefined,
+    private readonly onColorGates: (gates: ColorGate[]) => void = () => undefined,
   ) {}
 
   get running(): boolean {
@@ -85,6 +125,7 @@ export class EdgeEngine {
       colorFailures: this.colorFailures,
       thumbnailFailures: this.thumbnailFailures,
       overlay: this.overlay,
+      timings: this.timingSummary,
       lastError: this.lastError,
     };
   }
@@ -106,10 +147,13 @@ export class EdgeEngine {
     for (let index = 0; index < matches.length; index++) {
       const track = matches[index];
       const vote = result.colorVotes[index];
-      if (track && vote && track.colorVotes.wantsSample(now)) track.colorVotes.add(vote, now);
+      // The frame only classified tracks offered as colour gates, so the
+      // timing was already checked there; a full ballot still ignores it.
+      if (track && vote && track.colorVotes.votes < ColorVotes.maxVotes) track.colorVotes.add(vote, now);
     }
     this.frameCount++;
     this.inferenceMs = result.elapsedMs;
+    if (result.timings) this.recordTimings(result.timings, Date.now());
     const previous = this.previousFrameAt;
     if (previous !== null && now > previous) {
       const instantFps = 1000 / (now - previous);
@@ -124,6 +168,7 @@ export class EdgeEngine {
       if (track) void this.sampleThumbnail(track, thumbnail);
     }
     this.updateThumbnailGates(now);
+    this.updateColorGates(now);
     this.overlay = {
       frameWidth: result.frameSize.width,
       frameHeight: result.frameSize.height,
@@ -138,6 +183,27 @@ export class EdgeEngine {
         })),
     };
     this.publishStatus();
+  }
+
+  private recordTimings(timings: StageTimings, receivedAt: number): void {
+    this.recentTimings.push({ ...timings, handoff: Math.max(0, receivedAt - timings.finishedAt) });
+    if (this.recentTimings.length > timingWindow) this.recentTimings.shift();
+    const column = (key: 'total' | 'prepare' | 'detect' | 'decode' | 'color' | 'thumbnail' | 'handoff') =>
+      percentiles(this.recentTimings.map((sample) => sample[key]));
+    const crops = this.recentTimings.reduce((sum, sample) => sum + sample.colorCrops, 0);
+    this.timingSummary = {
+      samples: this.recentTimings.length,
+      total: column('total'),
+      prepare: column('prepare'),
+      detect: column('detect'),
+      decode: column('decode'),
+      color: column('color'),
+      thumbnail: column('thumbnail'),
+      handoff: column('handoff'),
+      colorCropsPerFrame: Math.round((crops / this.recentTimings.length) * 10) / 10,
+    };
+    // One line per window in the device log, to compare builds on the phone.
+    if (this.frameCount % timingWindow === 0) console.log('VIGIA-TIEMPOS', JSON.stringify(this.timingSummary));
   }
 
   /** Keeps the track's largest view: only when its box grew enough, a few encodes per track. */
@@ -182,6 +248,24 @@ export class EdgeEngine {
           ? Number.MAX_VALUE
           : track.thumbnailArea * thumbnailGrowth,
       })),
+    );
+  }
+
+  /**
+   * Tells the frame processor which vehicles still need a colour vote, as in
+   * Flutter: confirmed tracks seen in this frame, big enough to classify,
+   * fewest votes first. Before, every frame classified its first three
+   * detections, weak ones and already-decided vehicles included.
+   */
+  private updateColorGates(now: number): void {
+    this.onColorGates(
+      this.tracker.active(now)
+        .filter((track) => track.lastSeen === now
+          && track.box.x2 - track.box.x1 >= ColorVotes.minSidePx
+          && track.box.y2 - track.box.y1 >= ColorVotes.minSidePx
+          && track.colorVotes.wantsSample(now + colorGateLookaheadMs))
+        .sort((left, right) => left.colorVotes.votes - right.colorVotes.votes)
+        .map((track) => ({ box: track.predicted(now + colorGateLookaheadMs) })),
     );
   }
 
