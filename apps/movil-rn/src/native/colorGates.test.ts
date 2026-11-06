@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 
-import { pickColorDetections, pickThumbnail } from './FrameProcessor';
+import { pickColorDetections, pickPlateDetection, pickThumbnail } from './FrameProcessor';
 import type { Detection, FrameData } from '../edge/types';
 
 // babel-jest hoists these mocks above the imports.
@@ -46,5 +46,16 @@ describe('pickThumbnail', () => {
     const detections = [car(400, 0, 60)];
     const gates = [{ box: { x1: 400, y1: 0, x2: 460, y2: 60 }, minArea: 60 * 60 * 1.2 }];
     expect(pickThumbnail(frame, detections, gates)).toBeNull();
+  });
+});
+
+describe('pickPlateDetection', () => {
+  test('busca la placa solo en vehículos lo bastante anchos en píxeles de cámara', () => {
+    const detections = [car(0, 0, 60), car(200, 0, 100)];
+    const gates = [{ box: { x1: 0, y1: 0, x2: 60, y2: 60 } }, { box: { x1: 200, y1: 0, x2: 300, y2: 100 } }];
+    // 60 px de análisis × 3 = 180 px de cámara: muy angosto para una placa de 45 px.
+    expect(pickPlateDetection(detections, gates, 3)).toBe(1);
+    expect(pickPlateDetection(detections, gates, 1)).toBe(-1);
+    expect(pickPlateDetection(detections, [], 3)).toBe(-1);
   });
 });

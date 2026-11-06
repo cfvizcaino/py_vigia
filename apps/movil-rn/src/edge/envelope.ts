@@ -25,7 +25,8 @@ export interface DetectionEnvelope {
     color: string | null;
     make: null;
     model: null;
-    licensePlate: null;
+    /** Voted on the phone; the central keeps it 7 days, admins only. */
+    licensePlate: string | null;
   }[];
 }
 
@@ -76,7 +77,7 @@ export function buildEnvelope(input: {
       color: track.colorVotes.color,
       make: null,
       model: null,
-      licensePlate: null,
+      licensePlate: track.plateReads.plate,
     })),
   };
 }

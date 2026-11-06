@@ -9,9 +9,9 @@ import { ExpandablePreview } from '../components/ExpandablePreview';
 import { Card, SecondaryButton } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
-import { loadColorModel, loadVehicleModel } from '../edge/model';
+import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
-import type { ColorGate, ThumbnailGate } from '../native/FrameProcessor';
+import type { ColorGate, PlateGate, PlateOcrConfig, ThumbnailGate } from '../native/FrameProcessor';
 import { createThumbnailEncoder } from '../native/thumbnail';
 import type { EdgeConfiguration } from '../edge/config';
 import type { EdgeStats } from '../edge/engine';
@@ -30,7 +30,11 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   onStop: () => void;
 }) {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
-  const [models, setModels] = useState<{ detector: LoadedModel; color: LoadedModel } | null>(null);
+  const [models, setModels] = useState<{
+    detector: LoadedModel;
+    color: LoadedModel;
+    plates: { detector: LoadedModel; ocr: LoadedModel; config: PlateOcrConfig } | null;
+  } | null>(null);
   const [stats, setStats] = useState<EdgeStats | null>(null);
   const [startupError, setStartupError] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
@@ -38,6 +42,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const engineRef = useRef<EdgeEngine | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
+  const plateGatesRef = useRef<(gates: PlateGate[]) => void>(() => undefined);
   const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
   const device = useCameraDevice('back');
   const { available: updateLevel, showUpdate } = useAppUpdate();
@@ -51,6 +56,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
         setPermissionGranted(granted);
         if (!granted) throw new Error('VIGÍA necesita permiso de cámara para iniciar el modo edge.');
         const [detector, color] = await Promise.all([loadVehicleModel(), loadColorModel()]);
+        // Plates are optional: without them the edge keeps detecting at 640×480.
+        const plates = await loadPlates();
         if (cancelled) return;
         const outbox = new Outbox({
           storage: new ExpoOutboxStorage(config.cameraId),
@@ -65,8 +72,9 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           createThumbnailEncoder(),
           (gates) => gatesRef.current(gates),
           (gates) => colorGatesRef.current(gates),
+          plates ? (gates) => plateGatesRef.current(gates) : null,
         );
-        setModels({ detector, color });
+        setModels({ detector, color, plates });
       } catch (reason) {
         if (!cancelled) {
           console.error('No fue posible iniciar Edge autónomo.', reason);
@@ -108,9 +116,12 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
     }
   }, [device, foreground, models]);
 
-  const { output: frameOutput, setThumbnailGates, setColorGates } = useVehicleFrameOutput({
+  const { output: frameOutput, setThumbnailGates, setColorGates, setPlateGates } = useVehicleFrameOutput({
     detector: models?.detector.model ?? null,
     colorModel: models?.color.model ?? null,
+    plateModel: models?.plates?.detector.model ?? null,
+    plateOcrModel: models?.plates?.ocr.model ?? null,
+    plateOcr: models?.plates?.config ?? null,
     inputSize: 320,
     detectorShape: models?.detector.manifest.output.shape ?? [1, 300, 6],
     detectorLabels: labelsForVehicles(models?.detector),
@@ -123,7 +134,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   useEffect(() => {
     gatesRef.current = setThumbnailGates;
     colorGatesRef.current = setColorGates;
-  }, [setThumbnailGates, setColorGates]);
+    plateGatesRef.current = setPlateGates;
+  }, [setThumbnailGates, setColorGates, setPlateGates]);
   // A new array on every render would reconfigure the camera session.
   const outputs = useMemo(() => [frameOutput], [frameOutput]);
 
@@ -196,12 +208,34 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   );
 }
 
+async function loadPlates(): Promise<{ detector: LoadedModel; ocr: LoadedModel; config: PlateOcrConfig } | null> {
+  try {
+    const [detector, ocr] = await Promise.all([loadPlateModel(), loadPlateOcrModel()]);
+    const { alphabet, padChar, slots } = ocr.manifest;
+    if (!alphabet || !padChar || !slots) throw new Error('El manifiesto del OCR no trae su alfabeto.');
+    return { detector, ocr, config: { alphabet, padChar, slots } };
+  } catch (reason) {
+    console.error('No fue posible cargar los modelos de placa; el edge sigue sin placas.', reason);
+    return null;
+  }
+}
+
+/** Plate search status: counts and sizes, never plate texts. */
+function describePlates(stats: EdgeStats): string {
+  const p = stats.plates;
+  if (!p.enabled) return 'Placas: desactivadas (modelos no disponibles)';
+  const camera = p.cameraSize ? ` · cámara ${p.cameraSize.width}×${p.cameraSize.height}` : '';
+  if (!p.attempts) return `Placas: esperando un vehículo cercano${camera}`;
+  return `Placas: ${p.voted} confirmadas · ${p.reads} lecturas · ${p.small} pequeñas (< 45 px) · máx. ${p.widestPx} px${camera}`;
+}
+
 /** Whole-frame time (not only the model), then where it goes. */
 function describeTimings(stats: EdgeStats): string {
   const t = stats.timings;
   if (!t) return `Ciclo total ${stats.inferenceMs} ms`;
   return `Ciclo total ${t.total.p50} ms (p95 ${t.total.p95}) · preparar ${t.prepare.p50} · detector ${t.detect.p50}`
-    + ` · color ${t.color.p50} (${t.colorCropsPerFrame}/frame) · recorte ${t.thumbnail.p50}`;
+    + ` · color ${t.color.p50} (${t.colorCropsPerFrame}/frame) · recorte ${t.thumbnail.p50}`
+    + (t.plate.p50 ? ` · placa ${t.plate.p50}` : '');
 }
 
 /** Same status as the Flutter card: pace, events, colour, recortes, connection (E05) and app version (G04). */
@@ -224,6 +258,7 @@ function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; up
         Modelo: {stats.framesProcessed} analizados{stats.failures ? ` · ${stats.failures} fallidos` : ''}
       </Text>
       <Text style={styles.muted}>Color: activo{stats.colorFailures ? ` · ${stats.colorFailures} fallidos` : ''}</Text>
+      <Text style={styles.muted}>{describePlates(stats)}</Text>
       <Text style={styles.muted}>
         {outbox && !outbox.thumbnailsAccepted
           ? 'Recortes: el centro no los guarda'

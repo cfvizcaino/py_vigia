@@ -4,7 +4,7 @@ import { buildEnvelope, isoUtc, uuidV4 } from './envelope';
 import { Outbox } from './outbox';
 import { IouTracker } from './tracker';
 import { ColorVotes } from './colors';
-import type { ColorGate, FrameProcessingResult, StageTimings, ThumbnailGate } from '../native/FrameProcessor';
+import type { ColorGate, FrameProcessingResult, PlateGate, StageTimings, ThumbnailGate } from '../native/FrameProcessor';
 import type { OutboxStatus } from './outbox';
 import type { ThumbnailPixels } from './preprocess';
 import type { Track } from './tracker';
@@ -25,12 +25,15 @@ export const thumbnailMaxWaitMs = 10_000;
  * pushed back a whole frame.
  */
 export const colorGateLookaheadMs = 200;
+/** A vehicle is searched again for its plate when its box grew this much, or after this long. */
+export const plateViewGrowth = 1.15;
+export const plateRetryMs = 800;
 
 /** Vehicles seen in the latest frame, for the boxes drawn over the preview. */
 export interface EdgeOverlay {
   frameWidth: number;
   frameHeight: number;
-  tracks: { id: number; box: Box; label: string; color: string | null; score: number }[];
+  tracks: { id: number; box: Box; label: string; color: string | null; plate: string | null; score: number }[];
 }
 
 /** p50 / p95 in milliseconds over the latest frames. */
@@ -48,12 +51,30 @@ export interface TimingSummary {
   decode: Percentiles;
   color: Percentiles;
   thumbnail: Percentiles;
+  /** Frames with a plate attempt only. */
+  plate: Percentiles;
   /** From the worklet finishing to the engine receiving the result. */
   handoff: Percentiles;
   colorCropsPerFrame: number;
 }
 
 export const timingWindow = 50;
+
+/** How the plate search is going, for the status card. */
+export interface PlateStats {
+  /** Plate models loaded (the camera then runs at high resolution). */
+  enabled: boolean;
+  /** Vehicles searched, plates found too small (< 45 px), plates read by the OCR. */
+  attempts: number;
+  small: number;
+  reads: number;
+  /** Vehicles whose plate was voted (a text repeated). */
+  voted: number;
+  /** Widest plate seen, in camera pixels: tells whether the camera is close enough. */
+  widestPx: number;
+  /** Camera frame size actually delivered. */
+  cameraSize: { width: number; height: number } | null;
+}
 
 export function percentiles(values: number[]): Percentiles {
   if (!values.length) return { p50: 0, p95: 0 };
@@ -74,6 +95,7 @@ export interface EdgeStats {
   thumbnailFailures: number;
   overlay: EdgeOverlay | null;
   timings: TimingSummary | null;
+  plates: PlateStats;
   lastError: string | null;
 }
 
@@ -92,6 +114,8 @@ export class EdgeEngine {
   private overlay: EdgeOverlay | null = null;
   private readonly recentTimings: (StageTimings & { handoff: number })[] = [];
   private timingSummary: TimingSummary | null = null;
+  private readonly plateStats: PlateStats = { enabled: false, attempts: 0, small: 0, reads: 0, voted: 0, widestPx: 0, cameraSize: null };
+  private readonly votedPlateTracks = new Set<number>();
   private lastError: string | null = null;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
@@ -107,7 +131,10 @@ export class EdgeEngine {
     private readonly encodeThumbnail: EncodeThumbnail | null = null,
     private readonly onThumbnailGates: (gates: ThumbnailGate[] | null) => void = () => undefined,
     private readonly onColorGates: (gates: ColorGate[]) => void = () => undefined,
-  ) {}
+    private readonly onPlateGates: ((gates: PlateGate[]) => void) | null = null,
+  ) {
+    this.plateStats.enabled = onPlateGates !== null;
+  }
 
   get running(): boolean {
     return this.snapshotTimer !== null;
@@ -126,6 +153,7 @@ export class EdgeEngine {
       thumbnailFailures: this.thumbnailFailures,
       overlay: this.overlay,
       timings: this.timingSummary,
+      plates: { ...this.plateStats },
       lastError: this.lastError,
     };
   }
@@ -162,6 +190,11 @@ export class EdgeEngine {
     this.previousFrameAt = now;
     this.lastError = result.colorFailureCount ? `${result.colorFailureCount} fallos al clasificar color.` : null;
     this.colorFailures += result.colorFailureCount;
+    if (result.cameraSize) this.plateStats.cameraSize = result.cameraSize;
+    if (result.plate) {
+      const track = matches[result.plate.detectionIndex];
+      if (track) this.recordPlate(track, result.plate, now);
+    }
     const thumbnail = result.thumbnail;
     if (thumbnail) {
       const track = matches[thumbnail.detectionIndex];
@@ -169,6 +202,7 @@ export class EdgeEngine {
     }
     this.updateThumbnailGates(now);
     this.updateColorGates(now);
+    this.updatePlateGates(now);
     this.overlay = {
       frameWidth: result.frameSize.width,
       frameHeight: result.frameSize.height,
@@ -179,6 +213,7 @@ export class EdgeEngine {
           box: track.box,
           label: track.label,
           color: track.colorVotes.color,
+          plate: track.plateReads.plate,
           score: track.score,
         })),
     };
@@ -190,6 +225,7 @@ export class EdgeEngine {
     if (this.recentTimings.length > timingWindow) this.recentTimings.shift();
     const column = (key: 'total' | 'prepare' | 'detect' | 'decode' | 'color' | 'thumbnail' | 'handoff') =>
       percentiles(this.recentTimings.map((sample) => sample[key]));
+    const plateFrames = this.recentTimings.filter((sample) => (sample.plate ?? 0) > 0);
     const crops = this.recentTimings.reduce((sum, sample) => sum + sample.colorCrops, 0);
     this.timingSummary = {
       samples: this.recentTimings.length,
@@ -199,11 +235,50 @@ export class EdgeEngine {
       decode: column('decode'),
       color: column('color'),
       thumbnail: column('thumbnail'),
+      plate: percentiles(plateFrames.map((sample) => sample.plate ?? 0)),
       handoff: column('handoff'),
       colorCropsPerFrame: Math.round((crops / this.recentTimings.length) * 10) / 10,
     };
     // One line per window in the device log, to compare builds on the phone.
-    if (this.frameCount % timingWindow === 0) console.log('VIGIA-TIEMPOS', JSON.stringify(this.timingSummary));
+    if (this.frameCount % timingWindow === 0) {
+      console.log('VIGIA-TIEMPOS', JSON.stringify(this.timingSummary));
+      // Counts and sizes only: plate texts are personal data and never logged.
+      if (this.plateStats.enabled) console.log('VIGIA-PLACAS', JSON.stringify(this.plateStats));
+    }
+  }
+
+  private recordPlate(track: Track, plate: NonNullable<FrameProcessingResult['plate']>, now: number): void {
+    const { attempt } = plate;
+    track.plateReads.add(attempt, plate.areaPx, now);
+    this.plateStats.attempts++;
+    if (attempt.status === 'small') this.plateStats.small++;
+    if (attempt.status === 'read') this.plateStats.reads++;
+    if (attempt.status !== 'none') this.plateStats.widestPx = Math.max(this.plateStats.widestPx, attempt.widthPx);
+    if (track.plateReads.plate && !this.votedPlateTracks.has(track.id)) {
+      this.votedPlateTracks.add(track.id);
+      this.plateStats.voted++;
+    }
+  }
+
+  /**
+   * Confirmed vehicles seen in this frame whose plate is still wanted, when
+   * the view improved (box grew) or a while passed: fewest reads first, then
+   * the biggest. The frame processor tries the first one that is wide enough.
+   */
+  private updatePlateGates(now: number): void {
+    if (!this.onPlateGates) return;
+    this.onPlateGates(
+      this.tracker.active(now)
+        .filter((track) => {
+          if (track.lastSeen !== now || !track.plateReads.wantsRead()) return false;
+          const reads = track.plateReads;
+          return reads.lastAt === null
+            || boxArea(track.box) >= reads.lastArea * plateViewGrowth
+            || now - reads.lastAt >= plateRetryMs;
+        })
+        .sort((left, right) => left.plateReads.reads - right.plateReads.reads || boxArea(right.box) - boxArea(left.box))
+        .map((track) => ({ box: track.predicted(now + colorGateLookaheadMs) })),
+    );
   }
 
   /** Keeps the track's largest view: only when its box grew enough, a few encodes per track. */

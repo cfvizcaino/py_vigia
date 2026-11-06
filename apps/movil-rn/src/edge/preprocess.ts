@@ -108,12 +108,32 @@ export function toUpright(letterbox: Letterbox, x: number, y: number): [number, 
   return [(x - letterbox.padX) / letterbox.scale, (y - letterbox.padY) / letterbox.scale];
 }
 
-export function prepareInput(frame: FrameData, size: number, channelsFirst = false): ModelInput {
+/** A rectangle of the upright frame, in whole pixels. */
+export interface Region {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+function uprightSize(frame: FrameData): { rotation: number; width: number; height: number } {
   'worklet';
   const rotation = ((frame.rotationDegrees ?? 0) % 360 + 360) % 360;
   const turned = rotation === 90 || rotation === 270;
-  const uprightWidth = turned ? frame.height : frame.width;
-  const uprightHeight = turned ? frame.width : frame.height;
+  return { rotation, width: turned ? frame.height : frame.width, height: turned ? frame.width : frame.height };
+}
+
+/**
+ * Letterboxes one region of the upright frame into a square model input
+ * (nearest-neighbour, Ultralytics gray padding). The letterbox maps model
+ * coordinates back to region pixels: add the region's left/top for the frame.
+ */
+export function prepareRegion(frame: FrameData, region: Region, size: number, channelsFirst = false): ModelInput {
+  'worklet';
+  const { rotation } = uprightSize(frame);
+  const { left, top } = region;
+  const uprightWidth = region.width;
+  const uprightHeight = region.height;
   const scale = Math.min(size / uprightWidth, size / uprightHeight);
   const contentWidth = Math.round(uprightWidth * scale);
   const contentHeight = Math.round(uprightHeight * scale);
@@ -131,12 +151,12 @@ export function prepareInput(frame: FrameData, size: number, channelsFirst = fal
     const { bytes, base, stepX, stepY, red, green, blue } = layout;
     const columns = new Int32Array(contentWidth);
     for (let ox = 0; ox < contentWidth; ox++) {
-      columns[ox] = Math.min(Math.floor((ox + 0.5) / scale), uprightWidth - 1) * stepX;
+      columns[ox] = (left + Math.min(Math.floor((ox + 0.5) / scale), uprightWidth - 1)) * stepX;
     }
     const greenStride = channelStride;
     const blueStride = channelStride * 2;
     for (let oy = 0; oy < contentHeight; oy++) {
-      const rowBase = base + Math.min(Math.floor((oy + 0.5) / scale), uprightHeight - 1) * stepY;
+      const rowBase = base + (top + Math.min(Math.floor((oy + 0.5) / scale), uprightHeight - 1)) * stepY;
       let index = ((padY + oy) * size + padX) * pixelStride;
       for (let ox = 0; ox < contentWidth; ox++) {
         const offset = rowBase + (columns[ox] as number);
@@ -150,10 +170,10 @@ export function prepareInput(frame: FrameData, size: number, channelsFirst = fal
   }
 
   for (let oy = 0; oy < contentHeight; oy++) {
-    const uy = Math.min(Math.floor((oy + 0.5) / scale), uprightHeight - 1);
+    const uy = top + Math.min(Math.floor((oy + 0.5) / scale), uprightHeight - 1);
     let index = ((padY + oy) * size + padX) * pixelStride;
     for (let ox = 0; ox < contentWidth; ox++) {
-      const ux = Math.min(Math.floor((ox + 0.5) / scale), uprightWidth - 1);
+      const ux = left + Math.min(Math.floor((ox + 0.5) / scale), uprightWidth - 1);
       const [sx, sy] = uprightToSensor(ux, uy, frame.width, frame.height, rotation);
       const [red, green, blue] = readRgb(frame, sx, sy);
       pixels[index] = red / 255;
@@ -163,6 +183,64 @@ export function prepareInput(frame: FrameData, size: number, channelsFirst = fal
     }
   }
   return { pixels, letterbox };
+}
+
+/** The whole upright frame letterboxed into the model input. */
+export function prepareInput(frame: FrameData, size: number, channelsFirst = false): ModelInput {
+  'worklet';
+  const { width, height } = uprightSize(frame);
+  return prepareRegion(frame, { left: 0, top: 0, width, height }, size, channelsFirst);
+}
+
+/**
+ * A plate box of the upright frame resized to the OCR input (RGB uint8, NHWC),
+ * bilinear like OpenCV's INTER_LINEAR on the PC node: the OCR was measured
+ * with it, and nearest-neighbour would alias the characters.
+ */
+export function preparePlate(frame: FrameData, box: Box, width: number, height: number): Uint8Array {
+  'worklet';
+  const { rotation, width: frameWidth, height: frameHeight } = uprightSize(frame);
+  const left = Math.max(0, Math.min(frameWidth - 1, Math.round(box.x1)));
+  const top = Math.max(0, Math.min(frameHeight - 1, Math.round(box.y1)));
+  const boxWidth = Math.max(1, Math.min(frameWidth, Math.round(box.x2)) - left);
+  const boxHeight = Math.max(1, Math.min(frameHeight, Math.round(box.y2)) - top);
+  const out = new Uint8Array(width * height * 3);
+  const layout = packedLayout(frame, rotation);
+  const sample = (ux: number, uy: number, channel: number): number => {
+    'worklet';
+    if (layout) {
+      const offset = layout.base + ux * layout.stepX + uy * layout.stepY;
+      const index = channel === 0 ? layout.red : channel === 1 ? layout.green : layout.blue;
+      return layout.bytes[offset + index] as number;
+    }
+    const [sx, sy] = uprightToSensor(ux, uy, frame.width, frame.height, rotation);
+    return readRgb(frame, sx, sy)[channel] as number;
+  };
+  const scaleX = boxWidth / width;
+  const scaleY = boxHeight / height;
+  let index = 0;
+  for (let oy = 0; oy < height; oy++) {
+    // Pixel-centre alignment, as cv2.resize.
+    const fy = Math.max(0, Math.min(boxHeight - 1, (oy + 0.5) * scaleY - 0.5));
+    const y0 = Math.floor(fy);
+    const y1 = Math.min(boxHeight - 1, y0 + 1);
+    const wy = fy - y0;
+    for (let ox = 0; ox < width; ox++) {
+      const fx = Math.max(0, Math.min(boxWidth - 1, (ox + 0.5) * scaleX - 0.5));
+      const x0 = Math.floor(fx);
+      const x1 = Math.min(boxWidth - 1, x0 + 1);
+      const wx = fx - x0;
+      for (let channel = 0; channel < 3; channel++) {
+        const a = sample(left + x0, top + y0, channel);
+        const b = sample(left + x1, top + y0, channel);
+        const c = sample(left + x0, top + y1, channel);
+        const d = sample(left + x1, top + y1, channel);
+        const value = (a * (1 - wx) + b * wx) * (1 - wy) + (c * (1 - wx) + d * wx) * wy;
+        out[index++] = Math.round(value);
+      }
+    }
+  }
+  return out;
 }
 
 export function prepareCrop(frame: FrameData, box: Box, size: number, channelsFirst = false): Float32Array {
@@ -252,7 +330,11 @@ export function prepareThumbnail(frame: FrameData, box: Box, maxSide = 224, marg
   const outWidth = Math.max(1, Math.floor(width / step));
   const outHeight = Math.max(1, Math.floor(height / step));
   const rgb = new Uint8Array(outWidth * outHeight * 3);
-  const scale = 1 / (step * step);
+  // At most 2×2 samples per block: from a high-resolution frame a block can be
+  // 8×8 or more, and averaging every pixel would cost tens of milliseconds.
+  const sub = step <= 2 ? 1 : Math.floor(step / 2);
+  const samples = Math.ceil(step / sub);
+  const scale = 1 / (samples * samples);
   const layout = packedLayout(frame, rotation);
   if (layout) {
     const { bytes, base, stepX, stepY, red, green, blue } = layout;
@@ -264,13 +346,13 @@ export function prepareThumbnail(frame: FrameData, box: Box, maxSide = 224, marg
         let r = 0;
         let g = 0;
         let b = 0;
-        for (let dy = 0; dy < step; dy++) {
+        for (let dy = 0; dy < step; dy += sub) {
           let offset = blockStart + dy * stepY;
-          for (let dx = 0; dx < step; dx++) {
+          for (let dx = 0; dx < step; dx += sub) {
             r += bytes[offset + red] as number;
             g += bytes[offset + green] as number;
             b += bytes[offset + blue] as number;
-            offset += stepX;
+            offset += stepX * sub;
           }
         }
         rgb[offsetOut] = Math.round(r * scale);
@@ -286,9 +368,9 @@ export function prepareThumbnail(frame: FrameData, box: Box, maxSide = 224, marg
       let red = 0;
       let green = 0;
       let blue = 0;
-      for (let dy = 0; dy < step; dy++) {
+      for (let dy = 0; dy < step; dy += sub) {
         const uy = top + oy * step + dy;
-        for (let dx = 0; dx < step; dx++) {
+        for (let dx = 0; dx < step; dx += sub) {
           const ux = left + ox * step + dx;
           const [sx, sy] = uprightToSensor(ux, uy, frame.width, frame.height, rotation);
           const [r, g, b] = readRgb(frame, sx, sy);

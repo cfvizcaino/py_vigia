@@ -7,9 +7,13 @@ import colorsAsset from '../../assets/models/colors.tflite';
 import colorsManifest from '../../assets/models/colors.json';
 import vehiclesAsset from '../../assets/models/vehicles.tflite';
 import vehiclesManifest from '../../assets/models/vehicles.json';
+import platesAsset from '../../assets/models/plates.tflite';
+import platesManifest from '../../assets/models/plates.json';
+import plateOcrAsset from '../../assets/models/plate-ocr.tflite';
+import plateOcrManifest from '../../assets/models/plate-ocr.json';
 import type { TfliteModel, TensorflowModelDelegate } from 'react-native-fast-tflite';
 import { parseModelManifest } from './modelManifest';
-import type { ModelManifest } from './modelManifest';
+import type { ModelKind, ModelManifest } from './modelManifest';
 
 export interface LoadedModel {
   manifest: ModelManifest;
@@ -19,24 +23,40 @@ export interface LoadedModel {
 export const loadVehicleModel = (delegates?: TensorflowModelDelegate[]) => loadModel({
   assetId: vehiclesAsset,
   manifestData: vehiclesManifest,
-  expectedTask: 'detect',
+  kind: 'vehicles',
   ...(delegates ? { delegates } : {}),
 });
 
 export const loadColorModel = (delegates?: TensorflowModelDelegate[]) => loadModel({
   assetId: colorsAsset,
   manifestData: colorsManifest,
-  expectedTask: 'classify',
+  kind: 'colors',
+  ...(delegates ? { delegates } : {}),
+});
+
+/** Plate detector (YOLO26n on vehicle crops), searched inside confirmed vehicles. */
+export const loadPlateModel = (delegates?: TensorflowModelDelegate[]) => loadModel({
+  assetId: platesAsset,
+  manifestData: platesManifest,
+  kind: 'plates',
+  ...(delegates ? { delegates } : {}),
+});
+
+/** Plate OCR (cct-xs-v2-global, 128×64 RGB uint8 → 10 characters). */
+export const loadPlateOcrModel = (delegates?: TensorflowModelDelegate[]) => loadModel({
+  assetId: plateOcrAsset,
+  manifestData: plateOcrManifest,
+  kind: 'ocr',
   ...(delegates ? { delegates } : {}),
 });
 
 export async function loadModel(input: {
   assetId: number;
   manifestData: unknown;
-  expectedTask: 'detect' | 'classify';
+  kind: ModelKind;
   delegates?: TensorflowModelDelegate[];
 }): Promise<LoadedModel> {
-  const parsed = parseModelManifest(input.manifestData, input.expectedTask);
+  const parsed = parseModelManifest(input.manifestData, input.kind);
 
   const asset = Asset.fromModule(input.assetId);
   await asset.downloadAsync();

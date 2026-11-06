@@ -1,0 +1,32 @@
+{
+  "schema": "vigia-mobile-model/1",
+  "task": "ocr",
+  "source": "plate-ocr.onnx",
+  "file": "plate-ocr.tflite",
+  "sha256": "f83ee166766d1ff16a5d1a9723bfa8a369030c44cb6a947c1f5aa91cc971a541",
+  "input": {
+    "shape": [
+      1,
+      64,
+      128,
+      3
+    ],
+    "dtype": "uint8",
+    "layout": "NHWC",
+    "range": [
+      0,
+      255
+    ]
+  },
+  "output": {
+    "shape": [
+      1,
+      10,
+      37
+    ],
+    "dtype": "float32"
+  },
+  "alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+  "padChar": "_",
+  "slots": 10
+}

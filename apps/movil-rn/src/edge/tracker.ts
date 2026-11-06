@@ -1,5 +1,6 @@
 import { intersectionOverUnion } from './detections';
 import { ColorVotes } from './colors';
+import { PlateReads } from './plates';
 import type { Box, Detection } from './types';
 
 export class Track {
@@ -16,6 +17,8 @@ export class Track {
   vx = 0;
   vy = 0;
   readonly colorVotes = new ColorVotes();
+  /** Plate reads voted across frames (null plate until a text repeats). */
+  readonly plateReads = new PlateReads();
   /** Largest view so far as JPEG, waiting until it stops improving. */
   thumbnail: Uint8Array | null = null;
   thumbnailArea = 0;
