@@ -279,8 +279,9 @@ final class MjpegHttpServer {
       guard let address = interface.pointee.ifa_addr, address.pointee.sa_family == UInt8(AF_INET),
             Int32(interface.pointee.ifa_flags & UInt32(IFF_LOOPBACK)) == 0 else { continue }
       var buffer = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
-      let socketAddress = UnsafeRawPointer(address).assumingMemoryBound(to: sockaddr_in.self)
-      if inet_ntop(AF_INET, &socketAddress.pointee.sin_addr, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil {
+      // inet_ntop takes an inout in_addr: a read-only pointee cannot be passed, so copy it.
+      var ipv4 = UnsafeRawPointer(address).assumingMemoryBound(to: sockaddr_in.self).pointee.sin_addr
+      if inet_ntop(AF_INET, &ipv4, &buffer, socklen_t(INET_ADDRSTRLEN)) != nil {
         addresses.append(String(cString: buffer))
       }
     }
