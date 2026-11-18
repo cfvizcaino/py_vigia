@@ -65,6 +65,20 @@ jobs:
       - run: npm test
       - run: npm run doctor
       - run: npx expo prebuild --clean --platform android --no-install
+      # Cachea la distribución, los plugins y las dependencias de Gradle entre ejecuciones.
+      - uses: gradle/actions/setup-gradle@v4
+      # El portal de plugins de Gradle a veces no responde desde los runners («Plugin
+      # foojay-resolver-convention was not found»). Resolver la configuración primero, con
+      # reintentos, evita que un fallo de red tumbe la compilación.
+      - name: Resolver plugins de Gradle (con reintentos)
+        run: |
+          cd android
+          for attempt in 1 2 3; do
+            ./gradlew help --no-daemon -q && exit 0
+            echo "Intento $attempt sin éxito; se reintenta en 30 s"
+            sleep 30
+          done
+          exit 1
       - name: Pruebas JVM del módulo nativo
         run: cd android && ./gradlew :vigia-camera-server:testDebugUnitTest --no-daemon --max-workers=2 -Dorg.gradle.parallel=false
       # Release con el JS empaquetado (no necesita Metro); sin llave, firma de depuración.
