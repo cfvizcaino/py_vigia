@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 
 from ..auth import Principal, require_admin
 from ..db import get_db
+from ..dataset import summary as annotation_summary
 from ..device_credentials import issue, revoke
 from ..models import Device, DeviceCredential, SecurityAudit, User
-from ..schemas import AuditRead, CredentialIssued, CredentialIssueRequest, CredentialRead
+from ..schemas import AnnotationSummary, AuditRead, CredentialIssued, CredentialIssueRequest, CredentialRead
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -23,7 +24,7 @@ AUDIT_CATEGORIES: dict[str, tuple[str, ...]] = {
     "sessions": ("auth.", "user."),
     "queries": ("query.",),
     "preview": ("preview.",),
-    "changes": ("device.", "detection."),
+    "changes": ("device.", "detection.", "annotation."),
     "credentials": ("credential.", "ingest."),
     "denied": ("authz.",),
 }
@@ -87,3 +88,9 @@ def revoke_credential(credential_id: uuid.UUID, principal: Principal = Depends(r
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     db.commit()
+
+
+@router.get("/annotations/summary", response_model=AnnotationSummary)
+def annotations_summary(_: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> AnnotationSummary:
+    """Cuántas etiquetas de aprendizaje hay por tarea y etiqueta (sin textos de placa)."""
+    return AnnotationSummary(**annotation_summary(db))

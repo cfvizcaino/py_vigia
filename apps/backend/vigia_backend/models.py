@@ -289,3 +289,35 @@ class DetectionConfirmation(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
 
+
+
+class TrainingAnnotation(Base):
+    """Etiqueta explícita de un admin sobre un recorte, para entrenar y evaluar (fase 4).
+
+    Solo una corrección o aceptación explícita crea una fila: no revisar no equivale a
+    aceptar la predicción, y un «match/reject» de ruta no es una etiqueta de color ni de
+    placa. Al guardarla, el recorte se copia al almacén privado de aprendizaje (dataset.py)
+    y la fila conserva lo necesario para reproducir el error aunque la detección se borre.
+    """
+
+    __tablename__ = "training_annotations"
+    __table_args__ = (UniqueConstraint("detection_id", "task", name="uq_annotation_detection_task"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=new_uuid)
+    detection_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("detections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    task: Mapped[str] = mapped_column(String(16), nullable=False, index=True)  # color | plate
+    # Color de VIGIA o «no_determinable»; placa exacta, «ilegible» o «sin_placa».
+    label: Mapped[str] = mapped_column(String(32), nullable=False)
+    predicted: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    detection_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    model_digest: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    camera_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    track_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    image_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    sample_key: Mapped[str] = mapped_column(Text, nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)

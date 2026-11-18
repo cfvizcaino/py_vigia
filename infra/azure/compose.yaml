@@ -55,6 +55,10 @@ services:
       THUMBNAIL_STORAGE_CONNECTION_STRING: ${THUMBNAIL_STORAGE_CONNECTION_STRING:-}
       THUMBNAIL_CONTAINER: recortes
       THUMBNAIL_RETENTION_DAYS: "7"
+      # Fase 4: recortes que un admin etiquetó para entrenar. Misma cuenta, otro contenedor
+      # (la regla de 7 días solo aplica a recortes/); el backend lo crea y borra a los N días.
+      DATASET_CONTAINER: aprendizaje
+      DATASET_RETENTION_DAYS: "180"
       # Two Uvicorn processes for the 2 vCPU. Per process: up to 20 requests at a time
       # (the rest get 503 at once) and 5+5 connections that wait at most 5 s (overload.py).
       WEB_CONCURRENCY: "2"
