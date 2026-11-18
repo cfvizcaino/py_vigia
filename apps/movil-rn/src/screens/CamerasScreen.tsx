@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CameraMap } from '../components/CameraMap';
 import { Icon } from '../components/Icon';
+import { PulseDot, Reveal } from '../components/motion';
 import { DemoBadge, Glass, Screen, SearchPill } from '../components/ui';
 import { activityLabel, type ActivityTone } from '../state/activity';
 import { useSession } from '../state/session';
@@ -47,8 +48,10 @@ export function CamerasScreen() {
           </View>
         ) : (
           <ScrollView nestedScrollEnabled style={{ maxHeight: 214, marginTop: 18 }} contentContainerStyle={{ gap: 9 }}>
-            {visible.map((device) => (
-              <CameraRow key={device.id} device={device} onPress={() => navigation.navigate('CameraDetail', { deviceId: device.id })} />
+            {visible.map((device, index) => (
+              <Reveal key={device.id} index={index}>
+                <CameraRow device={device} onPress={() => navigation.navigate('CameraDetail', { deviceId: device.id })} />
+              </Reveal>
             ))}
             {!visible.length ? <Text style={[type(fonts.light, 13), { opacity: 0.7, paddingVertical: 12 }]}>Ninguna cámara coincide con «{query}».</Text> : null}
           </ScrollView>
@@ -71,7 +74,7 @@ function CameraRow({ device, onPress }: { device: Device; onPress: () => void })
           <Text numberOfLines={1} style={type(fonts.light, 13, 15.6)}>{device.name} | {kind}</Text>
         </View>
         <View style={styles.status}>
-          <View style={[styles.dot, { backgroundColor: toneColor[tone] }]} />
+          <PulseDot color={toneColor[tone]} size={6} live={tone === 'ok'} />
           <Text style={[type(fonts.regular, 9, 10.8), { opacity: tone === 'off' ? 0.6 : 1 }]}>{label}</Text>
         </View>
       </Glass>
@@ -91,6 +94,5 @@ const styles = StyleSheet.create({
   panel: { paddingTop: 17, paddingHorizontal: 21, paddingBottom: 21, minHeight: 298 },
   row: { height: 57, flexDirection: 'row', alignItems: 'center', gap: 16, paddingLeft: 38, paddingRight: 25 },
   status: { position: 'absolute', top: 5, right: 25, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   empty: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 200 },
 });

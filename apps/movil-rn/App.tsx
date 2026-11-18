@@ -4,13 +4,15 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 
 import { Icon } from './src/components/Icon';
 import type { IconName } from './src/components/Icon';
+import { tapFeedback } from './src/components/motion';
 import { Opening } from './src/components/Opening';
 import { Backdrop } from './src/components/ui';
 import { SessionProvider, useSession } from './src/state/session';
@@ -56,9 +58,22 @@ const TAB_ICONS: Record<keyof TabParamList, { name: IconName; size: number }> = 
   Settings: { name: 'tabSettings', size: 23 },
 };
 
-/** Barra inferior: degradado translúcido de radio 21 y la casilla de vidrio de 63 × 70 en la pestaña activa. */
+/**
+ * Barra inferior: degradado translúcido de radio 21 y la casilla de vidrio de 63 × 70, que se
+ * desliza hasta la pestaña activa (sin rebote) en vez de saltar.
+ */
 function VigiaTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const [width, setWidth] = useState(0);
+  const itemWidth = width ? (width - TAB_PADDING * 2) / state.routes.length : 0;
+  const offset = useSharedValue(0);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (!itemWidth) return;
+    const target = TAB_PADDING + state.index * itemWidth + (itemWidth - TAB_SLOT_WIDTH) / 2;
+    offset.set(reduced || offset.get() === 0 ? target : withTiming(target, { duration: 280, easing: Easing.out(Easing.cubic) }));
+  }, [itemWidth, offset, reduced, state.index]);
+  const slotStyle = useAnimatedStyle(() => ({ transform: [{ translateX: offset.get() }] }));
   return (
     <View style={{ backgroundColor: colors.backgroundEnd }}>
       <LinearGradient
@@ -66,7 +81,9 @@ function VigiaTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={[tabStyles.bar, { paddingBottom: insets.bottom }]}
+        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       >
+        {itemWidth ? <Animated.View pointerEvents="none" style={[tabStyles.slider, slotStyle]} /> : null}
         {state.routes.map((route, index) => {
           const focused = state.index === index;
           const options = descriptors[route.key]?.options;
@@ -79,11 +96,14 @@ function VigiaTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               accessibilityState={{ selected: focused }}
               onPress={() => {
                 const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-                if (!focused && !event.defaultPrevented) navigation.navigate(route.name, route.params);
+                if (!focused && !event.defaultPrevented) {
+                  tapFeedback('selection');
+                  navigation.navigate(route.name, route.params);
+                }
               }}
               style={tabStyles.item}
             >
-              <View style={[tabStyles.slot, focused && tabStyles.slotOn]}>
+              <View style={[tabStyles.slot, !itemWidth && focused && tabStyles.slotOn]}>
                 <Icon name={icon.name} size={icon.size} color={focused ? '#ffffff' : colors.icon} />
               </View>
             </Pressable>
@@ -184,9 +204,13 @@ export default function App() {
   );
 }
 
+const TAB_PADDING = 16;
+const TAB_SLOT_WIDTH = 63;
+
 const tabStyles = StyleSheet.create({
-  bar: { flexDirection: 'row', borderTopLeftRadius: 21, borderTopRightRadius: 21, paddingHorizontal: 16, minHeight: 85 },
+  bar: { flexDirection: 'row', borderTopLeftRadius: 21, borderTopRightRadius: 21, paddingHorizontal: TAB_PADDING, minHeight: 85 },
   item: { flex: 1, alignItems: 'center' },
-  slot: { width: 63, height: 70, marginTop: 1, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  slot: { width: TAB_SLOT_WIDTH, height: 70, marginTop: 1, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   slotOn: { backgroundColor: 'rgba(222,228,224,0.20)' },
+  slider: { position: 'absolute', left: 0, top: 1, width: TAB_SLOT_WIDTH, height: 70, borderRadius: 15, backgroundColor: 'rgba(222,228,224,0.20)' },
 });

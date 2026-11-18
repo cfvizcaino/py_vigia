@@ -1,9 +1,10 @@
 import { NavigationContext } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useContext, useState } from 'react';
+import { useCallback, useContext, useState } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { StyleProp, TextInputProps, TextStyle, ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Ellipse, LinearGradient as SvgLinearGradient, RadialGradient, Stop, Text as SvgText } from 'react-native-svg';
 
@@ -12,6 +13,7 @@ import { fonts, type } from '../theme/fonts';
 import { bogotaDateTime } from '../time/bogota';
 import { Icon } from './Icon';
 import type { IconName } from './Icon';
+import { AnimatedPressable, PulseDot, Reveal, tapFeedback, useFocusEntrance, usePressScale } from './motion';
 
 // ------------------------------------------------------------------ fondo
 
@@ -100,6 +102,11 @@ export function Screen({ children, title, header, back, right, scroll = true, gl
   const navigation = useContext(NavigationContext);
   const onBack = typeof back === 'function' ? back : back && navigation ? () => navigation.goBack() : null;
   const hasBar = Boolean(onBack || header || right);
+  const subscribe = useCallback(
+    (listener: () => void) => navigation?.addListener('focus', listener) ?? (() => undefined),
+    [navigation],
+  );
+  const entrance = useFocusEntrance(navigation ? subscribe : null);
   const body = (
     <>
       {title ? <View style={styles.titleBox}><GradientText text={title} /></View> : null}
@@ -123,13 +130,15 @@ export function Screen({ children, title, header, back, right, scroll = true, gl
             <View style={[styles.barSide, { alignItems: 'flex-end' }]}>{right}</View>
           </View>
         ) : null}
-        {scroll ? (
-          <ScrollView contentContainerStyle={[styles.content, !hasBar && { paddingTop: 52 }, contentStyle]} keyboardShouldPersistTaps="handled">
-            {body}
-          </ScrollView>
-        ) : (
-          <View style={[styles.content, { flex: 1 }, !hasBar && { paddingTop: 52 }, contentStyle]}>{body}</View>
-        )}
+        <Animated.View style={[{ flex: 1 }, entrance]}>
+          {scroll ? (
+            <ScrollView contentContainerStyle={[styles.content, !hasBar && { paddingTop: 52 }, contentStyle]} keyboardShouldPersistTaps="handled">
+              {body}
+            </ScrollView>
+          ) : (
+            <View style={[styles.content, { flex: 1 }, !hasBar && { paddingTop: 52 }, contentStyle]}>{body}</View>
+          )}
+        </Animated.View>
       </SafeAreaView>
       {overlay}
     </View>
@@ -193,15 +202,21 @@ export function GradientCard({ children, colors: stops, locations, style, radius
 export function PrimaryButton({ title, onPress, loading = false, disabled = false, accessibilityLabel, icon, style }: {
   title: string; onPress: () => void; loading?: boolean | undefined; disabled?: boolean | undefined; accessibilityLabel?: string | undefined; icon?: IconName | undefined; style?: StyleProp<ViewStyle> | undefined;
 }) {
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       hitSlop={8}
-      onPress={onPress}
-      style={({ pressed }) => [styles.primaryButton, (pressed || disabled || loading) && styles.buttonMuted, style]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        tapFeedback();
+        onPress();
+      }}
+      style={[styles.primaryButton, (press.pressed || disabled || loading) && styles.buttonMuted, style, press.animatedStyle]}
     >
       {loading ? <ActivityIndicator color={colors.ink} size="small" /> : (
         <>
@@ -209,7 +224,7 @@ export function PrimaryButton({ title, onPress, loading = false, disabled = fals
           <Text style={styles.primaryText}>{title}</Text>
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -217,15 +232,18 @@ export function SecondaryButton({ title, onPress, accessibilityLabel, disabled =
   title: string; onPress: () => void; accessibilityLabel?: string | undefined; disabled?: boolean | undefined; icon?: IconName | undefined; tone?: 'light' | 'danger'; loading?: boolean | undefined; style?: StyleProp<ViewStyle> | undefined;
 }) {
   const color = tone === 'danger' ? colors.danger : colors.text;
+  const press = usePressScale();
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
       hitSlop={8}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       onPress={onPress}
-      style={({ pressed }) => [styles.secondaryButton, { borderColor: tone === 'danger' ? colors.danger : 'rgba(255,255,255,0.8)' }, (pressed || disabled) && styles.buttonMuted, style]}
+      style={[styles.secondaryButton, { borderColor: tone === 'danger' ? colors.danger : 'rgba(255,255,255,0.8)' }, (press.pressed || disabled) && styles.buttonMuted, style, press.animatedStyle]}
     >
       {loading ? <ActivityIndicator color={color} size="small" /> : (
         <>
@@ -233,7 +251,7 @@ export function SecondaryButton({ title, onPress, accessibilityLabel, disabled =
           <Text style={[styles.secondaryText, { color }]}>{title}</Text>
         </>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -249,14 +267,20 @@ export function PillButton({ title, onPress, variant = 'light', loading = false,
   };
   const content = loading ? <ActivityIndicator color={dark ? colors.ink : colors.text} /> : <Text style={label}>{title}</Text>;
   const base: ViewStyle = { height, borderRadius: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 };
+  const press = usePressScale(0.97);
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
-      onPress={onPress}
-      style={({ pressed }) => [(pressed || disabled) && styles.buttonMuted, style]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        tapFeedback();
+        onPress();
+      }}
+      style={[(press.pressed || disabled) && styles.buttonMuted, style, press.animatedStyle]}
     >
       {variant === 'gradient' ? (
         <LinearGradient colors={gradients.loginButton} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={base}>{content}</LinearGradient>
@@ -267,7 +291,7 @@ export function PillButton({ title, onPress, variant = 'light', loading = false,
           {content}
         </View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -386,14 +410,26 @@ export function Chip({ label, selected, onPress, icon, dot, grow }: { label: str
       <Text style={type(selected ? fonts.medium : fonts.regular, 12.5)}>{label}</Text>
     </>
   );
+  const press = usePressScale(0.94);
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected }} onPress={onPress} style={grow ? { flexGrow: 1 } : null}>
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        if (!selected) tapFeedback('selection');
+        onPress();
+      }}
+      style={[grow ? { flexGrow: 1 } : null, press.animatedStyle]}
+    >
       {selected ? (
         <LinearGradient colors={gradients.tileOn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.chip, grow && { justifyContent: 'center' }]}>{inner}</LinearGradient>
       ) : (
         <View style={[styles.chip, styles.chipOff, grow && { justifyContent: 'center' }]}>{inner}</View>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -432,7 +468,7 @@ export function StatusPill({ text, tone = 'ok' }: { text: string; tone?: 'ok' | 
   const color = tone === 'ok' ? colors.success : colors.warning;
   return (
     <View style={[styles.pill, { borderColor: color, backgroundColor: tone === 'ok' ? 'rgba(126,226,184,0.16)' : 'rgba(255,212,121,0.16)' }]}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+      <PulseDot color={color} live={tone === 'ok'} />
       <Text style={type(fonts.medium, 11.5, 14, 0)}>{text}</Text>
     </View>
   );
@@ -478,12 +514,14 @@ export function Dialog({ visible, title, body, icon, onRequestClose, children }:
   return (
     <Modal animationType="fade" onRequestClose={onRequestClose} transparent visible={visible} statusBarTranslucent>
       <View style={styles.dim}>
-        <GradientCard colors={gradients.dialog} radius={34} style={styles.dialog}>
-          {icon ? <Icon name={icon} size={38} style={{ alignSelf: 'center' }} /> : null}
-          <Text style={[type(fonts.poppinsMedium, 24), { textAlign: 'center' }]}>{title}</Text>
-          {body ? <Text style={[type(fonts.poppinsLight, 14), { textAlign: 'center' }]}>{body}</Text> : null}
-          {children}
-        </GradientCard>
+        <Reveal style={{ alignSelf: 'stretch', alignItems: 'center' }}>
+          <GradientCard colors={gradients.dialog} radius={34} style={styles.dialog}>
+            {icon ? <Icon name={icon} size={38} style={{ alignSelf: 'center' }} /> : null}
+            <Text style={[type(fonts.poppinsMedium, 24), { textAlign: 'center' }]}>{title}</Text>
+            {body ? <Text style={[type(fonts.poppinsLight, 14), { textAlign: 'center' }]}>{body}</Text> : null}
+            {children}
+          </GradientCard>
+        </Reveal>
       </View>
     </Modal>
   );
@@ -506,7 +544,7 @@ export function OptionSheet({ visible, title, options, value, onSelect, onClose 
         <Pressable onPress={() => undefined} style={styles.sheetPanel}>
           <Text style={[styles.smallLabel, { marginLeft: 4, marginBottom: 2 }]}>{title}</Text>
           <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 6 }}>
-            {options.map((option) => {
+            {options.map((option, index) => {
               const selected = option.value === value;
               const inner = (
                 <>
@@ -519,22 +557,24 @@ export function OptionSheet({ visible, title, options, value, onSelect, onClose 
                 </>
               );
               return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  accessibilityLabel={option.label}
-                  accessibilityState={{ selected }}
-                  onPress={() => {
-                    onSelect(option.value);
-                    onClose();
-                  }}
-                >
-                  {selected ? (
-                    <LinearGradient colors={gradients.tileOn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.option}>{inner}</LinearGradient>
-                  ) : (
-                    <View style={[styles.option, { backgroundColor: 'rgba(255,255,255,0.10)' }]}>{inner}</View>
-                  )}
-                </Pressable>
+                <Reveal key={option.value} index={index}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={option.label}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      tapFeedback('selection');
+                      onSelect(option.value);
+                      onClose();
+                    }}
+                  >
+                    {selected ? (
+                      <LinearGradient colors={gradients.tileOn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.option}>{inner}</LinearGradient>
+                    ) : (
+                      <View style={[styles.option, { backgroundColor: 'rgba(255,255,255,0.10)' }]}>{inner}</View>
+                    )}
+                  </Pressable>
+                </Reveal>
               );
             })}
           </ScrollView>

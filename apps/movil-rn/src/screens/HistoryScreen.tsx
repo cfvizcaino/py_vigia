@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '../components/Icon';
 import { DemoBadge, EmptyState, Glass, Screen, SearchPill, vehicleTypeName } from '../components/ui';
 import { colorNamesEs } from '../edge/colors';
+import { Reveal } from '../components/motion';
 import { useSession } from '../state/session';
 import { gradients } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
@@ -36,16 +37,17 @@ export function HistoryScreen({ navigation }: Props) {
           </View>
         ) : (
           <View style={styles.grid}>
-            {visible.map((result) => (
-              <HistoryTile
-                key={String(result.query.id)}
-                result={result}
-                selected={activeResult?.query.id === result.query.id}
-                onPress={() => {
-                  openResult(result);
-                  navigation.navigate('Results');
-                }}
-              />
+            {visible.map((result, index) => (
+              <Reveal key={String(result.query.id)} index={index} style={styles.tileBox}>
+                <HistoryTile
+                  result={result}
+                  selected={activeResult?.query.id === result.query.id}
+                  onPress={() => {
+                    openResult(result);
+                    navigation.navigate('Results');
+                  }}
+                />
+              </Reveal>
             ))}
           </View>
         )}
@@ -78,7 +80,7 @@ function HistoryTile({ result, selected, onPress }: { result: QueryResult; selec
     </>
   );
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`${info.vehicle} ${info.color}, ${info.when}`} onPress={onPress} style={styles.tileBox}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${info.vehicle} ${info.color}, ${info.when}`} onPress={onPress} style={{ width: '100%' }}>
       {selected ? (
         <LinearGradient colors={gradients.tileOn} locations={[0.03, 0.67]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.tile, styles.tileOn]}>{content}</LinearGradient>
       ) : (
