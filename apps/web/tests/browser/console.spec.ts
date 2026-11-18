@@ -51,11 +51,66 @@ test("explicit demo, filtered search, route selection, export and history", asyn
   expect(errors).toEqual([]);
 });
 
+test("the demo explains each screen and its back arrow returns to the landing", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explorar demo" }).first().click();
+  await expect(page.getByRole("heading", { name: "Así ve un operador su red de cámaras" })).toBeVisible();
+  await page.getByRole("button", { name: "Abrir una consulta" }).click();
+  await expect(page.getByRole("heading", { name: "Describe el vehículo que buscas" })).toBeVisible();
+  await page.getByRole("button", { name: "Buscar con este caso" }).click();
+  await expect(page.getByText("4 detecciones · 2 rutas candidatas · Demostración")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "VIGÍA conecta las detecciones en recorridos" })).toBeVisible();
+  await page.getByRole("button", { name: "Ver las cámaras" }).click();
+  await expect(page.getByRole("heading", { name: "Dispositivos de la red." })).toBeVisible();
+  await page.getByRole("button", { name: "Tu red" }).click();
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
+  await expect(page.getByRole("heading", { name: LANDING })).toBeVisible();
+});
+
+test("signed in, Resumen has no back arrow", async ({ page }) => {
+  await signedIn(page);
+  await page.goto("/");
+  await expect(page.getByRole("status", { name: "Red Barranquilla", exact: false })).toBeVisible();
+  await expect(page.locator(".back-button")).toHaveCount(0);
+  await expect(page.locator(".demo-guide")).toHaveCount(0);
+  await page.getByRole("button", { name: "Cámaras", exact: false }).first().click();
+  await expect(page.getByRole("button", { name: "Volver", exact: true })).toBeVisible();
+});
+
+test("date and times can be typed or picked from the chevron", async ({ page }) => {
+  await page.goto("/?demo=1");
+  await openQuery(page);
+  const day = page.getByRole("combobox", { name: "Día", exact: true });
+  await day.fill("7");
+  await day.press("Tab");
+  await expect(day).toHaveValue("07");
+  const to = page.getByRole("combobox", { name: "Hasta", exact: true });
+  await to.fill("1 pm");
+  await to.press("Tab");
+  await expect(to).toHaveValue("01:00 p. m.");
+  await page.getByRole("button", { name: "Mostrar opciones de Desde" }).click();
+  await page.getByRole("option", { name: "09:45 a. m." }).click();
+  await expect(page.getByRole("combobox", { name: "Desde", exact: true })).toHaveValue("09:45 a. m.");
+  await page.getByRole("button", { name: "Mostrar opciones de Mes" }).click();
+  await page.getByRole("option", { name: "09", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Mes", exact: true })).toHaveValue("09");
+  // The cameras, the vehicle and the colour work the same way: typing filters by name.
+  const point = page.getByRole("combobox", { name: "Punto de búsqueda" });
+  await point.fill("venezuela");
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await point.press("Enter");
+  await expect(point).toHaveValue("Parque Venezuela - CAM-03");
+  await page.getByRole("button", { name: "Mostrar opciones de Vehículo" }).click();
+  await page.getByRole("option", { name: "Motocicleta" }).click();
+  await expect(page.getByRole("combobox", { name: "Vehículo", exact: true })).toHaveValue("Motocicleta");
+});
+
 test("empty results, invalid time window and live radius output", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Explorar demo" }).first().click();
   await openQuery(page);
-  await page.getByRole("combobox", { name: "Color", exact: true }).selectOption("red");
+  await page.getByRole("button", { name: "Mostrar opciones de Color" }).click();
+  await page.getByRole("option", { name: "Rojo", exact: true }).click();
   await page.getByRole("button", { name: "Buscar en la demostración" }).click();
   await expect(page.getByText("Sin trayectorias para estos filtros")).toBeVisible();
   await page.getByRole("button", { name: "Ajustar consulta" }).click();
@@ -129,7 +184,9 @@ test("weighted route explains evidence and uses the evaluated geometry", async (
   await openQuery(page);
   await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
-  await expect(page.locator(".routes-card > *").last()).toHaveClass(/route-evidence/);
+  // «¿Por qué aparece esta ruta?» comes before the cameras and their confidence.
+  await expect(page.locator(".route-rule + .route-evidence")).toBeVisible();
+  expect(await page.locator(".routes-card").evaluate((card) => !!(card.querySelector(".route-evidence")!.compareDocumentPosition(card.querySelector(".timeline")!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await page.getByText("¿Por qué aparece esta ruta?", { exact: true }).click();
   await expect(page.getByText("Es un puntaje de compatibilidad", { exact: false })).toBeVisible();
   await expect(page.getByText("CAM-01 → CAM-02 · alternativa 2")).toBeVisible();
@@ -285,11 +342,10 @@ test("on the scoring database a dataset case fills the whole query form", async 
   await expect(page.getByRole("button", { name: "Cargar escenario de prueba" })).toHaveCount(0);
   const color = page.getByRole("combobox", { name: "Color", exact: true });
   await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S02");
-  await expect(color).toHaveValue("silver");
-  await expect(color.locator("option:checked")).toHaveText("Plateado");
+  await expect(color).toHaveValue("Plateado");
   await page.getByRole("combobox", { name: "Caso del dataset de pruebas" }).selectOption("S03");
   await expect(color).toHaveValue("");
-  await expect(page.getByRole("combobox", { name: "Punto de búsqueda" })).toHaveValue("SC-07");
+  await expect(page.getByRole("combobox", { name: "Punto de búsqueda" })).toHaveValue("Calle 81 (dataset) - SC-07");
   await expect(page.locator(".radius-label output")).toHaveText("2,5km");
   await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
   await expect.poll(() => sent).toEqual({ lat: 11.008375, lng: -74.809824, radius_m: 2500,

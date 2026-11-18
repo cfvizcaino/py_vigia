@@ -1,6 +1,6 @@
 # Roadmap de cierre de VIGIA
 
-Actualizado: 2026-11-02. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
+Actualizado: 2026-11-05. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
 
 ## Principio de priorización
 
@@ -17,10 +17,10 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 3 | P0.3 Ruta ajustada a calles | OSRM v6 en producción (Azure) con el grafo del área metropolitana (12/10) y alternativas ponderadas. Al registrar o mover una cámara los enlaces de esa cámara se sincronizan solos. Sigue pendiente la evaluación independiente y decidir, con recorridos de campo, el enlace máximo de 2 km (CEL-03 y CEL-04 quedan a 5–7 km) | La línea sigue la red vial y declara cuándo no pudo hacerlo |
 | 4 | P0.4 Autenticación y auditoría | **Cumplido en código y en operación.** Usuarios con `scrypt`, sesiones con bloqueo, roles en backend, auditoría, pantalla de administración y HTTPS público. Faltan las cuentas de operador reales y el límite de peticiones por IP | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | **Cumplido (11/10).** CI en GitHub Actions; imágenes en GHCR; el servidor despliega solo, migra, verifica salud y vuelve a la versión anterior si falla | Versión válida activa; versión defectuosa revierte automáticamente |
-| 6 | P1.1 Evaluación independiente | Pendiente; existe el dataset sintético de puntajes como base | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
+| 6 | P1.1 Evaluación independiente | En curso: existe el dataset sintético y la confirmación `match/reject` de pasos reales; todavía falta convertir esas confirmaciones en un dataset de campo versionado y separar entrenamiento de evaluación | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Aprobado con nodo simulado (08/10: 248/248 eventos, 0 duplicados); la Tapo real ya corrió 8 h contra Azure. Falta repetir el corte de 5 min con la cámara real | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
 | 8 | P1.3 Carga y observabilidad | **Carga medida (12/10)** hasta 100 nodos simulados en Azure: cumple con 4–50 nodos y satura desde 50 msg/s; falta la observabilidad (métricas agregadas) | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
-| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color, seguimiento sin fragmentar, placas en el nodo PC (detector + OCR votado por track) y en la central (7 días, solo admin), y recortes por track desde el teléfono con confirmación del admin en la consola. Siguiente: placas en el teléfono | Cada etapa medida con prueba de sitio y documentada |
+| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color, seguimiento sin fragmentar, placas en el nodo PC (detector + OCR votado por track) y en la central (7 días, solo admin), y recortes por track desde el teléfono con confirmación del admin en la consola. Siguientes: placas en el teléfono y fase 4 de aprendizaje supervisado con recortes corregidos | Cada etapa medida con prueba de sitio, dataset independiente y rollback documentado |
 
 ## Hitos cumplidos
 
@@ -55,12 +55,58 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 
 1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tardaba de 6 a 8 s (p95) en la VM saturada. Desde el 02/11 solo se puntúan los pares dentro de la ventana física (enlace ≤ 2 km a ≥ 8 km/h) y de la ventana de tiempo de cada par de cámaras; el haz suma el puntaje de forma incremental. Mismo resultado y 43 % menos tiempo de reconstrucción en local con 220 candidatas (0,44 → 0,25 s). Falta repetir la medición en Azure.
 2. **Placas en el teléfono.** El nodo PC y la central ya están (02/11); falta llevar detector y OCR a la app.
-3. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
-4. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.
-5. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
-6. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), ~~límite por IP y CSP~~ (02/11: límite en Caddy y CSP en la consola), respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
-7. **Evaluación y escala:** P1.1 con recorridos independientes (el top-k ya se diversificó el 02/11), confirmaciones del admin como verdad de terreno (recortes, fase 4), corte de 5 min con la cámara real y observabilidad (P1.3).
-8. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
+3. **Fase 4: aprendizaje supervisado con recortes.** Extender la revisión del admin para corregir explícitamente color, caja de placa y texto OCR; conservar solo las muestras etiquetadas bajo una política de dataset separada; reentrenar por lotes y evaluar antes de desplegar. `match/reject` se usa para el puntaje de rutas, pero no se interpreta por sí solo como etiqueta de color o placa. Detalle y criterios de salida en la sección siguiente.
+4. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
+5. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Falta que el nodo se actualice solo y compruebe su salud, como ya hace la central. El push con la app cerrada sigue descartado.
+6. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
+7. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), ~~límite por IP y CSP~~ (02/11: límite en Caddy y CSP en la consola), respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
+8. **Evaluación y escala:** P1.1 con recorridos independientes (el top-k ya se diversificó el 02/11), confirmaciones del admin como verdad de terreno, corte de 5 min con la cámara real y observabilidad (P1.3).
+9. **Conectividad:** activar WireGuard cuando haya una segunda red con cámaras.
+
+## Fase 4: aprendizaje supervisado con recortes confirmados
+
+**Estado: planeado, no implementado.** La confirmación actual responde únicamente «¿esta detección pertenece al vehículo buscado en esta consulta?». Ese `match/reject` es una etiqueta válida para evaluar el correlador y ajustar el puntaje, pero no demuestra que el color o la placa calculados sean correctos. Un rechazo puede ser otro automóvil blanco correctamente clasificado; por eso no se entrenarán los modelos visuales infiriendo etiquetas desde el veredicto de ruta.
+
+### Etiquetas que se deben separar
+
+| Tarea | Interacción del admin | Uso permitido |
+|---|---|---|
+| Identidad en la consulta | `match`, `reject` o deshacer | Evaluación de rutas, ajuste/calibración del puntaje y, cuando haya suficiente evidencia, pares positivos/negativos para similitud visual |
+| Color | aceptar el color, escoger uno de los 8 colores, o marcar `no determinable` | Reentrenamiento y calibración del clasificador de color |
+| Detector de placa | aceptar/corregir la caja, marcar `sin placa visible` o `ilegible` | Positivos y negativos del detector YOLO de placas |
+| OCR de placa | aceptar/corregir el texto exacto o marcar `ilegible` | Evaluación y ajuste del lector; nunca se usa como verdad el texto que propuso el propio modelo sin revisión |
+
+### Captura y almacenamiento
+
+1. La consola conservará la pregunta de identidad y mostrará aparte las correcciones opcionales de color y placa. No confirmar una tarea visual equivale a **sin etiqueta**, no a aceptar la predicción.
+2. Solo una anotación visual explícita —aceptación o corrección— autoriza que el backend copie la muestra, antes de vencer, desde `recortes` hacia una cuarentena privada de datasets. Copiar todos los recortes o todos los `match` introduciría pseudoetiquetas y sesgo de confirmación.
+3. La anotación debe guardar predicción original, probabilidades o confianzas, votos, `model_digest`, cámara, track, fecha, autor, hash de imagen y procedencia. Esto permite reproducir el error y medir calibración; la tabla operativa `detections` no contiene hoy todo ese detalle.
+4. El JPEG operativo de lado mayor 224 px sirve para color (entrada de 128 px). No se considera fuente suficiente para OCR: el proyecto observó que la lectura completa cae con placas menores de 45 px. El edge deberá generar, solo cuando exista una placa útil, un recorte de vehículo o placa a resolución mayor y conservar la caja relativa.
+5. La cuarentena de aprendizaje tendrá cifrado, acceso de administrador, auditoría, plazo de retención propio y borrado verificable. No se guardarán imágenes, placas ni datasets en Git, logs, exportaciones generales o respaldos no autorizados.
+
+### Construcción del dataset
+
+- Deduplicar por hash y agrupar por track/vehículo, cámara y periodo. Recortes casi iguales de un mismo paso no pueden repartirse entre entrenamiento y prueba.
+- Mantener un conjunto de prueba congelado por cámara y franja temporal. Las nuevas correcciones entran por defecto a entrenamiento/cuarentena; no se reutiliza la prueba para escoger épocas o umbrales.
+- Balancear colores y condiciones, y priorizar mediante aprendizaje activo: baja confianza, desacuerdo entre votos, lecturas OCR discrepantes, noche, lluvia, ángulos difíciles y cámaras nuevas. Conservar también una muestra aleatoria de aciertos de alta confianza para detectar mala calibración.
+- Permitir `no determinable`, `ilegible` y `sin placa visible`: obligar una clase convierte imágenes ambiguas en etiquetas erróneas. Los negativos sin placa son necesarios para entrenar el detector.
+- Versionar fuentes, conteos, exclusiones, splits y revisión humana en un manifiesto; nunca reemplazar silenciosamente un dataset anterior.
+
+### Entrenamiento, evaluación y despliegue
+
+El aprendizaje será **por lotes y fuera de producción**, no ajuste online después de cada clic:
+
+1. Exportar una versión inmutable del dataset desde las anotaciones aprobadas.
+2. Entrenar un candidato reproducible y registrar código, parámetros, datos y digest de pesos.
+3. Evaluar contra la prueba congelada: macro-F1 y cobertura por clase/cámara para color; precisión, recall y mAP para la caja de placa; exactitud de placa completa por rango de ancho para OCR; recall@1/@3 y enlaces falsos para rutas.
+4. Calibrar las confianzas en validación separada. Subir el número mostrado por el modelo no cuenta como mejora si no aumenta exactitud o cobertura en datos no vistos.
+5. Ejecutar el candidato en sombra, después en una cámara canary, y desplegarlo solo si supera la línea base sin degradar FPS, memoria ni temperatura. Mantener el modelo anterior y su manifiesto para rollback.
+
+Para el puntaje se empezará con un modelo interpretable (regresión logística o learning-to-rank restringido) sobre las mismas señales explicables: detección, tiempo, apariencia y vía. Las confirmaciones provienen principalmente del top mostrado y por tanto tienen sesgo de selección; no se declarará el resultado como probabilidad calibrada sin revisar también una muestra controlada de candidatos fuera del top.
+
+### Criterio de salida
+
+La fase se considera terminada cuando existan: política y plazo aprobados para el dataset; API y esquema de anotaciones; correcciones explícitas en la consola; exportador reproducible; splits sin fuga por track/vehículo; métricas contra una prueba independiente; registro de versión/digest; despliegue en sombra/canary y rollback probado. Hasta entonces, las confirmaciones mejoran la consulta en curso y producen ground truth, pero **no modifican automáticamente ningún modelo**.
 
 ## Detalle de incrementos anteriores
 

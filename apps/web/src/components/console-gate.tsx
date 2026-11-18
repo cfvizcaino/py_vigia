@@ -9,7 +9,7 @@ import { OperationsConsole } from "./operations-console";
 import { Landing } from "./site";
 
 export type SessionUser = { id: string; email: string; display_name: string; role: "operator" | "admin" };
-type State = { kind: "loading" } | { kind: "anonymous"; offline: boolean } | { kind: "user"; user: SessionUser } | { kind: "demo" };
+type State = { kind: "loading" } | { kind: "anonymous"; offline: boolean } | { kind: "user"; user: SessionUser } | { kind: "demo"; offline: boolean };
 type Screen = "landing" | "login";
 
 /** `/?entrar=1` and `/?demo=1` come from pages outside the gate, such as /nosotros. */
@@ -40,7 +40,7 @@ export function ConsoleGate() {
       .then(async (response) => {
         const next: State = response.ok ? { kind: "user", user: (await response.json()).user } : { kind: "anonymous", offline: response.status >= 500 };
         forgetEntry();
-        if (next.kind === "anonymous" && entry === "demo") settle({ kind: "demo" });
+        if (next.kind === "anonymous" && entry === "demo") settle({ kind: "demo", offline: next.offline });
         else { if (entry === "login") setScreen("login"); settle(next); }
       })
       .catch(() => { if (!controller.signal.aborted) { forgetEntry(); if (entry === "login") setScreen("login"); settle({ kind: "anonymous", offline: true }); } });
@@ -48,10 +48,11 @@ export function ConsoleGate() {
   }, []);
 
   if (state.kind === "user") return <OperationsConsole user={state.user}/>;
-  if (state.kind === "demo") return <OperationsConsole user={null}/>;
+  // The demo's back arrow on Resumen returns to the landing.
+  if (state.kind === "demo") return <OperationsConsole user={null} onExit={() => leave(".app-shell", () => { setScreen("landing"); setState({ kind: "anonymous", offline: state.offline }); window.scrollTo(0, 0); })}/>;
   if (state.kind === "loading") return <main className="splash" aria-busy="true"><BrandMark size={56} title="VIGÍA"/><span className="visually-hidden">Comprobando la sesión…</span></main>;
   // Each screen leaves before the next one comes in.
-  const openDemo = () => leave("main, .site-header, .site-footer", () => setState({ kind: "demo" }));
+  const openDemo = () => leave("main, .site-header, .site-footer", () => setState({ kind: "demo", offline: state.offline }));
   if (screen === "login") return <LoginScreen offline={state.offline} onLogin={(user) => leave(".login-shell", () => setState({ kind: "user", user }))} onDemo={openDemo} onBack={() => leave(".login-shell", () => setScreen("landing"))}/>;
   return <Landing onSignIn={() => leave(".site", () => { setScreen("login"); window.scrollTo(0, 0); })} onDemo={openDemo}/>;
 }
@@ -116,7 +117,7 @@ function LoginScreen({ offline, onLogin, onDemo, onBack }: { offline: boolean; o
       </form>
       {error && <p className="error-message" role="alert">{error}</p>}
       {offline && <p className="login-note" role="status"><Icon name="alert" size={22}/>El servicio central no responde. Puedes revisar la consola con datos de ejemplo.</p>}
-      <button className="text-link login-demo" type="button" onClick={onDemo}>Explorar demo sin cuenta</button>
+      <button className="text-link login-demo demo-action" type="button" onClick={onDemo}>Explorar demo sin cuenta<Icon name="arrow" size={20}/></button>
     </section>
   </main>;
 }

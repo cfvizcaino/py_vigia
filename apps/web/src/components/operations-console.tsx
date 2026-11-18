@@ -5,12 +5,13 @@ import { animate, utils } from "animejs";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AdminPanel } from "./admin-panel";
 import { BrandMark } from "./brand";
+import { ComboField, TIME_OPTIONS, parseDatePart, parseTime, timeLabel } from "./combo-field";
 import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
 import { COLORS, REPORTED_COLORS, STATUS_LABELS, normalizePlate, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type RouteHop, type Scenario } from "@/lib/monitoring";
-import { countTo, enter, liquidMove, reducedMotion } from "@/lib/motion";
+import { countTo, enter, reducedMotion } from "@/lib/motion";
 import type { RoadGeometry } from "@/lib/road-routing";
 
 type View = "Resumen" | "Cámaras" | "Consultas" | "Administración";
@@ -24,6 +25,9 @@ const navigation: { label: View; icon: IconName }[] = [
 const ROLE_LABELS = { operator: "Operador", admin: "Administrador" } as const;
 const SOURCE_STATUS: Record<Source, string> = { central: "Servicio central conectado", demo: "Entorno de demostración", loading: "Conectando servicio…", offline: "Servicio central desconectado" };
 
+const VEHICLE_OPTIONS = [{ value: "", label: "Cualquier vehículo" }, { value: "car", label: "Automóvil" }, { value: "motorcycle", label: "Motocicleta" }];
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0")).map((value) => ({ value, label: value }));
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map((value) => ({ value, label: value }));
 const radiusLabel = (meters: number) => meters >= 1000 ? `${(meters / 1000).toLocaleString("es-CO")}km` : `${meters}m`;
 const colorLabel = (color: string | null | undefined, fallback: string) => COLORS[color ?? ""] ?? color ?? fallback;
 const score = (value: number) => Math.round(value * 100);
@@ -68,6 +72,78 @@ function CountPill({ value, label, tone = "gradient" }: { value: number; label: 
   return <div className="count-pill"><span className={`count-value ${tone}`} ref={ref}>{value}</span><span>{label}</span></div>;
 }
 
+type GuideStep = "red" | "consulta" | "rutas" | "camaras" | "historial";
+const GUIDE_STEPS: { id: GuideStep; label: string }[] = [
+  { id: "red", label: "Tu red" },
+  { id: "consulta", label: "La consulta" },
+  { id: "rutas", label: "Las rutas" },
+  { id: "camaras", label: "Las cámaras" },
+  { id: "historial", label: "El historial" },
+];
+
+/**
+ * The demo is the console's first impression, so it explains itself: each screen says
+ * what it shows and offers the next step. The steps above can be visited in any order.
+ */
+function DemoGuide({ step, empty, onStep, onNext, onSignIn }: { step: GuideStep; empty: boolean; onStep: (step: GuideStep) => void; onNext: () => void; onSignIn: () => void }) {
+  const [open, setOpen] = useState(true);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const index = GUIDE_STEPS.findIndex((item) => item.id === step);
+  useLayoutEffect(() => {
+    const parts = open ? enter(bodyRef.current ? [...bodyRef.current.children] : null, { step: 60, distance: 12, duration: 650 }) : null;
+    return () => { parts?.revert(); };
+  }, [step, empty, open]);
+  const copy: Record<GuideStep, { title: string; text: ReactNode; action: string }> = {
+    red: {
+      title: "Así ve un operador su red de cámaras",
+      text: <>El mapa muestra las 4 cámaras del piloto en Barranquilla: una física y tres simuladas. Cada una detecta vehículos <b>en el propio dispositivo</b> y al servidor solo llegan datos como el tipo, el color y la hora: nunca el video.</>,
+      action: "Abrir una consulta",
+    },
+    consulta: {
+      title: "Describe el vehículo que buscas",
+      text: <>Ya cargamos un caso de prueba: <b>un automóvil blanco</b> visto cerca de la Tapo C110 el 25 de agosto de 2026, entre las 09:20 y las 10:30, en un radio de 2 km. Puedes cambiar cualquier filtro antes de buscar.</>,
+      action: "Buscar con este caso",
+    },
+    rutas: empty ? {
+      title: "Ninguna ruta con estos filtros",
+      text: <>Una detección aislada no forma un recorrido. Prueba con <b>automóvil blanco</b>, amplía el radio o abre más el horario.</>,
+      action: "Ajustar la consulta",
+    } : {
+      title: "VIGÍA conecta las detecciones en recorridos",
+      text: <>Cada ruta candidata une cámaras por las que pudo pasar el vehículo y lleva un puntaje de 0 a 100: mide si los tiempos y las distancias encajan, <b>no confirma la identidad</b>. Cambia de ruta y abre «¿Por qué aparece esta ruta?» para ver la evidencia.</>,
+      action: "Ver las cámaras",
+    },
+    camaras: {
+      title: "Los dispositivos de la red",
+      text: <>Filtra o elige una cámara para ubicarla en el mapa. Las <b>físicas</b> son cámaras o teléfonos que procesan video real; las <b>simuladas</b> reproducen eventos para probar el sistema sin calle.</>,
+      action: "Ver el historial",
+    },
+    historial: {
+      title: "Cada búsqueda queda a mano",
+      text: <>El historial guarda las consultas de la sesión para volver a sus rutas. Con una cuenta, las búsquedas usan los datos del servicio central y cada acceso queda auditado.</>,
+      action: "Iniciar sesión",
+    },
+  };
+  const current = copy[step];
+  if (!open) return <button type="button" className="guide-reopen" onClick={() => setOpen(true)}><Icon name="info" size={22}/>Mostrar la guía de la demo</button>;
+  return <section className="demo-guide" aria-labelledby="demo-guide-title">
+    <div className="guide-top">
+      <span className="guide-kicker"><Icon name="info" size={22}/>Guía de la demo · paso {index + 1} de {GUIDE_STEPS.length}</span>
+      <button type="button" className="guide-close" aria-label="Ocultar la guía" title="Ocultar la guía" onClick={() => setOpen(false)}><Icon name="close" size={22}/></button>
+    </div>
+    <ol className="guide-progress" aria-label="Pasos de la demo">{GUIDE_STEPS.map((item, position) => <li key={item.id}>
+      <button type="button" aria-current={item.id === step ? "step" : undefined} className={position < index ? "done" : ""} onClick={() => onStep(item.id)}>
+        <span className="guide-dot">{position < index ? <Icon name="check" size={16}/> : position + 1}</span>{item.label}
+      </button>
+    </li>)}</ol>
+    <div className="guide-body" ref={bodyRef} key={`${step}${empty}`}>
+      <h2 id="demo-guide-title">{current.title}</h2>
+      <p>{current.text}</p>
+      <button type="button" className="pill-figma demo-action" onClick={step === "historial" ? onSignIn : onNext}>{current.action}<Icon name="arrow" size={24}/></button>
+    </div>
+  </section>;
+}
+
 /** The current view leaves (a short fade and sink) before the next one is drawn. */
 function swap(change: () => void) {
   const stage = document.querySelector(".stage");
@@ -78,8 +154,11 @@ function swap(change: () => void) {
   animate(stage, { opacity: [1, 0], translateY: [0, 14], filter: ["blur(0px)", "blur(6px)"], duration: 200, ease: "inQuad", onComplete: change });
 }
 
-/** `user` null means the anonymous demo: no request reaches the central service. */
-export function OperationsConsole({ user }: { user: SessionUser | null }) {
+/**
+ * `user` null means the anonymous demo: no request reaches the central service, a guide
+ * walks through the screens and the back arrow on Resumen returns to the landing (`onExit`).
+ */
+export function OperationsConsole({ user, onExit }: { user: SessionUser | null; onExit?: () => void }) {
   const [view, setView] = useState<View>("Resumen");
   const [composing, setComposing] = useState(false);
   const [detail, setDetail] = useState<null | "search" | "history">(null);
@@ -333,9 +412,6 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   }
 
   // ── Motion: every change of screen has a real flow instead of appearing at once ──
-  const railRef = useRef<HTMLElement>(null);
-  const railDropRef = useRef<HTMLSpanElement>(null);
-  const railPlaced = useRef(false);
   const screenKey = `${view}|${detail ?? ""}|${composing}`;
 
   // The new view comes in: the stage, then its pieces one after another, and the title.
@@ -358,43 +434,6 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     return () => { rail?.revert(); railSlide.revert(); header?.revert(); };
   }, []);
 
-  // The rail's violet drop flows to the active section (or to the gear for administration).
-  useLayoutEffect(() => {
-    const rail = railRef.current;
-    const drop = railDropRef.current;
-    const icon = rail?.querySelector<HTMLElement>(view === "Administración" ? ".rail-gear" : '.rail-nav [aria-current="page"] .rail-icon');
-    if (!rail || !drop || !icon) return;
-    // Offsets inside the rail ignore the transforms of the entrance animation.
-    const offset = (element: HTMLElement) => {
-      let left = 0, top = 0;
-      for (let node: HTMLElement | null = element; node && node !== rail; node = node.offsetParent as HTMLElement | null) {
-        left += node.offsetLeft;
-        top += node.offsetTop;
-      }
-      return { left, top };
-    };
-    const place = (instant: boolean) => {
-      const { left, top } = offset(icon);
-      const horizontal = getComputedStyle(rail).flexDirection === "row";
-      drop.style.width = `${icon.offsetWidth}px`;
-      drop.style.height = `${icon.offsetHeight}px`;
-      if (horizontal) {
-        drop.style.top = `${top}px`;
-        drop.style.left = "0px";
-        liquidMove(drop, "x", left, undefined, instant);
-      } else {
-        drop.style.left = `${left}px`;
-        drop.style.top = "0px";
-        liquidMove(drop, "y", top, undefined, instant);
-      }
-    };
-    place(!railPlaced.current);
-    railPlaced.current = true;
-    const onResize = () => place(true);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [view]);
-
   // Choosing another candidate route replays its steps in order.
   useEffect(() => {
     if (!activeRoute) return;
@@ -405,6 +444,8 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
   const isResumen = view === "Resumen";
   const title = view === "Cámaras" ? "Dispositivos de la red." : view === "Administración" ? "Control accesos." : view === "Consultas" ? detail ? "Trayectorias estimadas." : "Registros de búsqueda." : composing ? "Nueva consulta" : "Resumen";
   const canGoBack = view !== "Resumen" || composing;
+  // Resumen is the first screen: no arrow there, except in the demo, where it returns to the landing.
+  const exitDemo = !user && view === "Resumen" && !composing ? onExit : undefined;
   const [year, month, day] = (date || "--").split("-");
   const setDatePart = (part: 0 | 1 | 2, value: string) => {
     const parts = [year || String(new Date().getFullYear()), month || "01", day || "01"];
@@ -422,30 +463,26 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     {connectionError && <p className="error-message" role="alert">{connectionError}</p>}
   </section>;
 
-  const selectField = (label: string, value: string, onChange: (value: string) => void, options: ReactNode, className = "") =>
-    <label className={`line-select ${value ? "" : "empty"} ${className}`}><span className="visually-hidden">{label}</span>
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>{options}</select><Icon name="chevron" size={24}/>
-    </label>;
-
   const queryForm = <form className="query-card" id="query-form" onSubmit={search} aria-labelledby="query-title">
     <h2 id="query-title" className="visually-hidden">Buscar un vehículo</h2>
     <fieldset disabled={searching || connecting || source === "loading" || source === "offline"}>
       <div className="line-row">
-        {selectField("Punto de búsqueda", selected?.external_id ?? "", setSelectedCamera, <>{!cameras.length && <option value="">Punto de Búsqueda</option>}{cameras.map((camera) => <option key={camera.id} value={camera.external_id}>{camera.name} - {camera.external_id}</option>)}</>, "wide")}
+        <ComboField label="Punto de búsqueda" placeholder="Punto de Búsqueda" value={selected?.external_id ?? ""} options={cameras.map((camera) => ({ value: camera.external_id, label: `${camera.name} - ${camera.external_id}` }))} onChange={setSelectedCamera} inputMode="text" className="wide"/>
       </div>
       <div className="line-row">
-        {selectField("Vehículo", vehicle, setVehicle, <><option value="">Vehículo</option><option value="car">Automóvil</option><option value="motorcycle">Motocicleta</option></>)}
-        {selectField("Color", color, setColor, <><option value="">Color</option>{REPORTED_COLORS.map((key) => <option key={key} value={key}>{COLORS[key]}</option>)}{color && !REPORTED_COLORS.includes(color) && <option value={color}>{COLORS[color] ?? color}</option>}</>)}
+        <ComboField label="Vehículo" placeholder="Vehículo" value={vehicle} options={VEHICLE_OPTIONS} onChange={setVehicle} inputMode="text"/>
+        <ComboField label="Color" placeholder="Color" value={color} options={[{ value: "", label: "Cualquier color" }, ...REPORTED_COLORS.map((key) => ({ value: key, label: COLORS[key] })), ...(color && !REPORTED_COLORS.includes(color) ? [{ value: color, label: COLORS[color] ?? color }] : [])]} onChange={setColor} inputMode="text"/>
         {isAdmin && <label className={`line-select plate-field ${plate ? "" : "empty"}`}><span className="visually-hidden">Placa</span><input aria-label="Placa" value={plate} onChange={(event) => setPlate(event.target.value.toUpperCase())} placeholder="Placa" autoComplete="off" spellCheck={false} maxLength={8} aria-invalid={plate.trim() !== "" && !normalizePlate(plate)}/></label>}
       </div>
+      {/* Date and times can be typed or picked from the chevron's list. */}
       <div className="line-row">
-        {selectField("Día", day ?? "", (value) => setDatePart(2, value), <><option value="">DD</option>{Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0")).map((value) => <option key={value} value={value}>{value}</option>)}</>)}
-        {selectField("Mes", month ?? "", (value) => setDatePart(1, value), <><option value="">MM</option>{Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map((value) => <option key={value} value={value}>{value}</option>)}</>)}
-        {selectField("Año", year ?? "", (value) => setDatePart(0, value), <><option value="">AAAA</option>{[...new Set([thisYear - 1, thisYear, thisYear + 1, Number(year) || thisYear])].sort().map((value) => <option key={value} value={String(value)}>{value}</option>)}</>)}
+        <ComboField label="Día" placeholder="DD" value={day ?? ""} options={DAY_OPTIONS} parse={parseDatePart(1, 31)} onChange={(value) => setDatePart(2, value)}/>
+        <ComboField label="Mes" placeholder="MM" value={month ?? ""} options={MONTH_OPTIONS} parse={parseDatePart(1, 12)} onChange={(value) => setDatePart(1, value)}/>
+        <ComboField label="Año" placeholder="AAAA" value={year ?? ""} options={[...new Set([thisYear - 1, thisYear, thisYear + 1, Number(year) || thisYear])].sort().map((value) => ({ value: String(value), label: String(value) }))} parse={parseDatePart(2000, 2100, 4)} onChange={(value) => setDatePart(0, value)}/>
       </div>
       <div className="line-row">
-        <label className="line-select time-field"><span className="visually-hidden">Desde</span><input type="time" aria-label="Desde" value={timeFrom} onChange={(event) => setTimeFrom(event.target.value)} required/><Icon name="chevron" size={24}/></label>
-        <label className="line-select time-field"><span className="visually-hidden">Hasta</span><input type="time" aria-label="Hasta" value={timeTo} onChange={(event) => setTimeTo(event.target.value)} required/><Icon name="chevron" size={24}/></label>
+        <ComboField label="Desde" placeholder="Desde" value={timeFrom} options={TIME_OPTIONS} parse={parseTime} onChange={setTimeFrom} format={timeLabel} inputMode="text" className="time-field"/>
+        <ComboField label="Hasta" placeholder="Hasta" value={timeTo} options={TIME_OPTIONS} parse={parseTime} onChange={setTimeTo} format={timeLabel} inputMode="text" className="time-field"/>
       </div>
       <label className="radius-label">Radio de Búsqueda<output>{radiusLabel(radius)}</output>
         <input type="range" min="100" max="5000" step="100" value={radius} onChange={(event) => setRadius(Number(event.target.value))} style={{ "--fill": `${(radius - 100) / 49}%` } as React.CSSProperties}/>
@@ -478,6 +515,19 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
       <div className="route-options" role="group" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={25}/>Ruta {route.rank}<small>{score(route.confidence)} /100</small></button>)}</div>
       {activeRoute.has_distant_gaps && <p className="route-caution"><Icon name="alert" size={22}/>Hay tramos distantes sin observaciones intermedias. Revisa las rutas alternativas.</p>}
       <hr className="route-rule"/>
+      <details className="route-evidence" key={activeRoute.id}>
+        <summary><Icon name="why" size={50}/>¿Por qué aparece esta ruta?</summary>
+        <p>Es un puntaje de compatibilidad, no una probabilidad de identificación. Compara tiempos, detecciones y alternativas viales.</p>
+        {activeRoute.explanation?.segments && <>
+          <dl>{Object.entries(activeRoute.explanation.weights).map(([key, value]) => <div key={key}><dt>{{ detection: "Calidad de detección", time: "Compatibilidad temporal", appearance: "Apariencia disponible", road: "Costo vial" }[key] ?? key}</dt><dd>{percent(value)}</dd></div>)}</dl>
+          <ol>{activeRoute.explanation.segments.map((segment, index) => <li key={index}>
+            <b>{segment.from_camera} → {segment.to_camera} · alternativa {segment.option_index + 1}</b>
+            <span>{Math.round(segment.distance_m)} m · {Math.round(segment.observed_seconds)} s observados / {Math.round(segment.expected_seconds)} s de referencia</span>
+            <span>Puntaje del tramo: {score(segment.score)}/100. {segment.source === "osrm" ? "Red vial OSRM." : "Enlace no verificado; referencia de velocidad supuesta."}{segment.gap_penalty < 1 ? " Penalización por tramo sin observaciones intermedias." : ""}</span>
+          </li>)}</ol>
+          <p>Agregación geométrica de tramos + {score(activeRoute.explanation.coverage_bonus)} puntos por observaciones adicionales{unknownColorNote(activeRoute)}. Dirección de imagen no usada: falta calibrar cámaras.{activeRoute.explanation.search_pruned ? " Búsqueda acotada: pueden existir otras candidatas." : ""}</p>
+        </>}
+      </details>
       {isAdmin && record?.source === "central" && <p className="route-caution"><Icon name="lock" size={22}/>Los recortes y las placas son datos personales: duran 7 días y cada vista queda en la auditoría.</p>}
       {confirmError && <p className="error-message" role="alert">{confirmError}</p>}
       <ol className="timeline">{activeRoute.detections.map((hop, index) => {
@@ -498,19 +548,6 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
           </details> : <div className="hop-row">{row}</div>}
         </li>;
       })}</ol>
-      <details className="route-evidence" key={activeRoute.id}>
-        <summary><Icon name="why" size={50}/>¿Por qué aparece esta ruta?</summary>
-        <p>Es un puntaje de compatibilidad, no una probabilidad de identificación. Compara tiempos, detecciones y alternativas viales.</p>
-        {activeRoute.explanation?.segments && <>
-          <dl>{Object.entries(activeRoute.explanation.weights).map(([key, value]) => <div key={key}><dt>{{ detection: "Calidad de detección", time: "Compatibilidad temporal", appearance: "Apariencia disponible", road: "Costo vial" }[key] ?? key}</dt><dd>{percent(value)}</dd></div>)}</dl>
-          <ol>{activeRoute.explanation.segments.map((segment, index) => <li key={index}>
-            <b>{segment.from_camera} → {segment.to_camera} · alternativa {segment.option_index + 1}</b>
-            <span>{Math.round(segment.distance_m)} m · {Math.round(segment.observed_seconds)} s observados / {Math.round(segment.expected_seconds)} s de referencia</span>
-            <span>Puntaje del tramo: {score(segment.score)}/100. {segment.source === "osrm" ? "Red vial OSRM." : "Enlace no verificado; referencia de velocidad supuesta."}{segment.gap_penalty < 1 ? " Penalización por tramo sin observaciones intermedias." : ""}</span>
-          </li>)}</ol>
-          <p>Agregación geométrica de tramos + {score(activeRoute.explanation.coverage_bonus)} puntos por observaciones adicionales{unknownColorNote(activeRoute)}. Dirección de imagen no usada: falta calibrar cámaras.{activeRoute.explanation.search_pruned ? " Búsqueda acotada: pueden existir otras candidatas." : ""}</p>
-        </>}
-      </details>
     </> : <div className="empty-state">
       <b>{searching ? "Reconstruyendo las señales" : result ? "Sin trayectorias para estos filtros" : "Cada señal cuenta una parte"}</b>
       <p>{result ? "Prueba otro color, amplía el radio o ajusta el horario. Una detección aislada puede no formar una ruta." : "Busca un vehículo para conectar sus detecciones y explorar sus posibles recorridos."}</p>
@@ -591,13 +628,31 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
     {mapPanel}
   </div>;
 
+  // Where the demo guide stands, and what its steps and its button do.
+  const guideStep: GuideStep = view === "Cámaras" ? "camaras" : view === "Consultas" ? detail ? "rutas" : "historial" : composing ? "consulta" : "red";
+  function guideTo(step: GuideStep) {
+    if (step === "red") { if (view !== "Resumen" || composing || detail) swap(() => { setView("Resumen"); setDetail(null); setComposing(false); }); }
+    else if (step === "consulta") compose();
+    else if (step === "rutas") { if (record) swap(() => { setView("Consultas"); setDetail("search"); }); else compose(); }
+    else if (step === "camaras") go("Cámaras");
+    else go("Consultas");
+  }
+  function guideNext() {
+    if (guideStep === "red") compose();
+    else if (guideStep === "consulta") (document.getElementById("query-form") as HTMLFormElement | null)?.requestSubmit();
+    else if (guideStep === "rutas") { if (activeRoute) go("Cámaras"); else compose(); }
+    else if (guideStep === "camaras") go("Consultas");
+  }
+  const signIn = () => { window.history.replaceState(null, "", "/?entrar=1"); window.location.reload(); };
+  const guide = !user && <DemoGuide step={guideStep} empty={guideStep === "rutas" && !activeRoute} onStep={guideTo} onNext={guideNext} onSignIn={signIn}/>;
+
   const initials = user ? user.display_name.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() : "DE";
   const adminActive = view === "Administración";
 
   return <div className="app-shell">
     <a className="skip-link" href="#workspace">Saltar al contenido</a>
-    <aside className="rail" ref={railRef}>
-      <span className="rail-drop" ref={railDropRef} aria-hidden="true"/>
+    {/* The active section's circle fills from the bottom; the one left behind drains (CSS). */}
+    <aside className="rail">
       <button type="button" className="rail-brand" onClick={() => go("Resumen")} aria-label="VIGÍA, resumen"><BrandMark size={61}/></button>
       {/* The gear is the administration entry: audit and node credentials. */}
       {user?.role === "admin" ? <button type="button" className={`rail-gear ${adminActive ? "active" : ""}`} aria-current={adminActive ? "page" : undefined} aria-label="Administración" title="Administración" onClick={() => go("Administración")}><Icon name="settings" size={30}/>{adminActive && <span className="rail-gear-label" aria-hidden="true">Administración</span>}</button> : <span className="rail-gear-space" aria-hidden="true"/>}
@@ -615,15 +670,16 @@ export function OperationsConsole({ user }: { user: SessionUser | null }) {
           {menuOpen && <div className="account-menu" id="account-menu">
             <b>{user?.display_name ?? "Demostración"}</b>
             <small>{user ? `${ROLE_LABELS[user.role]} · ${user.email}` : "Sin sesión · datos de ejemplo"}</small>
-            {user ? <button type="button" className="card-button" onClick={logout}>Cerrar sesión</button> : <button type="button" className="card-button" onClick={() => { window.history.replaceState(null, "", "/?entrar=1"); window.location.reload(); }}>Iniciar sesión</button>}
+            {user ? <button type="button" className="card-button" onClick={logout}>Cerrar sesión</button> : <button type="button" className="card-button" onClick={signIn}>Iniciar sesión</button>}
           </div>}
         </div>
       </header>
       <div className="title-row">
-        <button type="button" className="back-button" onClick={back} disabled={!canGoBack} aria-label="Volver"><Icon name="back" size={38}/></button>
+        {(canGoBack || exitDemo) && <button type="button" className="back-button" onClick={exitDemo ?? back} aria-label={exitDemo ? "Volver al inicio" : "Volver"} title={exitDemo ? "Volver al inicio" : undefined}><Icon name="back" size={38}/></button>}
         <h1 className={isResumen ? "visually-hidden" : "figma-title"}>{title}</h1>
         <div className={`network-pill ${source}`} role="status" aria-label={`Red Barranquilla · ${SOURCE_STATUS[source]}`}><span className="network-icon"><Icon name="signal" size={42}/></span><span aria-hidden="true">Red Barranquilla</span></div>
       </div>
+      {guide}
       <main>{stage}</main>
       <footer className="workspace-footer"><span>© 2026 Equipo VIGÍA</span></footer>
     </div>
