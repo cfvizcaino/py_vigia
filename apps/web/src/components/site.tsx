@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { enter, glide, leave, liquidMove, reducedMotion, scrollToElement, scrollToY, startSmoothScroll } from "@/lib/motion";
 import { BrandMark } from "./brand";
+import { Icon } from "./icon";
 
 type Actions = { onSignIn?: () => void; onDemo?: () => void };
 
@@ -40,8 +41,11 @@ export function MotionLink({ href, className, children, ...rest }: { href: strin
 function SignInAction({ onSignIn, className }: { onSignIn?: () => void; className: string }) {
   return onSignIn ? <button type="button" className={className} onClick={onSignIn}>Inicia sesión</button> : <MotionLink className={className} href="/?entrar=1">Inicia sesión</MotionLink>;
 }
-function DemoAction({ onDemo, label = "Explorar demo" }: { onDemo?: () => void; label?: string }) {
-  return onDemo ? <button type="button" className="pill-figma" onClick={onDemo} data-enter>{label}</button> : <MotionLink className="pill-figma" href="/?demo=1" data-enter>{label}</MotionLink>;
+/** «Explorar demo» with Material Symbols' arrow_forward after the label. */
+function DemoAction({ onDemo, reveal = true }: { onDemo?: () => void; reveal?: boolean }) {
+  const content = <>Explorar demo<Icon name="arrow" size={24}/></>;
+  const enter = reveal ? { "data-enter": true } : {};
+  return onDemo ? <button type="button" className="pill-figma demo-action" onClick={onDemo} {...enter}>{content}</button> : <MotionLink className="pill-figma demo-action" href="/?demo=1" {...enter}>{content}</MotionLink>;
 }
 
 /** «Más» in the Figma navigation: holds the pages the design leaves out of the bar. */
@@ -142,11 +146,35 @@ export function SiteMotion({ children, className = "site" }: { children: ReactNo
   return <div className={className} ref={ref}>{children}</div>;
 }
 
+/**
+ * Solution cards rest with only their title, in the centre. Hovering one (or focusing it)
+ * sends the title to its place and brings the illustration in from the lower-left corner,
+ * then the text (globals.css). Here each card learns how far its title is from the centre.
+ */
+function useCentredTitles() {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const grid = ref.current;
+    if (!grid) return;
+    const measure = () => grid.querySelectorAll<HTMLElement>(".solution").forEach((card) => {
+      const title = card.querySelector<HTMLElement>("h3");
+      if (!title) return;
+      card.style.setProperty("--title-x", `${card.clientWidth / 2 - (title.offsetLeft + title.offsetWidth / 2)}px`);
+      card.style.setProperty("--title-y", `${card.clientHeight / 2 - (title.offsetTop + title.offsetHeight / 2)}px`);
+    });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
+  return ref;
+}
+
 export function SiteClosing({ onDemo }: Actions) {
   return <section className="site-closing" aria-labelledby="closing-title" data-reveal="stagger">
     <h2 id="closing-title" className="gray-title">El siguiente movimiento es tuyo.</h2>
     <p>Descubre el potencial de VIGÍA y da el primer paso hacia una nueva forma de abordar la inteligencia vehicular.</p>
-    {onDemo ? <button type="button" className="pill-figma" onClick={onDemo}>Explorar demo</button> : <MotionLink className="pill-figma" href="/?demo=1">Explorar demo</MotionLink>}
+    <DemoAction onDemo={onDemo} reveal={false}/>
   </section>;
 }
 
@@ -262,6 +290,7 @@ function Process() {
 }
 
 export function Landing({ onSignIn, onDemo }: Required<Actions>) {
+  const solutionsRef = useCentredTitles();
   return <SiteMotion>
     <SiteHeader current="inicio" onSignIn={onSignIn}/>
     <main>
@@ -278,10 +307,10 @@ export function Landing({ onSignIn, onDemo }: Required<Actions>) {
       <section className="solutions" id="soluciones" aria-labelledby="solutions-title">
         <h2 id="solutions-title" className="gray-title" data-reveal>Inteligencia que conecta cada observación.</h2>
         <MotionLink className="explore-link" href="/#proceso">Explorar soluciones</MotionLink>
-        <div className="solution-grid" data-reveal="stagger">
-          <article className="solution detection"><div className="solution-visual"><DetectionVisual/></div><h3>Detección inteligente</h3><p>Identificamos vehículos y analizamos características como su tipo y color mediante modelos de visión por computador.</p></article>
-          <article className="solution network"><div className="solution-visual framed"><NetworkVisual/></div><h3>Procesamiento distribuido</h3><p>Procesamos imágenes cerca de las cámaras y conectamos los eventos relevantes en una plataforma central.</p></article>
-          <article className="solution routes"><div className="solution-visual framed"><RouteVisual/></div><h3>Análisis de recorridos</h3><p>Relacionamos observaciones para visualizar y explorar posibles trayectorias vehiculares.</p></article>
+        <div className="solution-grid" data-reveal="stagger" ref={solutionsRef}>
+          <article className="solution detection" tabIndex={0}><div className="solution-visual"><DetectionVisual/></div><h3>Detección inteligente</h3><p>Identificamos vehículos y analizamos características como su tipo y color mediante modelos de visión por computador.</p></article>
+          <article className="solution network" tabIndex={0}><div className="solution-visual framed"><NetworkVisual/></div><h3>Procesamiento distribuido</h3><p>Procesamos imágenes cerca de las cámaras y conectamos los eventos relevantes en una plataforma central.</p></article>
+          <article className="solution routes" tabIndex={0}><div className="solution-visual framed"><RouteVisual/></div><h3>Análisis de recorridos</h3><p>Relacionamos observaciones para visualizar y explorar posibles trayectorias vehiculares.</p></article>
         </div>
       </section>
 
