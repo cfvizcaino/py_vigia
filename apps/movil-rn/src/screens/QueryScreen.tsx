@@ -6,6 +6,7 @@ import { BogotaDateTimeField } from '../components/BogotaDateTimeField';
 import { LocationPicker } from '../components/LocationPicker';
 import { Card, ChoiceRow, DemoBadge, ErrorMessage, Field, OptionSheet, PrimaryButton, SafetyBanner, Screen, SelectField } from '../components/ui';
 import { bogotaDateTime, bogotaToUtc } from '../time/bogota';
+import { activityLabel } from '../state/activity';
 import { useSession } from '../state/session';
 import { fonts, type } from '../theme/fonts';
 import type { QueryInput } from '../types/models';
@@ -189,7 +190,7 @@ export function QueryScreen({ navigation }: Props) {
           ...devices.map((device) => ({
             value: device.id,
             label: `${device.external_id} · ${device.name}`,
-            detail: device.status === 'online' ? 'En línea' : device.status === 'simulated' ? 'Simulada' : 'Sin señal',
+            detail: activityLabel(device).label,
             icon: 'ms_videocam' as const,
           })),
         ]}

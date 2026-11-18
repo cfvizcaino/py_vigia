@@ -22,6 +22,7 @@ from .events import (
 from .plate_ocr import PlateReader, PlateReads, read_tracks
 from .plate_ocr import prune as prune_plate_reads
 from .plates import PlateDetection, annotate_plates, detect_plates, plate_class_ids, save_plate_capture
+from .heartbeat import HeartbeatSender
 from .publisher import SnapshotPublisher
 from .thumbnails import ThumbnailCollector
 
@@ -72,6 +73,14 @@ class VisionRuntime:
             queue_max=settings.event_queue_max,
             timeout_seconds=settings.publish_timeout_seconds,
         )
+        self._heartbeat = HeartbeatSender(
+            settings.central_api_url,
+            settings.central_api_token,
+            settings.camera_id,
+            str(self._session_id),
+            settings.node_version,
+            self._heartbeat_reading,
+        )
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -80,6 +89,7 @@ class VisionRuntime:
         self._publisher.start()
         self._thread = threading.Thread(target=self._run, name="vigia-camera-worker", daemon=True)
         self._thread.start()
+        self._heartbeat.start()
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -90,6 +100,19 @@ class VisionRuntime:
         self._publisher.stop()
         with self._lock:
             self._status = "stopped"
+        self._heartbeat.stop()
+
+    def _heartbeat_reading(self) -> dict[str, Any]:
+        """What the centre shows for this node: pace, vehicles in view, queue and last problem."""
+        publisher = self._publisher.status()
+        with self._lock:
+            return {
+                "analysesPerSecond": round(self._processing_fps, 1) if self._status == "running" else 0.0,
+                "activeTracks": len(self._tracks),
+                "pendingEvents": publisher["pendingEvents"],
+                "deliveredEvents": publisher["deliveredEvents"],
+                "lastError": self._error_code or publisher["lastError"],
+            }
 
     def status(self) -> dict[str, Any]:
         with self._lock:

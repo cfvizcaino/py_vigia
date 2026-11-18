@@ -42,6 +42,22 @@ class DeviceUpdate(BaseModel):
     camera_model: str | None = None
 
 
+class DeviceActivity(BaseModel):
+    """Lo que el nodo está haciendo de verdad (liveness.py), no lo que se registró a mano."""
+
+    state: Literal["active", "background", "stopped", "no_signal", "never", "simulated"]
+    last_contact_at: datetime | None
+    last_heartbeat_at: datetime | None
+    last_event_at: datetime | None
+    node_version: str | None
+    analyses_per_second: float | None = None
+    active_tracks: int | None = None
+    pending_events: int | None = None
+    delivered_events: int | None = None
+    last_error: str | None = None
+    battery: float | None = None
+
+
 class DeviceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -54,6 +70,30 @@ class DeviceRead(BaseModel):
     lng: float
     camera_model: str | None
     created_at: datetime
+    activity: DeviceActivity | None = None
+
+
+class HeartbeatState(BaseModel):
+    """Latido del nodo edge (teléfono o nodo PC); el token es el mismo de los sobres."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    camera_id: str = Field(alias="cameraId", min_length=1, max_length=64)
+    state: Literal["running", "paused", "stopped"]
+    session_id: uuid.UUID | None = Field(default=None, alias="sessionId")
+    node_version: str | None = Field(default=None, alias="nodeVersion", max_length=64)
+    platform: str | None = Field(default=None, max_length=32)
+    analyses_per_second: float | None = Field(default=None, alias="analysesPerSecond", ge=0, le=1000)
+    active_tracks: int | None = Field(default=None, alias="activeTracks", ge=0)
+    pending_events: int | None = Field(default=None, alias="pendingEvents", ge=0)
+    delivered_events: int | None = Field(default=None, alias="deliveredEvents", ge=0)
+    last_error: str | None = Field(default=None, alias="lastError", max_length=120)
+    battery: float | None = Field(default=None, ge=0, le=1)
+
+
+class HeartbeatResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    interval_seconds: int
 
 
 class DetectionCreate(BaseModel):

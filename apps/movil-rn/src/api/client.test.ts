@@ -30,7 +30,7 @@ describe('VigiaApiClient', () => {
 
     await expect(client.getDevices()).resolves.toEqual([{
       id: 'device-1', external_id: 'CAM-01', name: 'Cámara', kind: 'physical',
-      status: 'online', lat: 11, lng: -74, camera_model: null,
+      status: 'online', lat: 11, lng: -74, camera_model: null, activity: null,
     }]);
     expect(fetch).toHaveBeenCalledWith(
       'https://api.example.org/api/v1/devices',

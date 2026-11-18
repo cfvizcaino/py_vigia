@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Detection, Device, EdgeObservation, IngestedEvent
+from .models import Detection, Device, EdgeObservation, IngestedEvent, utc_now
 from .plates import normalize_plate, purge_plates
 from .retention import purge_raw_events
 from .schemas import DetectionEnvelopeV11
@@ -154,7 +154,8 @@ def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> Ing
         observation.last_event_id = payload.event_id
         updated += 1
 
-    if device.kind == "physical":
-        device.status = "online"
+    # The device's status is derived from this and from heartbeats (liveness.py).
+    device.last_event_at = utc_now()
+    device.node_version = payload.node_version
     db.commit()
     return IngestionResult(payload.event_id, False, created, updated)

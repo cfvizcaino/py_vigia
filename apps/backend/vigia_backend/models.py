@@ -61,6 +61,12 @@ class Device(Base):
     lng: Mapped[float] = mapped_column(Float, nullable=False)
     camera_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    # Actividad real del nodo (liveness.py): último sobre aceptado, último latido y lo que reportó.
+    last_event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    runtime_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    node_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    runtime_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     detections: Mapped[list["Detection"]] = relationship(
         back_populates="device", cascade="all, delete-orphan"

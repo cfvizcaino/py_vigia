@@ -410,9 +410,12 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .device-status { display: inline-flex; align-items: center; gap: calc(6 * var(--u)); font-size: calc(12 * var(--u)); color: var(--violet); }
 .device-status i { width: calc(8 * var(--u)); height: calc(8 * var(--u)); border-radius: 50%; background: currentColor; }
 .device-status.simulated { color: var(--blue); }
-.device-status.offline { color: #a3a3a3; }
+.device-status.off { color: #a3a3a3; }
+.device-status.warn { color: #f5b544; }
 .device-list button.selected .device-status { color: #fff; }
-.device-list button.selected .device-status.offline { color: #1d152d; }
+.device-list button.selected .device-status.off { color: #1d152d; }
+.camera-activity { display: grid; gap: calc(4 * var(--u)); margin-top: calc(10 * var(--u)); }
+.camera-activity small { font-size: calc(12 * var(--u)); line-height: 1.35; opacity: .8; }
 .camera-selection { display: grid; justify-items: center; gap: calc(8 * var(--u)); padding: calc(51 * var(--u)) calc(24 * var(--u)) calc(40 * var(--u)); border-radius: calc(34 * var(--u)); background: var(--card); text-align: center; color: var(--icon); }
 .camera-selection h2 { margin-top: calc(10 * var(--u)); font-size: calc(24 * var(--u)); color: #fff; }
 .camera-selection p { font-size: calc(16 * var(--u)); font-weight: 300; color: #fff; font-variant-numeric: tabular-nums; }

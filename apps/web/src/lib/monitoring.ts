@@ -1,4 +1,19 @@
 /** HTTP contracts shared with apps/backend/vigia_backend/schemas.py. */
+/** What the node is really doing, from its heartbeat (backend: liveness.py). */
+export type DeviceActivity = {
+  state: "active" | "background" | "stopped" | "no_signal" | "never" | "simulated";
+  last_contact_at: string | null;
+  last_heartbeat_at: string | null;
+  last_event_at: string | null;
+  node_version: string | null;
+  analyses_per_second?: number | null;
+  active_tracks?: number | null;
+  pending_events?: number | null;
+  delivered_events?: number | null;
+  last_error?: string | null;
+  battery?: number | null;
+};
+
 export type Device = {
   id: string;
   external_id: string;
@@ -8,7 +23,49 @@ export type Device = {
   lat: number;
   lng: number;
   camera_model: string | null;
+  activity?: DeviceActivity | null;
 };
+
+export type ActivityTone = "ok" | "warn" | "off" | "simulated";
+
+const ACTIVITY: Record<DeviceActivity["state"], { label: string; tone: ActivityTone; explanation: string }> = {
+  active: { label: "Detectando", tone: "ok", explanation: "El edge está analizando y enviando al servidor." },
+  background: { label: "En segundo plano", tone: "warn", explanation: "La app quedó en segundo plano: el edge no analiza hasta que vuelva a primer plano." },
+  stopped: { label: "Detenido", tone: "off", explanation: "Alguien detuvo el edge desde el teléfono." },
+  no_signal: { label: "Sin señal", tone: "warn", explanation: "Dejó de responder sin avisar: la app se cerró, el teléfono perdió la red o se quedó sin batería." },
+  never: { label: "Sin conectar", tone: "off", explanation: "Este nodo todavía no se ha conectado." },
+  simulated: { label: "Simulada", tone: "simulated", explanation: "" },
+};
+
+/** Label, tone and meaning of a node's state; servers without heartbeats fall back to the stored status. */
+export function deviceActivity(device: Pick<Device, "status" | "activity">): { label: string; tone: ActivityTone; explanation: string } {
+  if (device.activity) return ACTIVITY[device.activity.state];
+  if (device.status === "online") return { label: "En línea", tone: "ok", explanation: "" };
+  if (device.status === "simulated") return ACTIVITY.simulated;
+  return { label: "Sin conexión", tone: "off", explanation: "" };
+}
+
+export function elapsedLabel(from: string, now = Date.now()): string {
+  const seconds = Math.max(0, Math.round((now - Date.parse(from)) / 1000));
+  if (seconds < 60) return `hace ${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `hace ${hours} h`;
+  return `hace ${Math.round(hours / 24)} d`;
+}
+
+/** «Último contacto hace 3 min · v1.5.0 · 6,2 análisis/s · 4 en cola · batería 83 %». */
+export function activityDetail(activity: DeviceActivity | null | undefined, now = Date.now()): string {
+  if (!activity || activity.state === "simulated") return "";
+  const parts: string[] = [];
+  if (activity.last_contact_at) parts.push(`Último contacto ${elapsedLabel(activity.last_contact_at, now)}`);
+  if (activity.node_version) parts.push(`v${activity.node_version.replace(/^movil-/, "")}`);
+  if (activity.state === "active" && activity.analyses_per_second != null) parts.push(`${activity.analyses_per_second.toFixed(1).replace(".", ",")} análisis/s`);
+  if (activity.pending_events) parts.push(`${activity.pending_events} en cola`);
+  if (activity.battery != null) parts.push(`batería ${Math.round(activity.battery * 100)} %`);
+  return parts.join(" · ");
+}
 
 export type QueryInput = {
   lat: number;
@@ -78,7 +135,6 @@ export type QueryResult = {
 export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris o plateado", silver: "Plateado", red: "Rojo", blue: "Azul", green: "Verde", yellow: "Amarillo", brown: "Café" };
 /** Colours the cameras' classifier reports (apps/vision/training/build_color_dataset.py); silver comes out as gray. */
 export const REPORTED_COLORS = ["white", "black", "gray", "red", "blue", "green", "yellow", "brown"];
-export const STATUS_LABELS: Record<string, string> = { online: "En línea", offline: "Sin conexión", simulated: "Simulada" };
 /** Colombian plates: cars ABC123, motorcycles ABC12D or ABC12. Same rule as the backend. */
 export function normalizePlate(value: string): string | null {
   const text = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();

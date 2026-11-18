@@ -7,6 +7,21 @@ export interface AppUser {
   role: UserRole;
 }
 
+/** What the node is really doing, from its heartbeat (backend: liveness.py). */
+export interface DeviceActivity {
+  state: 'active' | 'background' | 'stopped' | 'no_signal' | 'never' | 'simulated';
+  last_contact_at: string | null;
+  last_heartbeat_at: string | null;
+  last_event_at: string | null;
+  node_version: string | null;
+  analyses_per_second: number | null;
+  active_tracks: number | null;
+  pending_events: number | null;
+  delivered_events: number | null;
+  last_error: string | null;
+  battery: number | null;
+}
+
 export interface Device {
   id: string;
   external_id: string;
@@ -16,6 +31,7 @@ export interface Device {
   lat: number;
   lng: number;
   camera_model: string | null;
+  activity?: DeviceActivity | null | undefined;
 }
 
 export interface DeviceDetection {

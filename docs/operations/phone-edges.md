@@ -107,6 +107,25 @@ Comprobar desde el PC:
 ~/Android/Sdk/platform-tools/adb devices        # debe listar el teléfono como "device"
 ```
 
+## ¿Está activo o se salieron de la app? (latido, 18/11)
+
+Antes, un edge pasaba a «En línea» con su primer evento y no volvía a «Sin conexión»: la consola no distinguía un teléfono detectando de uno al que le cerraron la app. Desde la app 1.5.0 y el nodo PC 0.3.0, cada nodo envía un **latido** a `POST /api/v1/ingest/heartbeat` con su token de siempre:
+
+- cada 30 s mientras detecta (`running`), con análisis/s, vehículos en cuadro, eventos enviados y en cola, último error, versión y batería del teléfono;
+- una vez al pasar a segundo plano (`paused`) y una al detener el edge (`stopped`).
+
+El centro calcula el estado al leer (`apps/backend/vigia_backend/liveness.py`) y lo publica en `GET /api/v1/devices` como `activity`:
+
+| Estado | Cuándo | Qué hacer |
+|---|---|---|
+| **Detectando** | Latido `running` en los últimos 90 s | Nada |
+| **En segundo plano** | El último latido fue `paused` | Volver a abrir la app en el teléfono |
+| **Detenido** | Alguien pulsó «Detener Edge autónomo» | Volver a iniciarlo si debía estar activo |
+| **Sin señal** | Decía `running` y lleva más de 90 s sin latido | Revisar el teléfono: app cerrada a la fuerza, sin red o sin batería (la consola muestra la última batería reportada) |
+| **Sin conectar** | Nunca envió un latido ni un evento | Configurar el edge con su token |
+
+Los nodos de versiones anteriores, sin latido, se juzgan por su último evento: activos si publicaron en los últimos 10 min. `status` (`online`/`offline`) se deriva de lo mismo, así que el mapa también deja de mostrar «En línea» a un nodo caído. La consola web refresca la lista cada 30 s, y la app muestra el estado en la lista y en la ficha de cada cámara.
+
 ## Fuentes de video admitidas
 
 El nodo y `install-node-token.sh` validan cada tipo; las credenciales de una cámara nunca van al servidor central, solo al archivo 0600 del nodo.

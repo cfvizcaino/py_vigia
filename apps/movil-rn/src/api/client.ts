@@ -18,6 +18,21 @@ const userSchema = z.object({
   display_name: z.string(),
   role: z.enum(['operator', 'admin']),
 });
+const optionalNumber = z.number().nullable().optional().transform((value) => value ?? null);
+const optionalText = z.string().nullable().optional().transform((value) => value ?? null);
+const activitySchema = z.object({
+  state: z.enum(['active', 'background', 'stopped', 'no_signal', 'never', 'simulated']),
+  last_contact_at: optionalText,
+  last_heartbeat_at: optionalText,
+  last_event_at: optionalText,
+  node_version: optionalText,
+  analyses_per_second: optionalNumber,
+  active_tracks: optionalNumber,
+  pending_events: optionalNumber,
+  delivered_events: optionalNumber,
+  last_error: optionalText,
+  battery: optionalNumber,
+});
 const deviceSchema = z.object({
   id: z.string(),
   external_id: z.string(),
@@ -27,6 +42,8 @@ const deviceSchema = z.object({
   lat: z.number(),
   lng: z.number(),
   camera_model: z.string().nullable().default(null),
+  // Older servers do not send it; an unknown state must not hide the camera list.
+  activity: activitySchema.nullable().optional().catch(null).transform((value) => value ?? null),
 });
 const scenarioSchema = z.object({
   id: z.string(),

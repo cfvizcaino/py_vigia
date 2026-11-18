@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AttributionControl, type GeoJSONSource, Map as MapLibreMap, Marker, NavigationControl, Popup, setWorkerUrl } from "maplibre-gl";
-import { type Device, STATUS_LABELS } from "@/lib/monitoring";
+import { type Device, deviceActivity } from "@/lib/monitoring";
 import { Icon } from "./icon";
 
 type Point = { lng: number; lat: number };
@@ -88,7 +88,7 @@ export function VigiaMap({ cameras, selectedId, onSelect, routePoints, routeMode
       const title = document.createElement("b");
       title.textContent = camera.name;
       const detail = document.createElement("p");
-      detail.textContent = `${camera.external_id} · ${STATUS_LABELS[camera.status] ?? camera.status}`;
+      detail.textContent = `${camera.external_id} · ${deviceActivity(camera).label}`;
       popup.append(title, detail);
       markers.set(camera.external_id, new Marker({ element }).setLngLat([camera.lng, camera.lat]).setPopup(new Popup({ offset: 28 }).setDOMContent(popup)).addTo(map));
     });

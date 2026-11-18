@@ -15,9 +15,10 @@ from starlette.concurrency import run_in_threadpool
 from ..config import Settings
 from ..db import get_db
 from ..device_credentials import authenticate
-from ..models import Detection, Device, EdgeObservation, SecurityAudit
+from ..models import Detection, Device, EdgeObservation, SecurityAudit, utc_now
 from ..ingestion import DeviceNotFoundError, SequenceConflictError, ingest_detection_envelope
-from ..schemas import DetectionEnvelopeV11, IngestResponse, ThumbnailResponse
+from ..liveness import HEARTBEAT_INTERVAL_SECONDS
+from ..schemas import DetectionEnvelopeV11, HeartbeatResponse, HeartbeatState, IngestResponse, ThumbnailResponse
 from ..thumbnails import MAX_BYTES, looks_like_jpeg, thumbnail_key, thumbnail_store
 
 router = APIRouter(prefix="/api/v1/ingest", tags=["ingest"])
@@ -75,6 +76,33 @@ def ingest_detections(
         created_detections=result.created_detections,
         updated_detections=result.updated_detections,
     )
+
+
+@router.post("/heartbeat", response_model=HeartbeatResponse)
+def ingest_heartbeat(
+    payload: HeartbeatState,
+    x_vigia_device_token: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> HeartbeatResponse:
+    """Latido del nodo: «sigo detectando», «pasé a segundo plano» o «me detuvieron».
+
+    Con él la consola distingue un nodo activo de uno al que le cerraron la app (liveness.py).
+    No se audita cada latido; solo los rechazos, como en los sobres.
+    """
+    _check_device(db, x_vigia_device_token, payload.camera_id)
+    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
+    if device is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown camera")
+    device.last_heartbeat_at = utc_now()
+    device.runtime_state = payload.state
+    if payload.node_version:
+        device.node_version = payload.node_version
+    device.runtime_info = payload.model_dump(
+        include={"analyses_per_second", "active_tracks", "pending_events", "delivered_events", "last_error", "battery", "platform"},
+        exclude_none=True,
+    )
+    db.commit()
+    return HeartbeatResponse(interval_seconds=HEARTBEAT_INTERVAL_SECONDS)
 
 
 @router.post("/thumbnails", response_model=ThumbnailResponse, status_code=status.HTTP_201_CREATED)
