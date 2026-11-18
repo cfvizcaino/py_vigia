@@ -8,7 +8,7 @@
  */
 jest.mock('react-native-reanimated', () => {
   const React = require('react');
-  const { View } = require('react-native');
+  const { ScrollView, View } = require('react-native');
 
   const identity = (value) => value;
   const curve = () => identity;
@@ -36,11 +36,22 @@ jest.mock('react-native-reanimated', () => {
     return Animated;
   };
   const AnimatedView = createAnimatedComponent(View);
+  const AnimatedScrollView = createAnimatedComponent(ScrollView);
+  const interpolate = (value, input, output) => {
+    const [x0, x1] = input;
+    const [y0, y1] = output;
+    const t = Math.min(1, Math.max(0, (value - x0) / (x1 - x0)));
+    return y0 + (y1 - y0) * t;
+  };
   return {
     __esModule: true,
-    default: { View: AnimatedView, createAnimatedComponent },
+    default: { View: AnimatedView, ScrollView: AnimatedScrollView, createAnimatedComponent },
     createAnimatedComponent,
     Easing,
+    Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+    interpolate,
+    useAnimatedRef: () => React.useRef(null),
+    useAnimatedScrollHandler: (handlers) => (event) => handlers.onScroll?.(event.nativeEvent),
     FadeIn: builder(), FadeInDown: builder(), FadeInUp: builder(), FadeOut: builder(),
     ReduceMotion: { System: 'system', Always: 'always', Never: 'never' },
     cancelAnimation: () => undefined,

@@ -104,3 +104,22 @@ export function PulseDot({ color, size = 8, live = true }: { color: string; size
     </Animated.View>
   );
 }
+
+/**
+ * True once the screen finished its entrance transition. Heavy native views (maps) mount
+ * after it, so the slide stays smooth instead of stalling while the map starts. Falls back
+ * to a short timer when the navigator does not report the end (tests, no animation).
+ */
+export function useTransitionDone(navigation: { addListener: (event: 'transitionEnd', callback: () => void) => () => void } | null, fallbackMs = 450): boolean {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (done) return undefined;
+    const timer = setTimeout(() => setDone(true), fallbackMs);
+    const unsubscribe = navigation?.addListener('transitionEnd', () => setDone(true));
+    return () => {
+      clearTimeout(timer);
+      unsubscribe?.();
+    };
+  }, [done, fallbackMs, navigation]);
+  return done;
+}

@@ -163,8 +163,9 @@ function AppNavigation() {
         <>
           <Stack.Screen name="Operator" component={OperatorTabs} />
           <Stack.Screen name="CameraDetail" component={CameraDetailScreen} />
-          <Stack.Screen name="AddEdge" component={AddEdgeScreen} />
-          <Stack.Screen name="RelocateEdge" component={RelocateEdgeScreen} />
+          {/* Alta y traslado de un edge suben desde abajo, como una hoja, en vez de aparecer de golpe. */}
+          <Stack.Screen name="AddEdge" component={AddEdgeScreen} options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="RelocateEdge" component={RelocateEdgeScreen} options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="IssuedToken" component={IssuedTokenScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="CameraMode" component={CameraModeScreen} />
           <Stack.Screen name="EdgeMode" component={EdgeModeScreen} />

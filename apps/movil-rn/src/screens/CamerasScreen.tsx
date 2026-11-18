@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { CameraMap } from '../components/CameraMap';
 import { Icon } from '../components/Icon';
-import { PulseDot, Reveal } from '../components/motion';
+import { AnimatedPressable, PulseDot, Reveal, tapFeedback, usePressScale } from '../components/motion';
 import { DemoBadge, Glass, Screen, SearchPill } from '../components/ui';
 import { activityLabel, type ActivityTone } from '../state/activity';
 import { useSession } from '../state/session';
@@ -31,10 +31,7 @@ export function CamerasScreen() {
       tabs
       title={'Dispositivos\nde la red.'}
       right={isAdmin ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Agregar edge" hitSlop={12} onPress={() => navigation.navigate('AddEdge')} style={styles.add}>
-          <Text style={type(fonts.regular, 14)}>+</Text>
-          <Icon name="addCamera" size={18} />
-        </Pressable>
+        <AddEdgeButton onPress={() => navigation.navigate('AddEdge')} />
       ) : isDemo ? <DemoBadge /> : null}
     >
       <SearchPill value={query} onChangeText={setQuery} placeholder="Buscar nombre o identificador..." />
@@ -59,6 +56,28 @@ export function CamerasScreen() {
       </Glass>
       <CameraMap devices={devices} height={259} />
     </Screen>
+  );
+}
+
+/** «+ cámara» del encabezado: responde al tocarlo y abre el alta, que sube desde abajo. */
+function AddEdgeButton({ onPress }: { onPress: () => void }) {
+  const press = usePressScale(0.88);
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Agregar edge"
+      hitSlop={12}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        tapFeedback();
+        onPress();
+      }}
+      style={[styles.add, press.animatedStyle]}
+    >
+      <Text style={type(fonts.regular, 14)}>+</Text>
+      <Icon name="addCamera" size={18} />
+    </AnimatedPressable>
   );
 }
 

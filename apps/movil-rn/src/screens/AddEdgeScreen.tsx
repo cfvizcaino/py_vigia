@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { LocationPicker } from '../components/LocationPicker';
+import { useTransitionDone } from '../components/motion';
 import { Icon } from '../components/Icon';
 import { ErrorMessage, Field, Glass, GradientCard, OptionSheet, PrimaryButton, Screen } from '../components/ui';
 import {
@@ -20,6 +21,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddEdge'>;
 
 /** Admin (F01–F02): registers the camera and issues its credential in one step. */
 export function AddEdgeScreen({ navigation }: Props) {
+  // The sheet slides up first; the map starts once it is in place.
+  const mapReady = useTransitionDone(navigation);
   const { devices, baseUrl, createEdge, issueCredential } = useSession();
   const [cameraId, setCameraId] = useState(() => suggestEdgeId(devices));
   const [name, setName] = useState('');
@@ -113,7 +116,11 @@ export function AddEdgeScreen({ navigation }: Props) {
         <Icon name="locationSearching" size={24} style={{ alignSelf: 'center' }} />
         <Text style={[type(fonts.medium, 20, 24), styles.center]}>Ubicación</Text>
         <Text style={[type(fonts.light, 14, 16.8), styles.center, { marginBottom: 6 }]}>Donde quedará la cámara. Las rutas dependen de este punto</Text>
-        <LocationPicker devices={devices} height={259} point={point ?? undefined} onChange={(next) => setPoint(next)} caption={{ title: 'Barranquilla, ATL', subtitle: 'Colombia' }} />
+        {mapReady ? (
+          <LocationPicker devices={devices} height={259} point={point ?? undefined} onChange={(next) => setPoint(next)} caption={{ title: 'Barranquilla, ATL', subtitle: 'Colombia' }} />
+        ) : (
+          <View style={{ height: 259, borderRadius: 24, backgroundColor: 'rgba(217,217,217,0.10)' }} />
+        )}
       </GradientCard>
 
       <GradientCard colors={gradients.sourcePanel} locations={[0.03, 0.41, 1]} diagonal style={styles.source}>
