@@ -1,5 +1,7 @@
 # VIGÍA móvil
 
+> **App anterior.** Desde la versión 1.5.0 (18/11/2026) la app que se distribuye es la de React Native, en [`apps/movil-rn`](../movil-rn/README.md). Se instala encima de esta y conserva servidor, sesión y token. Esta carpeta se conserva, y sigue compilando en CI, mientras haya teléfonos con la versión Flutter.
+
 Consola móvil del operador en Flutter: inicio de sesión, cámaras en mapa, consultas de trayectorias, resultados con geometría vial y explicación del puntaje, historial de la sesión, exportación auditada y ajustes. **Explorar demo** usa datos locales de ejemplo, siempre se identifica como demostración y nunca se activa como respaldo de una conexión fallida.
 
 ## Descargar

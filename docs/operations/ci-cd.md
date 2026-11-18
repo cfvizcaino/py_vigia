@@ -29,10 +29,10 @@ detecciones o el propio workflow.
 
 | Trabajo | Qué comprueba |
 |---|---|
-| `android` | instalación reproducible con `npm ci`, ESLint, TypeScript, la suite Jest, `expo-doctor`, prebuild limpio, pruebas JVM de los módulos nativos y APK Release instalable con JS empaquetado |
+| `android` | instalación reproducible con `npm ci`, ESLint, TypeScript, la suite Jest, `expo-doctor`, prebuild limpio, pruebas JVM de los módulos nativos y APK Release instalable con JS empaquetado. Gradle usa caché (`setup-gradle`) y resuelve sus plugins con hasta 3 intentos, porque el portal de plugins a veces no responde desde los runners |
 | `ios-unsigned` | prebuild limpio con Pods y compilación Release del scheme de la app para iPhone, sin firma; publica el `.app` comprimido |
 | `android-e2e` | ejecución manual opcional de los flujos Maestro sobre el mismo APK generado por `android` en un emulador API 35 |
-| `flutter-android`, `flutter-ios` | la app Flutter, que sigue en producción durante la migración: análisis, pruebas y builds de prueba |
+| `flutter-android`, `flutter-ios` | la app Flutter anterior, mientras haya teléfonos con ella: análisis, pruebas y builds de prueba |
 
 Los artefactos se conservan 14 días. La subida falla si el APK o el ZIP iOS no
 existen; que Xcode compile una dependencia sin producir la app no cuenta como un
@@ -88,3 +88,9 @@ ssh -i ~/.ssh/vigia_azure vigia@$H /opt/vigia/autodeploy.sh --force   # redesple
 - **Emergencia sin CI:** `pause`, compilar en el PC y `deploy.sh $H push`. Luego `resume` cuando `main` tenga el arreglo.
 - **Infraestructura** (compose, Caddyfile, OSRM): `deploy.sh $H sync` y `deploy.sh $H up`. No es automática a propósito, porque un error ahí no tiene vuelta atrás automática.
 - **App móvil:** `movil.yml` compila y prueba. El APK firmado se publica a mano (`deploy.sh $H apk ARCHIVO VERSION [MINIMO]`), porque la llave de firma no está en GitHub. Ese paso escribe `descargas/app-version.json` (latest, minimum, URL, SHA-256 y `VIGIA_APK_NOTES`). El backend lo sirve en `GET /api/v1/app/version` si el compose monta `APP_VERSION_FILE` (`deploy.sh $H sync` y `up` una vez). Sin `MINIMO` se conserva el anterior; la primera vez queda en `0.0.0` (aviso opcional). Subirlo obliga a quien tenga una versión menor.
+
+### Fallos del CI móvil que no vienen del código
+
+- **`expo-doctor` falla con «Patch version mismatches»:** Expo publicó parches nuevos del SDK. Correr `npx expo install --fix` en `apps/movil-rn`, volver a fijar exactas las dependencias que ya lo estaban y confirmar con `npm run doctor`.
+- **«Plugin … foojay-resolver-convention … was not found»:** el portal de plugins de Gradle no respondió. El paso con reintentos suele absorberlo; si no, relanzar el job.
+- **Una prueba con fechas fijas empieza a fallar:** revisar fixtures con vencimientos (credenciales, tokens). Usar fechas lejanas (2099) o relativas a «ahora».

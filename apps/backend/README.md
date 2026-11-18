@@ -55,6 +55,13 @@ El ranking compara alternativas viales con pesos explícitos y conserva su geome
 | GET | `/api/v1/admin/audit` | Auditoría (admin) |
 | POST/DELETE | `/api/v1/admin/...credentials` | Credenciales de nodos (admin) |
 | POST | `/api/v1/ingest/detections` | Recibir eventos 1.1 desde nodos edge (token de dispositivo) |
+| POST | `/api/v1/ingest/thumbnails` | Recorte JPEG de un track ya publicado (token de dispositivo; 7 días) |
+| POST | `/api/v1/ingest/heartbeat` | Latido del nodo: `running`, `paused` o `stopped`, con ritmo, cola, versión y batería (token de dispositivo) |
+| GET | `/api/v1/detections/{id}/thumbnail` | Recorte (admin; cada vista auditada) |
+| PUT/DELETE | `/api/v1/queries/{id}/confirmations/{detección}` | «¿Es este el vehículo?» (admin); recalcula las rutas |
+| GET/PUT/DELETE | `/api/v1/detections/{id}/annotations[/{color\|plate}]` | Etiquetas de aprendizaje (admin, fase 4) |
+| GET | `/api/v1/admin/annotations/summary` | Conteo de etiquetas por tarea (admin) |
+| GET | `/api/v1/app/version` | Última versión de la app y mínima exigida (público) |
 
 Salvo `/health` e ingestión, todo exige `Authorization: Bearer <token>`.
 
@@ -66,7 +73,7 @@ GET /api/v1/queries?lat=11.012&lng=-74.816&radius_m=2000&time_from=2026-08-25T14
 
 La respuesta incluye dispositivos cercanos, conteo de detecciones candidatas y **varias** rutas con `rank`, `confidence` y `has_distant_gaps`.
 
-`thumbnail_url` en detecciones es opcional (`null` por defecto).
+`thumbnail_url` en detecciones es la clave del recorte en el almacén privado, no una URL pública (`null` si no hay recorte). `GET /api/v1/devices` incluye `activity`: el estado real del nodo calculado con su latido (`liveness.py`). Herramientas de línea de comandos: `python -m vigia_backend.training_export` (dataset de aprendizaje), `python -m vigia_backend.users`, `python -m vigia_backend.devices` y `python -m vigia_backend.migrate`.
 
 ## Datos simulados
 

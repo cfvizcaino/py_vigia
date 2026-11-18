@@ -7,18 +7,20 @@ Barranquilla, consultar detecciones y comparar trayectorias estimadas.
 
 - Sitio público (`/` sin sesión y `/nosotros`) y consola con la cara del Figma «VIGÍA-DESIGN»: lienzo nocturno violeta, pastillas y mapa oscuro. El sistema visual está en [DESIGN.md](DESIGN.md) y el contexto de producto en [PRODUCT.md](PRODUCT.md).
 - Flujo de consulta: Resumen → «Nueva consulta» → Trayectorias estimadas → Registros de búsqueda.
-- Dispositivos desde el backend central, selección en mapa y búsqueda por nombre.
+- Dispositivos desde el backend central, selección en mapa y búsqueda por nombre, con su **estado real** (detectando, en segundo plano, detenido, sin señal, sin conectar), versión, cola y batería; la lista se refresca cada 30 s.
 - Consulta por cámara de referencia, radio, tipo, color, fecha y ventana horaria.
 - Horarios de Colombia (UTC−5), convertidos explícitamente para el API.
 - Varias rutas candidatas, confianza, secuencia de detecciones y aviso de tramos distantes.
 - Radio visible en mapa y botón para encuadrar la red o la ruta seleccionada.
 - Historial de las últimas 20 consultas de esta sesión y exportación JSON con origen de datos.
-- Sin video: la consola nunca muestra la transmisión de las cámaras; trabaja con metadatos y, para un admin, con el recorte de cada paso.
+- Sin video: la consola nunca muestra la transmisión de las cámaras; trabaja con metadatos y, para un admin, con el recorte de cada paso, donde responde «¿Es este el vehículo?» y puede **etiquetar** el color real y la placa para entrenamiento (fase 4).
+- Demo guiada en 5 pasos para quien entra sin cuenta (`/?demo=1`).
 - Demostración local opcional cuando no hay conexión central; nunca reemplaza una consulta real fallida.
 - Estados de carga, errores, resultados vacíos, navegación por teclado y movimiento reducido.
 
 Las métricas corresponden a la red cargada y a la consulta seleccionada. El estado
-registrado de una cámara no prueba que su transmisión esté disponible. El servidor solicita a OSRM una
+de una cámara viene de su latido: «Detectando» significa que el nodo envió señal en los
+últimos 90 s, no que su transmisión de video esté disponible. El servidor solicita a OSRM una
 geometría conducible entre cámaras; si falla, la consola identifica y dibuja un enlace
 directo discontinuo. En ambos casos la ruta es una hipótesis, no una identificación confirmada.
 
@@ -92,7 +94,5 @@ Las capturas quedan en `test-results/`, ignorado por Git.
 
 ## Pendiente
 
-Autenticación y autorización, historial persistente por usuario, actualización
-automática del estado de dispositivos y migración opcional a PostGIS/MQTT cuando
-la escala lo justifique. El historial web actual vive en
-memoria y desaparece al recargar la página o reconectar la red.
+Historial persistente por usuario (hoy vive en memoria y desaparece al recargar la
+página) y migración opcional a PostGIS cuando la escala lo justifique.

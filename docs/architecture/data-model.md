@@ -1,7 +1,8 @@
-# Propuesta de modelo de datos — backend central
+# Modelo de datos — backend central
 
-Stack acordado: Python + FastAPI en `apps/backend/` (monolito modular; ver [ADR-002](../adr/002-backend-central.md)).  
-Implementado: tablas SQLAlchemy, CRUD de `devices`/`detections`, seed Barranquilla, algoritmo puro de rutas y `GET /api/v1/queries`.
+Python + FastAPI en `apps/backend/` (monolito modular; ver [ADR-002](../adr/002-backend-central.md)). PostgreSQL 17 en producción y SQLite en desarrollo, con migraciones Alembic `0001`–`0008` (`apps/backend/migrations/versions`). El modelo de origen está en `apps/backend/vigia_backend/models.py`.
+
+Este documento nació como propuesta (septiembre) y describe abajo el núcleo de consultas y rutas. La sección [Tablas operativas](#tablas-operativas-al-1811) resume lo que se agregó después: identidad de nodos, ingesta idempotente, estado real, recortes, placas, confirmaciones y etiquetas de aprendizaje.
 
 ## Criterios
 
@@ -126,11 +127,16 @@ Cámaras (físicas o simuladas). La ubicación de una detección es la de su dis
 | `external_id` | TEXT | no | único; p. ej. `CAM-01` (alineado con edge/web) |
 | `name` | TEXT | no | p. ej. `Tapo C110`, `Calle 84` |
 | `kind` | TEXT | no | `physical` \| `simulated` |
-| `status` | TEXT | no | `online` \| `offline` \| `simulated` |
+| `status` | TEXT | no | `online` \| `offline` \| `simulated`. En nodos físicos la API lo **calcula** con el latido (abajo) |
 | `lat` | DOUBLE | no | WGS84 |
 | `lng` | DOUBLE | no | WGS84 |
 | `camera_model` | TEXT | sí | p. ej. `Tapo C110`; null en simuladas |
 | `created_at` | TIMESTAMPTZ | no | |
+| `last_event_at` | TIMESTAMPTZ | sí | último sobre aceptado (0007) |
+| `last_heartbeat_at` | TIMESTAMPTZ | sí | último latido (0007) |
+| `runtime_state` | TEXT | sí | `running` \| `paused` \| `stopped`, según el último latido |
+| `node_version` | TEXT | sí | versión de la app o del nodo PC |
+| `runtime_info` | JSON | sí | análisis/s, vehículos en cuadro, cola, enviados, último error, batería |
 
 Índice sugerido: `(lat, lng)` no espacial por ahora; filtrado Haversine en código.
 
@@ -209,21 +215,25 @@ Orden de detecciones dentro de una ruta candidata.
 | `detection_id` | UUID | no | PK compuesta, FK → `detections` |
 | `sequence_order` | INTEGER | no | 0..n-1 |
 
-## Decisiones de diseño (para ADR-002 más adelante)
+## Tablas operativas (al 18/11)
+
+| Tabla | Migración | Para qué |
+|---|---|---|
+| `device_credentials` | 0001 | Token por cámara: solo su hash SHA-256, vencimiento y revocación ([device-credentials.md](../operations/device-credentials.md)) |
+| `user_sessions`, `security_audit` | 0003 | Sesiones revocables y auditoría de consultas, exportaciones, cambios, vistas de recortes y etiquetas |
+| `ingested_events` | 0001, 0004 | Sobre recibido (`event_id` único y secuencia por sesión): hace seguro el reintento. Se borra a los 7 días |
+| `edge_observations` | 0001 | Une un track del edge (sesión + track + `first_seen`) con una sola detección central que se actualiza |
+| `detections.thumbnail_url` | 0001 | Clave del recorte en el contenedor privado (no una URL pública); se olvida a los 7 días |
+| `detections.license_plate` | 0006 | Placa votada en el edge, formato colombiano; 7 días y solo admin |
+| `detection_confirmations` | 0006 | Respuesta del admin a «¿Es este el vehículo?» (`match`/`reject`) por consulta; recalcula las rutas |
+| `devices.last_*`, `runtime_*` | 0007 | Estado real del nodo (latido y último evento); `liveness.py` lo traduce a detectando / segundo plano / detenido / sin señal |
+| `training_annotations` | 0008 | Etiqueta explícita de color o placa sobre un recorte, con predicción original, `model_digest`, cámara, hora, autor y hash. La imagen se copia al contenedor `aprendizaje` (180 días). Sobrevive si se borra la detección |
+
+## Decisiones de diseño
 
 1. **Stack:** Python + FastAPI, monolito modular.
-2. **Geo:** `lat`/`lng` + Haversine en app; `device_links.road_distance_m` para red vial del prototipo; PostGIS diferido.
-3. **Identidad de vehículo:** proxy `vehicle_type` + `color` (sin placa).
-4. **Thumbnail:** solo `thumbnail_url` nullable; el modelo no exige ni prohíbe imágenes.
-5. **Múltiples rutas:** `route_results` 1:N por `query`, con `confidence` y `has_distant_gaps`.
-
-## Persistencia inicial sugerida (implementación posterior)
-
-- SQLite en desarrollo local (cero fricción) **o** Postgres en `compose.yaml` sin extensión PostGIS.
-- ORM: SQLAlchemy 2 / SQLModel, migraciones Alembic cuando se apruebe este esquema.
-
-## Qué no incluye esta propuesta
-
-- MQTT, auth real, ingesta en vivo desde nodos edge.
-- OCR / placa / marca / modelo.
-- Geometría PostGIS o routing OSRM.
+2. **Geo:** `lat`/`lng` + Haversine en la app; distancias viales de OSRM en `device_links`; PostGIS sigue diferido.
+3. **Identidad del vehículo:** `vehicle_type` + `color` (+ placa solo admin y 7 días). Una ruta no es una identificación.
+4. **Imágenes:** solo un recorte pequeño por vehículo, en un contenedor privado y por 7 días; nunca video.
+5. **Múltiples rutas:** `route_results` 1:N por `query`, con `confidence` y `has_distant_gaps`; top-k diversificado.
+6. **Etiquetas de aprendizaje:** solo las explícitas; `match/reject` no se convierte en etiqueta de color ni de placa.

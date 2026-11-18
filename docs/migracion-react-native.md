@@ -2,20 +2,15 @@
 
 ## Decisión y estado
 
-La implementación nueva usa **Expo prebuild** (Expo SDK 58, React Native 0.88
-y TypeScript estricto). Se conserva `co.vigia.movil`, la versión `1.5.0`,
-`versionCode`/`buildNumber` 6, los endpoints existentes y el contrato
-[`detection-envelope-1.1.schema.json`](../packages/contracts/detection-envelope-1.1.schema.json).
+**Estado al 18/11/2026: la app React Native está en `main` (#59) y es la que se distribuye desde la versión 1.5.0.** Usa Expo prebuild (SDK 58), React Native 0.88 y TypeScript estricto, y conserva `co.vigia.movil`, la llave de firma, los endpoints y el contrato [`detection-envelope-1.1.schema.json`](../packages/contracts/detection-envelope-1.1.schema.json).
 
-La app React Native vive temporalmente en `apps/movil-rn/`; `apps/movil/` aún
-contiene Flutter. El corte que elimina Flutter está aplazado hasta implementar
-y probar una migración Android segura de sesión y credencial edge. No se debe
-retirar el servicio Flutter ni mover las carpetas antes de resolverla. En
-particular, el almacenamiento Android de Flutter Secure Storage está cifrado
-con Android Keystore y no puede copiarse como texto ni migrarse desde las
-preferencias normales. El servicio de migración Flutter/RN todavía no existe.
+Al instalarse encima de la app Flutter (1.4.0 o anterior), `FlutterDataMigration.kt` lee lo que esta dejó (preferencias y Flutter Secure Storage, cuya llave AES está envuelta con una llave RSA del Android KeyStore que sobrevive a la actualización) y `src/storage/flutterMigration.ts` lo copia una sola vez: servidor, sesión, cámara y token del edge. `apps/movil/` (Flutter) se conserva y sigue compilando en CI mientras haya teléfonos con ella.
 
-## Matriz de paridad actual
+Guía de uso, compilación y publicación: [`apps/movil-rn/README.md`](../apps/movil-rn/README.md).
+
+La matriz siguiente es el registro de la migración (noviembre); varias filas marcadas como parciales se completaron después (#49–#58).
+
+## Matriz de paridad (registro de la migración)
 
 | Función | Estado | Implementación RN | Prueba/evidencia |
 |---|---|---|---|

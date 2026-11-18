@@ -2,6 +2,8 @@
 
 Este manual cubre P0.1–P0.3 y los primeros incrementos de P0.4: credenciales individuales y migraciones versionadas. El flujo esperado es cámara Tapo → nodo de visión → cola persistente → backend central → consulta ponderada → ruta ajustada a calles → consola web.
 
+Desde el 18/11 incluye también el estado real de los nodos, las etiquetas de aprendizaje (fase 4) y la app React Native (secciones 3.5 a 3.7).
+
 Para probar directamente el entorno separado dejado en este equipo, ver [sesión local P0.4, servicios y reinicio](./operations/p04-validation-session.md).
 
 ## 1. Requisitos
@@ -180,6 +182,30 @@ curl --max-time 5 -i http://10.77.0.1:8443/api/v1/devices
 
 Esperado: handshake reciente, salud 200 y CRUD 404. El proxy del centro solo admite ingestión/salud dentro del túnel cifrado. El firewall descarta edge→edge; preview remoto no se habilita por defecto. Sigue la guía para instalación, persistencia y comprobaciones de aislamiento.
 
+### 3.5 Estado real de los nodos
+
+Con un teléfono en **Edge autónomo** (app 1.5.0 o posterior) o un nodo PC 0.3.0:
+
+1. Inicia la detección. En **Red de Cámaras** de la consola, la cámara pasa a **Detectando** en menos de 30 s, con versión, análisis/s, cola y batería en la tarjeta de la cámara seleccionada.
+2. Manda la app a segundo plano: la cámara pasa a **En segundo plano**.
+3. Vuelve a la app y pulsa **Detener Edge autónomo**: pasa a **Detenido**.
+4. Inicia otra vez y cierra la app a la fuerza (o apaga el wifi): a los 90 s pasa a **Sin señal**.
+
+`GET /api/v1/devices` devuelve el mismo estado en `activity.state`. La consola se refresca cada 30 s.
+
+### 3.6 Etiquetas de aprendizaje (admin)
+
+1. Ejecuta una consulta con pasos que tengan recorte y abre un paso.
+2. En **Etiquetar para entrenamiento**, guarda un color y una placa (o «Ilegible» / «Sin placa visible»). Debe aparecer «guardada» y, al recargar el paso, seguir marcada.
+3. **Deshacer** la quita. Un operador no ve esta sección y la API le responde 403.
+4. Exporta y revisa el manifiesto: `python -m vigia_backend.training_export --task color --output /tmp/export-prueba` (falla si la carpeta ya existe).
+
+### 3.7 App móvil
+
+1. Instala el APK encima de la app anterior: debe conservar el servidor, la sesión y, si era un edge, su token.
+2. Recorre Cámaras, Consultar, Resultados, Historial y Ajustes: las pantallas entran con un fundido corto, la casilla de la pestaña activa se desliza y los botones responden al tocar.
+3. Con «Quitar animaciones» activado en Android, nada se mueve.
+
 ## 4. Arranque con Docker Compose
 
 Crea primero los dos `.env` y completa las credenciales como en el arranque local. Compose usa PostgreSQL: crea también el `.env` de la raíz con `VIGIA_DB_PASSWORD` ([guía](./operations/postgres.md)). El seed reinicia datos: úsalo solo en una base de prueba, nunca en la del piloto. Después:
@@ -229,6 +255,14 @@ Visión:
 cd apps/vision
 source .venv/bin/activate
 python -m unittest discover -s tests -v
+```
+
+App móvil:
+
+```bash
+cd apps/movil-rn
+npm ci
+npm run typecheck && npm run lint && npm test && npm run doctor
 ```
 
 Configuración VPN (desde la raíz, no modifica interfaces ni firewall):

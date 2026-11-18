@@ -118,7 +118,7 @@ case "$command" in
     page="$(sed -e "s/{{VERSION}}/$version/g" -e "s/{{SHA256}}/$sha/g" -e "s/{{SIZE}}/$size/g" -e "s/{{FILE}}/$name/g" "$root_dir/infra/azure/descargas/index.html")"
     remote "mkdir -p $app/descargas"
     scp "${ssh_opts[@]}" "$file" "vigia@$host:$app/descargas/$name"
-    scp "${ssh_opts[@]}" "$root_dir/apps/movil/assets/icon/icon.png" "vigia@$host:$app/descargas/icono.png"
+    scp "${ssh_opts[@]}" "$root_dir/apps/movil-rn/assets/icon.png" "vigia@$host:$app/descargas/icono.png"
     printf '%s\n' "$page" | remote "cat > $app/descargas/index.html"
     work="$(mktemp -d)"
     remote "cat $app/descargas/app-version.json 2>/dev/null || true" > "$work/previous.json"

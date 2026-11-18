@@ -1,53 +1,70 @@
 # Arquitectura de VIGIA
 
+Estado al 18/11/2026. Decisiones: [ADR-001](../adr/001-hybrid-edge-architecture.md) (edge híbrido), [ADR-002](../adr/002-backend-central.md) (backend central y rutas), [ADR-003](../adr/003-mobile-react-native-migration.md) (app en React Native). Modelo de datos: [data-model.md](./data-model.md).
+
 ## Enfoque
 
-VIGIA utiliza una arquitectura híbrida: nodos edge autónomos procesan video localmente y una plataforma central coordina consultas, consolida resultados y presenta rutas estimadas. El prototipo actual incluye la consola web, un nodo de visión físico y el backend central modular (`apps/backend`).
+VIGIA procesa el video **donde se captura** y al centro solo envía metadatos: tipo de vehículo, color, dirección, hora, placa votada (opcional) y un recorte pequeño por vehículo (opcional, 7 días, solo admin). Ante una consulta autorizada, el centro busca detecciones cercanas en espacio y tiempo, las encadena siguiendo la red vial y devuelve rutas candidatas con un puntaje explicable. Una ruta es una estimación, no una identificación.
 
 ```mermaid
 flowchart LR
-    C["Tapo C110\nRTSP local"] -->|"credenciales privadas"| V["Nodo de visión\nPython + YOLO + FastAPI"]
-    V -->|"MJPEG y metadatos"| P["Proxy web\nNext.js Route Handlers"]
-    P --> W["Consola web\nNext.js + MapLibre"]
-    V -.->|"contrato Detection Snapshot 1.0"| B["Backend central\nFastAPI + SQLAlchemy"]
-    W -.->|"GET /queries"| B
-    B --> D[("SQLite ahora\nPostgres/PostGIS después")]
-    B -.-> M["Mosquitto MQTT"]
-    M -.-> E["Nodos edge adicionales"]
+    subgraph Edge["Edges (red local de cada sitio)"]
+        T["Teléfono Android<br/>app VIGÍA · edge autónomo<br/>YOLO26n + color + placas (TFLite)"]
+        PC["Nodo PC (Python)<br/>YOLO + ByteTrack + color + placas"]
+        CAM["Tapo RTSP · webcam ·<br/>teléfono en modo cámara (MJPEG)"] --> PC
+    end
+    T -->|"HTTPS + token por cámara<br/>Envelope 1.1 · recortes · latido"| C
+    PC -->|"HTTPS + token por cámara<br/>Envelope 1.1 · recortes · latido"| C
+    subgraph Azure["Centro (VM en Azure, Docker Compose)"]
+        C["Caddy<br/>HTTPS · límite por IP"] --> B["Backend FastAPI<br/>ingesta · consultas · rutas · auth"]
+        C --> W["Consola web Next.js<br/>MapLibre · sitio público"]
+        W -->|"server-side, con sesión"| B
+        B --> DB[("PostgreSQL 17")]
+        B --> O["OSRM<br/>grafo del área metropolitana"]
+        B --> BL[("Azure Blob<br/>recortes 7 días · aprendizaje 180 días")]
+    end
+    APP["App VIGÍA (operador/admin)"] -->|"HTTPS + sesión"| C
 ```
 
-## Límites de los componentes
+## Componentes
 
-| Componente | Responsabilidad | No debe hacer |
+| Componente | Responsabilidad | No hace |
 |---|---|---|
-| `apps/vision` | Capturar RTSP, ejecutar detección/tracking y publicar resultados locales | Exponer credenciales, administrar usuarios o construir rutas globales |
-| `apps/web` | Mostrar dispositivos, consultas, preview y trayectorias | Conectarse directamente a RTSP o ejecutar modelos de visión |
-| `apps/backend` | Persistencia central, CRUD, consultas de trayectoria y historial | Exponer RTSP, ejecutar YOLO o centralizar video continuo |
-| `packages/contracts` | Definir mensajes estables entre componentes | Contener lógica de negocio o secretos |
+| `apps/movil-rn` | App Android (iOS compila sin firma en CI): consulta, rutas, historial, alta de edges y credenciales, **edge autónomo** (detección, color, placas, recortes y latido en el teléfono) y **modo cámara** (MJPEG local para un nodo PC) | Enviar video al centro |
+| `apps/vision` | Nodo PC: RTSP/webcam/MJPEG, YOLO + ByteTrack, color, placas, recortes, cola en disco y latido | Exponer credenciales RTSP ni construir rutas |
+| `apps/backend` | Ingesta idempotente, estado de los nodos, consultas y rutas ponderadas sobre OSRM, confirmaciones y etiquetas del admin, usuarios, roles y auditoría | Ejecutar modelos de visión o guardar video |
+| `apps/web` | Sitio público, demo, consola de operación (mapa, consultas, rutas, cámaras, administración) y proxy server-side al backend | Hablar con RTSP o con el backend desde el navegador |
+| `packages/contracts` | Contratos versionados (Detection Envelope 1.1) | Lógica de negocio o secretos |
+| `infra/` | Despliegue en Azure, Caddy, OSRM, PostgreSQL, scripts de edges y WireGuard (preparado, no activo) | — |
+| `apps/movil` | App Flutter anterior; se conserva y compila en CI mientras haya teléfonos con ella | Recibir funciones nuevas |
 
-Decisiones vigentes: [ADR-001](../adr/001-hybrid-edge-architecture.md), [ADR-002](../adr/002-backend-central.md). Modelo: [data-model.md](./data-model.md).
+## Flujo de una detección
 
-## Flujo implementado
+1. El edge detecta y sigue cada vehículo; vota su color y, si la vista lo permite, su placa.
+2. Cada 2 s publica un **Detection Envelope 1.1** (`POST /api/v1/ingest/detections`) desde una cola en disco, con reintentos. El centro deduplica por `eventId` y por track: un reenvío nunca duplica.
+3. Cuando la vista de un vehículo deja de mejorar, sube un recorte JPEG de ≤ 64 KB (`POST /api/v1/ingest/thumbnails`), que vive 7 días.
+4. Cada 30 s envía un **latido** (`POST /api/v1/ingest/heartbeat`). Con él y con el último evento, el centro calcula si el nodo está *detectando*, *en segundo plano*, *detenido* o *sin señal* ([phone-edges.md](../operations/phone-edges.md#está-activo-o-se-salieron-de-la-app-latido-1811)).
 
-1. La C110 entrega `stream2` mediante RTSP dentro de la red local.
-2. El nodo de visión abre el stream con OpenCV y ejecuta YOLO + ByteTrack.
-3. El worker conserva el último frame anotado y un snapshot de detecciones.
-4. FastAPI en visión entrega MJPEG y metadatos; nunca la URL RTSP.
-5. Route Handlers de Next.js actúan como proxy hacia el nodo edge.
-6. El backend central selecciona dispositivos cercanos (Haversine), recupera detecciones candidatas y estima varias rutas con confianza (`GET /api/v1/queries`).
+## Flujo de una consulta
 
-## Reglas de seguridad
+1. El operador elige punto, radio, horario, tipo, color y, si es admin, placa.
+2. El backend toma las cámaras dentro del radio y sus detecciones candidatas, y las encadena con un haz que pondera tiempo, distancia vial (OSRM), apariencia y dirección ([weighted-routes.md](./weighted-routes.md)). El top-k se diversifica para mostrar vehículos distintos antes que variantes del mismo.
+3. La consola dibuja cada ruta sobre la red vial y explica su puntaje. El admin puede abrir cada paso, ver el recorte y responder «¿Es este el vehículo?»: las rutas se recalculan con esa respuesta.
+4. El admin puede, además, **etiquetar** el recorte (color real, placa) para entrenamiento. Esas etiquetas se copian a un almacén separado y se exportan como versiones inmutables (fase 4, [recortes.md](../operations/recortes.md#aprendizaje-con-recortes-fase-4)).
 
-- `.env`, pesos, videos y resultados generados no se versionan.
-- RTSP se usa solamente dentro de la red local; no se publica el puerto 554.
-- La consola accede al nodo mediante un proxy server-side.
-- Las respuestas no incluyen rostros, credenciales ni la URL RTSP.
-- El preview es una herramienta de desarrollo; su acceso deberá quedar autenticado antes de un despliegue real.
+## Seguridad y datos personales
 
-## Evolución prevista
+- Los edges usan un token por cámara (hash en la base, caducidad, rotación y revocación). Las personas, sesiones revocables con roles `operator`/`admin`; todo cambio y consulta queda auditado.
+- Solo 80/443 expuestos; Caddy limita peticiones por IP y la consola envía CSP. SSH solo por llave y desde la IP del administrador.
+- Recortes y placas son datos personales (Ley 1581): contenedor privado, 7 días, solo admin y cada vista auditada. Las etiquetas de aprendizaje tienen su propio plazo (180 días mientras se aprueba la política) y la auditoría nunca guarda textos de placa.
+- `.env`, pesos, videos y datasets no se versionan.
 
-1. Validar detección con una cámara física.
-2. Sustituir datos simulados de la web por el API central.
-3. Añadir autenticación de usuarios y endurecer el preview.
-4. Incorporar Postgres/PostGIS y MQTT para múltiples nodos.
-5. Evaluar OCR de placas como extensión opcional (ver modelado de placas).
+## Operación
+
+- **CI/CD** ([ci-cd.md](../operations/ci-cd.md)): pruebas de backend (también con PostgreSQL), visión, web y móvil. Las imágenes se publican en GHCR y el servidor despliega solo, migra, verifica salud y vuelve atrás si falla.
+- **App:** el APK se firma en el equipo del proyecto y se publica con `deploy.sh apk`. La app avisa cuando hay una versión nueva (`GET /api/v1/app/version`).
+- **Base:** PostgreSQL 17 con migraciones Alembic (`0001`–`0008`), respaldos diarios y prueba de restauración ([postgres.md](../operations/postgres.md)).
+
+## Pendiente
+
+Ver el [roadmap](../ROADMAP.md): recorridos de campo independientes para evaluar rutas, el primer reentrenamiento con las etiquetas de la fase 4, detección con la pantalla apagada en Android, la actualización automática del nodo PC, WireGuard entre redes y la distribución firmada para iPhone.

@@ -1,12 +1,12 @@
 # Roadmap de cierre de VIGIA
 
-Actualizado: 2026-11-05. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
+Actualizado: 2026-11-18. Fuente de priorización: [`SegundoInforme.md`](../SegundoInforme.md), especialmente las secciones 11.4 y 15.
 
 ## Principio de priorización
 
 Primero se cierra un flujo vertical medible: cámara → edge → backend → consulta → ruta vial explicable. Después se endurecen seguridad, actualización y evaluación. MQTT y PostGIS siguen sin desplazar ese objetivo.
 
-Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo. Por eso se adelantaron etapas de visión de P2 que mejoran directamente la consulta: el color del vehículo y un seguimiento sin duplicados. Las placas (detección y OCR) son el siguiente bloque de visión.
+Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo. Por eso se adelantaron etapas de visión de P2 que mejoran directamente la consulta: color, seguimiento sin duplicados, placas (en el nodo PC, en la central y, desde el 06/11, en el teléfono) y recortes con confirmación del admin. Desde el 18/11 la app móvil es React Native (la de Flutter queda como implementación anterior), cada nodo informa su estado real con un latido, y las correcciones explícitas del admin forman un dataset de aprendizaje separado.
 
 ## Estado ejecutivo
 
@@ -14,13 +14,13 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 |---:|---|---|---|
 | 1 | P0.1 Ingestión edge→centro | **Cumplido.** Tapo C110 y teléfonos publican a Azure con token por cámara; sesión continua de 8 h (12/10) sin pérdidas ni duplicados | Un evento real aparece una vez en backend aunque se reenvíe |
 | 2 | P0.2 VPN por nodo edge | WireGuard autogestionado preparado y probado en generador; **no activado**. Los edges publican por HTTPS con token propio, y las cámaras quedan en su red local | Handshake entre redes, cámara privada y aislamiento entre nodos |
-| 3 | P0.3 Ruta ajustada a calles | OSRM v6 en producción (Azure) con el grafo del área metropolitana (12/10) y alternativas ponderadas. Al registrar o mover una cámara los enlaces de esa cámara se sincronizan solos. Sigue pendiente la evaluación independiente y decidir, con recorridos de campo, el enlace máximo de 2 km (CEL-03 y CEL-04 quedan a 5–7 km) | La línea sigue la red vial y declara cuándo no pudo hacerlo |
-| 4 | P0.4 Autenticación y auditoría | **Cumplido en código y en operación.** Usuarios con `scrypt`, sesiones con bloqueo, roles en backend, auditoría, pantalla de administración y HTTPS público. Faltan las cuentas de operador reales y el límite de peticiones por IP | Operador/admin separados; preview, consulta y exportación protegidos |
+| 3 | P0.3 Ruta ajustada a calles | OSRM v6 en producción (Azure) con el grafo del área metropolitana (12/10) y alternativas ponderadas. Al registrar o mover una cámara los enlaces de esa cámara se sincronizan solos. Sigue pendiente la evaluación independiente y decidir, con recorridos de campo, el enlace máximo de 2 km (CEL-03 queda a 5–7 km; CEL-04 se movió el 28/10 y está a 725 m por calle de CEL-VENECO) | La línea sigue la red vial y declara cuándo no pudo hacerlo |
+| 4 | P0.4 Autenticación y auditoría | **Cumplido en código y en operación.** Usuarios con `scrypt`, sesiones con bloqueo, roles en backend, auditoría, pantalla de administración y HTTPS público. Límite por IP en Caddy y CSP en la consola desde el 03/11. Faltan las cuentas de operador reales | Operador/admin separados; preview, consulta y exportación protegidos |
 | 5 | P0.5 Actualización y rollback | **Cumplido (11/10).** CI en GitHub Actions; imágenes en GHCR; el servidor despliega solo, migra, verifica salud y vuelve a la versión anterior si falla | Versión válida activa; versión defectuosa revierte automáticamente |
-| 6 | P1.1 Evaluación independiente | En curso: existe el dataset sintético y la confirmación `match/reject` de pasos reales; todavía falta convertir esas confirmaciones en un dataset de campo versionado y separar entrenamiento de evaluación | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
+| 6 | P1.1 Evaluación independiente | En curso: dataset sintético, confirmación `match/reject` de pasos reales y, desde el 18/11, etiquetas explícitas de color y placa exportables como versión inmutable con prueba congelada por cámara y día. Falta acumular recorridos de campo independientes | Ground truth versionado; top-k, secuencia y falsos enlaces reportados |
 | 7 | P1.2 Resiliencia y E2E | Aprobado con nodo simulado (08/10: 248/248 eventos, 0 duplicados); la Tapo real ya corrió 8 h contra Azure. Falta repetir el corte de 5 min con la cámara real | Corte de 5 min, reenvío sin duplicados y flujo Compose verificado |
-| 8 | P1.3 Carga y observabilidad | **Carga medida (12/10)** hasta 100 nodos simulados en Azure: cumple con 4–50 nodos y satura desde 50 msg/s; falta la observabilidad (métricas agregadas) | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
-| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color, seguimiento sin fragmentar, placas en el nodo PC (detector + OCR votado por track) y en la central (7 días, solo admin), y recortes por track desde el teléfono con confirmación del admin en la consola. Siguientes: placas en el teléfono y fase 4 de aprendizaje supervisado con recortes corregidos | Cada etapa medida con prueba de sitio, dataset independiente y rollback documentado |
+| 8 | P1.3 Carga y observabilidad | **Carga medida (12/10)** hasta 100 nodos simulados en Azure: cumple con 4–50 nodos y satura desde 50 msg/s. Desde el 18/11 cada nodo reporta estado, ritmo, cola, versión y batería (latido); faltan métricas agregadas del centro | 4/10/25 nodos, p50/p95, saturación y métricas por nodo |
+| 9 | P2 Evoluciones de visión | **En curso.** Hechos: detección en el teléfono, color, seguimiento sin fragmentar, placas en el nodo PC, en la central (7 días, solo admin) y en el teléfono (06/11), recortes por track con confirmación del admin, y etiquetas de aprendizaje (fase 4, 18/11). Siguientes: el primer reentrenamiento con esas etiquetas y su canary en un teléfono | Cada etapa medida con prueba de sitio, dataset independiente y rollback documentado |
 
 ## Hitos cumplidos
 
@@ -50,13 +50,19 @@ Desde el 10/10 el flujo corre en operación sobre Azure, con despliegue continuo
 | 28/10 | Prueba de campo: una estimación por trayectoria para que el tráfico no esconda rutas largas | #34 |
 | 28/10 | Recortes: fase 1 (centro, Azure Blob privado, 7 días, solo admin) y fase 2 (teléfono, app 1.4.0) | #35, #36 |
 | 02/11 | Consola con la cara del Figma «VIGÍA-DESIGN» y sitio público; placas en la central; confirmación de recortes (fase 3) en la web; top-k diversificado: recall@3 de 0,429 a 0,571 y enlaces falsos de 0,24 a 0,167 ([evidencia](./evidence/topk-diversificado-20261102.md)) | — |
+| 03/11 | Consultas densas acotadas (−43 % de CPU, mismo resultado), límite por IP en Caddy y CSP, recortes desde el nodo PC, página de la app Android y consola fiel al Figma | #37–#45 |
+| 04/11 | Animaciones con anime.js, scroll suave sin rebote, login nuevo y vista de administración del Figma | #46–#48 |
+| 05/11 | App React Native: ramas unidas, el edge vuelve a detectar y dibuja las cajas sobre la vista de cámara | #49–#51 |
+| 06/11 | Edge RN a ~6,6 análisis/s (de 2,6) con color solo donde hace falta, y placas en el teléfono (detector + OCR TFLite votado por track) | #52–#55 |
+| 18/11 | La app React Native con el diseño morado del Figma llega a `main` (reemplaza a la de Flutter, misma firma y datos migrados); landing con demo guiada | #56–#60 |
+| 18/11 | Estado real de los nodos con latido (detectando, en segundo plano, detenido, sin señal) y fase 4: etiquetas de aprendizaje, almacén separado, exportación y evaluación; movimiento y respuesta táctil en la app | #62–#65 |
 
 ## Orden de ejecución siguiente
 
 1. **Consultas acotadas en zonas densas** (hallazgo de la repetición del benchmark): con 140 a 220 detecciones candidatas, la consulta tardaba de 6 a 8 s (p95) en la VM saturada. Desde el 02/11 solo se puntúan los pares dentro de la ventana física (enlace ≤ 2 km a ≥ 8 km/h) y de la ventana de tiempo de cada par de cámaras; el haz suma el puntaje de forma incremental. Mismo resultado y 43 % menos tiempo de reconstrucción en local con 220 candidatas (0,44 → 0,25 s). Falta repetir la medición en Azure.
-2. **Placas en el teléfono.** El nodo PC y la central ya están (02/11); falta llevar detector y OCR a la app.
+2. ~~**Placas en el teléfono.**~~ Hecho el 06/11 (#54): detector y OCR TFLite en la app, votados por track.
 3. **Fase 4: aprendizaje supervisado con recortes.** Desde el 18/11 el admin corrige explícitamente color y texto de placa (la caja de placa queda pendiente porque el recorte de 224 px no alcanza); conservar solo las muestras etiquetadas bajo una política de dataset separada; reentrenar por lotes y evaluar antes de desplegar. `match/reject` se usa para el puntaje de rutas, pero no se interpreta por sí solo como etiqueta de color o placa. Detalle y criterios de salida en la sección siguiente.
-4. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 y CEL-04 quedan a 5–7 km del resto; hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
+4. **Enlace máximo de 2 km**, con recorridos de campo: la sincronización al registrar o mover una cámara ya es automática y guarda también las distancias largas, pero el estimador sigue descartando lo que pasa de 2 km. CEL-03 queda a 5–7 km del resto (CEL-04 ya está a 725 m de CEL-VENECO desde el 28/10); hace falta una cámara intermedia o recalibrar el umbral. No se sube el máximo sin esa evidencia.
 5. **Agente de actualización del nodo.** El aviso en la app y en la tarjeta del edge ya está. Desde el 18/11 cada nodo envía un latido con su estado, versión, cola y batería, y la consola distingue «detectando», «en segundo plano», «detenido» y «sin señal» ([phone-edges.md](operations/phone-edges.md)). Falta que el nodo PC se actualice solo; en Android la instalación siempre la confirma la persona. El push con la app cerrada sigue descartado.
 6. **Servicio en segundo plano en Android**, para un teléfono fijo con la pantalla apagada.
 7. **Seguridad y cumplimiento:** licencia del repositorio (Ultralytics es AGPL-3.0), ~~límite por IP y CSP~~ (02/11: límite en Caddy y CSP en la consola), respaldos fuera de Azure, política de datos personales (Ley 1581) y autorización de los tutores sobre el alojamiento.
