@@ -371,7 +371,7 @@ void main() {
               'id': 'c1',
               'camera_id': 'CEL-02',
               'created_at': '2026-10-11T00:00:00Z',
-              'expires_at': '2026-11-10T00:00:00Z',
+              'expires_at': '2099-01-01T00:00:00Z',
               'revoked': false,
               'secret': 'vigia_secreto',
             }),
