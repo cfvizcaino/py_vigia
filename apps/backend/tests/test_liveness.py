@@ -43,8 +43,9 @@ def test_states_from_heartbeat_and_events():
 
 def test_nodes_without_heartbeat_use_their_last_event():
     now = utc_now()
-    assert activity_state(device(last_event_at=now - timedelta(minutes=8)), now) == "active"
-    assert activity_state(device(last_event_at=now - timedelta(minutes=12)), now) == "no_signal"
+    # They send an empty envelope every 30 s while running; closing the app stops them.
+    assert activity_state(device(last_event_at=now - timedelta(seconds=60)), now) == "active"
+    assert activity_state(device(last_event_at=now - timedelta(minutes=3)), now) == "no_signal"
     # Events keep arriving long after the last heartbeat (heartbeats failing): still active.
     stale_heartbeat = device(last_heartbeat_at=now - timedelta(minutes=20), runtime_state="running",
                              last_event_at=now - timedelta(seconds=10))

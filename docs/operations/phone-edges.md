@@ -124,7 +124,7 @@ El centro calcula el estado al leer (`apps/backend/vigia_backend/liveness.py`) y
 | **Sin señal** | Decía `running` y lleva más de 90 s sin latido | Revisar el teléfono: app cerrada a la fuerza, sin red o sin batería (la consola muestra la última batería reportada) |
 | **Sin conectar** | Nunca envió un latido ni un evento | Configurar el edge con su token |
 
-Los nodos de versiones anteriores, sin latido, se juzgan por su último evento: activos si publicaron en los últimos 10 min. `status` (`online`/`offline`) se deriva de lo mismo, así que el mapa también deja de mostrar «En línea» a un nodo caído. La consola web refresca la lista cada 30 s, y la app muestra el estado en la lista y en la ficha de cada cámara.
+Los nodos de versiones anteriores, sin latido, se juzgan por su último evento: publican un sobre vacío cada 30 s mientras corren, así que se ven activos si publicaron en los últimos 2 min y «sin señal» después. Esas versiones no avisan cuando pasan a segundo plano o se detienen: cerrar la app se ve como «sin señal». `status` (`online`/`offline`) se deriva de lo mismo, así que el mapa también deja de mostrar «En línea» a un nodo caído. La consola web refresca la lista cada 30 s, y la app muestra el estado en la lista y en la ficha de cada cámara.
 
 ## Fuentes de video admitidas
 

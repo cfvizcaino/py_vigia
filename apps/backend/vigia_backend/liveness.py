@@ -6,7 +6,8 @@ estado se calcula al leer, con dos fuentes:
 
 - El **latido** (`POST /api/v1/ingest/heartbeat`): el nodo lo envía cada 30 s mientras
   detecta, y una vez al pasar a segundo plano (`paused`) o al detener el edge (`stopped`).
-- El último **sobre** aceptado, para los nodos de versiones anteriores que no envían latido.
+- El último **sobre** aceptado, para los nodos de versiones anteriores que no envían latido
+  (publican un sobre vacío cada 30 s mientras corren; a los 2 min sin sobres, «sin señal»).
 
 Si el último latido dice `running` y pasan más de 90 s sin otro, el nodo dejó de responder
 sin avisar: cerraron la app a la fuerza, se quedó sin red o sin batería.
@@ -22,8 +23,9 @@ from .models import Device, utc_now
 HEARTBEAT_INTERVAL_SECONDS = 30
 # Three missed heartbeats.
 ALIVE_WINDOW = timedelta(seconds=90)
-# Nodes without heartbeats only publish when vehicles pass: allow quiet streets.
-EVENT_ONLY_WINDOW = timedelta(minutes=10)
+# Nodes without heartbeats (app 1.4.x and earlier, PC node 0.2) still publish an empty
+# envelope every 30 s while they run, even on a quiet street: four missed ones.
+EVENT_ONLY_WINDOW = timedelta(minutes=2)
 
 ActivityState = Literal["active", "background", "stopped", "no_signal", "never", "simulated"]
 
