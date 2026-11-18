@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
+import { Reveal } from '../components/motion';
 import { RouteMap } from '../components/RouteMap';
 import { DemoBadge, ErrorMessage, Glass, PrimaryButton, SafetyBanner, Screen, SecondaryButton, formatDate, vehicleTypeName } from '../components/ui';
 import { colorNamesEs } from '../edge/colors';
@@ -158,7 +159,7 @@ export function ResultsScreen({ navigation }: Props) {
             const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
             const busy = confirmationBusyId === detection.detection_id;
             return (
-              <View key={detection.detection_id || String(detectionIndex)} style={{ gap: 8 }}>
+              <Reveal key={detection.detection_id || String(detectionIndex)} index={detectionIndex} style={{ gap: 8 }}>
                 <Glass variant="tile" radius={24} style={styles.detection}>
                   <Icon name={detection.vehicle_type === 'motorcycle' ? 'motorcycleSmall' : 'car'} size={24} />
                   <View style={{ flex: 1, gap: 3 }}>
@@ -183,7 +184,7 @@ export function ResultsScreen({ navigation }: Props) {
                     </View>
                   )
                 ) : null}
-              </View>
+              </Reveal>
             );
           })}
         </View>
