@@ -154,3 +154,21 @@ El OCR no pesa; lo que cuesta es el detector de placas sobre cada vehículo (cad
 Conviene que los asesores confirmen esta política, como hicieron con los recortes.
 
 Las placas son datos personales (Ley 1581): este documento reporta exactitudes y tamaños, nunca números de placa. Los fotogramas, las etiquetas y las lecturas quedan en `apps/vision/datasets/`, fuera de Git.
+
+## Lectura en el teléfono (edge autónomo, 05/11/2026)
+
+La app React Native repite la cascada del nodo PC cuando se dan las condiciones, sin frenar la detección:
+
+- **Modelos:** `apps/movil-rn/assets/models/plates.tflite` (el mismo `plate-detector.pt`, exportado con `training/export_mobile.py --imgsz 320 --labels 0:plate`) y `plate-ocr.tflite` (`training/export_plate_ocr.py`).
+- **Validación de la exportación:**
+  - detector a 320 px sobre la prueba de `vigia-plate-crops-v1`: mAP50 0,978 (0,985 a 640 px con el `.pt`);
+  - OCR: el mismo texto que onnxruntime en 79/79 placas de validación y prueba (diferencia máxima 2,5·10⁻⁶).
+  - `onnx2tf` no sirve con este OCR (trata la entrada NHWC como NCHW); el script explica el camino ONNX → PyTorch → LiteRT y por qué los pesos se copian contiguos.
+- **Resolución:** con los modelos de placa la cámara entrega 1920×1440. El detector de vehículos sigue viendo 320×320 y las cajas se manejan en un espacio de 640 px, así que los umbrales del tracker y del color no cambian; los recortes salen del cuadro completo.
+- **Cuándo se intenta:**
+  - solo vehículos confirmados de al menos 200 px de ancho en la cámara (una placa de 45 px ocupa ~22 % del vehículo);
+  - a lo sumo un intento cada 400 ms;
+  - de nuevo solo si la vista creció 15 % o pasaron 800 ms;
+  - como máximo 6 lecturas por vehículo.
+- **Mismas reglas que el nodo:** margen del 4 %, puntaje del detector ≥ 0,45, placa ≥ 45 px, caracteres ≥ 0,5, formato colombiano y voto ≥ 2 sin empate. La placa votada va en `licensePlate`; la central la guarda 7 días y solo la ve un admin.
+- **Privacidad:** el registro del teléfono (`VIGIA-PLACAS`) y la tarjeta de estado solo muestran conteos y anchos en píxeles, nunca el texto de una placa.

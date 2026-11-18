@@ -1,0 +1,328 @@
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
+
+import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
+import { ExpandablePreview } from '../components/ExpandablePreview';
+import { Icon } from '../components/Icon';
+import { Card, SecondaryButton, StatusPill } from '../components/ui';
+import { EdgeEngine } from '../edge/engine';
+import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
+import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
+import { useVehicleFrameOutput } from '../native/FrameProcessor';
+import type { ColorGate, PlateGate, PlateOcrConfig, ThumbnailGate } from '../native/FrameProcessor';
+import { createThumbnailEncoder } from '../native/thumbnail';
+import type { EdgeConfiguration } from '../edge/config';
+import type { EdgeStats } from '../edge/engine';
+import type { LoadedModel } from '../edge/model';
+import type { Detection } from '../edge/types';
+import { colors } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
+import { useAppUpdate } from '../update/UpdateHost';
+import type { UpdateLevel } from '../update/release';
+
+const keepAwakeTag = 'vigia-edge-camera';
+
+export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
+  config: EdgeConfiguration;
+  fps: number;
+  extraRotation: number;
+  onStop: () => void;
+}) {
+  const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [models, setModels] = useState<{
+    detector: LoadedModel;
+    color: LoadedModel;
+    plates: { detector: LoadedModel; ocr: LoadedModel; config: PlateOcrConfig } | null;
+  } | null>(null);
+  const [stats, setStats] = useState<EdgeStats | null>(null);
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [cameraStarted, setCameraStarted] = useState(false);
+  const [foreground, setForeground] = useState(AppState.currentState === 'active');
+  const engineRef = useRef<EdgeEngine | null>(null);
+  const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
+  const plateGatesRef = useRef<(gates: PlateGate[]) => void>(() => undefined);
+  const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
+  const device = useCameraDevice('back');
+  const { available: updateLevel, showUpdate } = useAppUpdate();
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const granted = await VisionCamera.requestCameraPermission();
+        if (cancelled) return;
+        setPermissionGranted(granted);
+        if (!granted) throw new Error('VIGÍA necesita permiso de cámara para iniciar el modo edge.');
+        const [detector, color] = await Promise.all([loadVehicleModel(), loadColorModel()]);
+        // Plates are optional: without them the edge keeps detecting at 640×480.
+        const plates = await loadPlates();
+        if (cancelled) return;
+        const outbox = new Outbox({
+          storage: new ExpoOutboxStorage(config.cameraId),
+          serverUrl: config.serverUrl,
+          token: config.token,
+        });
+        engineRef.current = new EdgeEngine(
+          config,
+          { name: detector.manifest.name, digest: detector.manifest.sha256 },
+          outbox,
+          setStats,
+          createThumbnailEncoder(),
+          (gates) => gatesRef.current(gates),
+          (gates) => colorGatesRef.current(gates),
+          plates ? (gates) => plateGatesRef.current(gates) : null,
+        );
+        setModels({ detector, color, plates });
+      } catch (reason) {
+        if (!cancelled) {
+          console.error('No fue posible iniciar Edge autónomo.', reason);
+          setStartupError('No fue posible iniciar Edge autónomo. Revisa los permisos, la configuración y los modelos.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      const engine = engineRef.current;
+      engineRef.current = null;
+      if (engine) void engine.stop().catch((reason: unknown) => {
+        console.error('No fue posible cerrar la sesión Edge.', reason);
+      });
+    };
+  }, [config]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine || !device) return;
+    if (foreground) {
+      engine.start();
+      void activateKeepAwakeAsync(keepAwakeTag).catch((reason: unknown) => {
+        console.error('No fue posible mantener activa la pantalla de Edge.', reason);
+        setRuntimeError('No fue posible mantener la pantalla activa.');
+      });
+    } else {
+      void engine.stop().catch((reason: unknown) => {
+        console.error('No fue posible pausar Edge autónomo.', reason);
+        setRuntimeError('No fue posible pausar Edge autónomo.');
+      });
+      void deactivateKeepAwake(keepAwakeTag);
+    }
+  }, [device, foreground, models]);
+
+  const { output: frameOutput, setThumbnailGates, setColorGates, setPlateGates } = useVehicleFrameOutput({
+    detector: models?.detector.model ?? null,
+    colorModel: models?.color.model ?? null,
+    plateModel: models?.plates?.detector.model ?? null,
+    plateOcrModel: models?.plates?.ocr.model ?? null,
+    plateOcr: models?.plates?.config ?? null,
+    inputSize: 320,
+    detectorShape: models?.detector.manifest.output.shape ?? [1, 300, 6],
+    detectorLabels: labelsForVehicles(models?.detector),
+    colorLabels: labelsForColors(models?.color),
+    fps,
+    extraRotation,
+    onFrameResult: (result) => engineRef.current?.process(result),
+    onFrameError: (message) => engineRef.current?.reportError(message),
+  });
+  useEffect(() => {
+    gatesRef.current = setThumbnailGates;
+    colorGatesRef.current = setColorGates;
+    plateGatesRef.current = setPlateGates;
+  }, [setThumbnailGates, setColorGates, setPlateGates]);
+  // A new array on every render would reconfigure the camera session.
+  const outputs = useMemo(() => [frameOutput], [frameOutput]);
+
+  return (
+    <Card>
+      {startupError ? <Text accessibilityRole="alert" style={styles.error}>{startupError}</Text> : null}
+      {permissionGranted === false ? (
+        <Text style={styles.body}>Permite el acceso a la cámara en los ajustes de Android para continuar.</Text>
+      ) : null}
+      {!models && !startupError ? <Text style={styles.body}>Preparando cámara y verificando los modelos TFLite…</Text> : null}
+      {models && !device ? <Text style={styles.body}>No se encontró una cámara trasera disponible.</Text> : null}
+      {runtimeError ? <Text accessibilityRole="alert" style={styles.error}>{runtimeError}</Text> : null}
+      {models && device && !startupError ? (
+        <>
+          <ExpandablePreview
+            aspectRatio={stats?.overlay ? previewAspectRatio(stats.overlay.frameWidth, stats.overlay.frameHeight, extraRotation) : 3 / 4}
+            inlineMaxHeight={460}
+            footer={stats ? (
+              <Text style={styles.metric}>
+                {stats.fps.toFixed(1)} análisis/s · {stats.activeTracks} vehículo{stats.activeTracks === 1 ? '' : 's'} · {stats.outbox?.delivered ?? 0} eventos enviados
+              </Text>
+            ) : null}
+            renderPreview={() => (
+              <>
+                <Camera
+                  device={device}
+                  isActive={foreground && permissionGranted === true}
+                  outputs={outputs}
+                  onError={(error) => {
+                    console.error('Error de cámara en Edge autónomo.', error);
+                    if (!cameraStarted) {
+                      setStartupError('No fue posible iniciar la cámara de Edge. Revisa los permisos y vuelve a intentar.');
+                      void engineRef.current?.stop().catch((reason: unknown) => {
+                        console.error('No fue posible cerrar Edge después de un error de inicio.', reason);
+                      });
+                    } else {
+                      engineRef.current?.reportError('Error de cámara durante el análisis.');
+                    }
+                  }}
+                  onStarted={() => {
+                    setCameraStarted(true);
+                    setStartupError(null);
+                    setRuntimeError(null);
+                  }}
+                  // TextureView: the default SurfaceView draws over the boxes.
+                  implementationMode="compatible"
+                  resizeMode="contain"
+                  style={StyleSheet.absoluteFill}
+                />
+                <DetectionOverlay overlay={stats?.overlay ?? null} extraRotation={extraRotation} />
+              </>
+            )}
+          />
+          {foreground ? (
+            stats ? (
+              <EdgeStatusCard stats={stats} updateLevel={updateLevel} onUpdate={showUpdate} />
+            ) : (
+              <Text style={styles.body}>Iniciando inferencia…</Text>
+            )
+          ) : (
+            <Text style={styles.body}>Edge pausado mientras la app está en segundo plano.</Text>
+          )}
+        </>
+      ) : null}
+      <SecondaryButton
+        title={(startupError || (models && !device)) && !cameraStarted ? 'Volver a configuración' : 'Detener Edge autónomo'}
+        icon="ms_stop_circle"
+        onPress={onStop}
+      />
+    </Card>
+  );
+}
+
+async function loadPlates(): Promise<{ detector: LoadedModel; ocr: LoadedModel; config: PlateOcrConfig } | null> {
+  try {
+    const [detector, ocr] = await Promise.all([loadPlateModel(), loadPlateOcrModel()]);
+    const { alphabet, padChar, slots } = ocr.manifest;
+    if (!alphabet || !padChar || !slots) throw new Error('El manifiesto del OCR no trae su alfabeto.');
+    return { detector, ocr, config: { alphabet, padChar, slots } };
+  } catch (reason) {
+    console.error('No fue posible cargar los modelos de placa; el edge sigue sin placas.', reason);
+    return null;
+  }
+}
+
+/** Plate search status: counts and sizes, never plate texts. */
+function describePlates(stats: EdgeStats): string {
+  const p = stats.plates;
+  if (!p.enabled) return 'Placas: desactivadas (modelos no disponibles)';
+  const camera = p.cameraSize ? ` · cámara ${p.cameraSize.width}×${p.cameraSize.height}` : '';
+  if (!p.attempts) return `Placas: esperando un vehículo cercano${camera}`;
+  return `Placas: ${p.voted} confirmadas · ${p.reads} lecturas · ${p.small} pequeñas (< 45 px) · máx. ${p.widestPx} px`
+    + `${p.failures ? ` · ${p.failures} fallidas` : ''}${camera}`;
+}
+
+/** Whole-frame time (not only the model), then where it goes. */
+function describeTimings(stats: EdgeStats): string {
+  const t = stats.timings;
+  if (!t) return `Ciclo total ${stats.inferenceMs} ms`;
+  return `Ciclo total ${t.total.p50} ms (p95 ${t.total.p95}) · preparar ${t.prepare.p50} · detector ${t.detect.p50}`
+    + ` · color ${t.color.p50} (${t.colorCropsPerFrame}/frame) · recorte ${t.thumbnail.p50}`
+    + (t.plate.p50 ? ` · placa ${t.plate.p50}` : '');
+}
+
+/** Same status as the Flutter card: pace, events, colour, recortes, connection (E05) and app version (G04). */
+function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; updateLevel: UpdateLevel; onUpdate: () => void }) {
+  const outbox = stats.outbox;
+  const healthy = !outbox?.lastError;
+  return (
+    <View style={styles.status}>
+      <StatusPill
+        tone={healthy ? 'ok' : 'warn'}
+        text={healthy
+          ? `Detectando · ${stats.fps.toFixed(1)} análisis/s · ${stats.activeTracks} vehículo${stats.activeTracks === 1 ? '' : 's'}`
+          : 'Sin conexión · eventos en cola'}
+      />
+      <Text style={styles.muted}>
+        {describeTimings(stats)} · {stats.snapshots} eventos generados · {outbox?.delivered ?? 0} enviados · {outbox?.pending ?? 0} en cola
+        {outbox?.rejected ? ` · ${outbox.rejected} rechazados` : ''}
+      </Text>
+      <Text style={styles.muted}>
+        Modelo: {stats.framesProcessed} analizados{stats.failures ? ` · ${stats.failures} fallidos` : ''}
+      </Text>
+      <Text style={styles.muted}>Color: activo{stats.colorFailures ? ` · ${stats.colorFailures} fallidos` : ''}</Text>
+      <Text style={styles.muted}>{describePlates(stats)}</Text>
+      <Text style={styles.muted}>
+        {outbox && !outbox.thumbnailsAccepted
+          ? 'Recortes: el centro no los guarda'
+          : `Recortes: ${outbox?.thumbnails ?? 0} enviados${outbox?.thumbnailsDropped ? ` · ${outbox.thumbnailsDropped} descartados` : ''}${stats.thumbnailFailures ? ` · ${stats.thumbnailFailures} fallidos` : ''}`}
+      </Text>
+      {stats.lastError ? <Text accessibilityRole="alert" style={styles.error}>Detección: {stats.lastError}</Text> : null}
+      {outbox?.lastError ? (
+        <View style={styles.warnBox}>
+          <Icon name="ms_cloud_off" size={18} color={colors.warning} />
+          <Text style={[styles.warning, { flex: 1 }]}>{describeOutboxError(outbox.lastError)}{outbox.pending ? ` (${outbox.pending} pendientes)` : ''}</Text>
+        </View>
+      ) : null}
+      {updateLevel !== 'none' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <Icon name="ms_sync" size={18} color={colors.warning} />
+          <Text style={[styles.warning, { flex: 1 }]}>
+            {updateLevel === 'required'
+              ? 'Esta versión de la app quedó por debajo del mínimo. Hay que actualizar.'
+              : 'Hay una versión más nueva de la app.'}
+          </Text>
+          <Pressable accessibilityRole="button" onPress={onUpdate}>
+            <Text style={{ color: colors.accent, fontWeight: '700' }}>Actualizar</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export function describeOutboxError(code: string): string {
+  if (code === 'NETWORK' || code === 'TIMEOUT') {
+    return 'Sin conexión con el servidor: los eventos se guardan y se enviarán al volver la red.';
+  }
+  if (code === 'HTTP_401') return 'El servidor rechazó el token (vencido o revocado). Olvida este edge y configura uno nuevo.';
+  if (code === 'HTTP_403') return 'El token pertenece a otra cámara.';
+  if (code === 'HTTP_404') return 'La cámara ya no está registrada en el servidor.';
+  if (code === 'OUTBOX_FULL') return 'La cola local está llena; se descartan eventos nuevos hasta recuperar conexión.';
+  if (code.startsWith('REJECTED_')) return `El servidor rechazó un evento (${code.slice(9)}); se apartó y el resto sigue.`;
+  return `Último error: ${code}`;
+}
+
+function labelsForVehicles(model: LoadedModel | undefined): Record<number, Detection['label']> {
+  const result: Record<number, Detection['label']> = {};
+  for (const [index, label] of Object.entries(model?.manifest.labels ?? {})) {
+    if (label === 'car' || label === 'motorcycle') result[Number(index)] = label;
+  }
+  return result;
+}
+
+function labelsForColors(model: LoadedModel | undefined): Record<number, string> {
+  const result: Record<number, string> = {};
+  for (const [index, label] of Object.entries(model?.manifest.labels ?? {})) result[Number(index)] = label;
+  return result;
+}
+
+const styles = StyleSheet.create({
+  body: { ...type(fonts.light, 13, 18, 0), opacity: 0.85 },
+  metric: { ...type(fonts.medium, 12, 16, 0) },
+  error: { ...type(fonts.regular, 12.5, 17, 0), color: colors.danger },
+  muted: { ...type(fonts.light, 11, 15, 0), opacity: 0.75 },
+  warning: { ...type(fonts.regular, 11.5, 16, 0), color: colors.warning },
+  status: { gap: 4 },
+  warnBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,212,121,0.7)', backgroundColor: 'rgba(255,212,121,0.12)', marginTop: 4 },
+});

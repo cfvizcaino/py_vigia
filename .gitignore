@@ -31,6 +31,9 @@ __pycache__/
 node_modules/
 .next/
 *.tsbuildinfo
+/apps/movil-rn/.expo/
+/apps/movil-rn/android/
+/apps/movil-rn/modules/*/android/build/
 apps/web/test-results/
 apps/web/playwright-report/
 

@@ -1,0 +1,23 @@
+diff --git a/node_modules/react-native-fast-tflite/cpp/HybridTfliteModule.cpp b/node_modules/react-native-fast-tflite/cpp/HybridTfliteModule.cpp
+index 38c82d1..cf42ede 100644
+--- a/node_modules/react-native-fast-tflite/cpp/HybridTfliteModule.cpp
++++ b/node_modules/react-native-fast-tflite/cpp/HybridTfliteModule.cpp
+@@ -1,4 +1,7 @@
+ #include "HybridTfliteModule.hpp"
++
++#include <algorithm>
++#include <thread>
+ #include "TfliteHelpers.hpp"
+ 
+ #if defined(ANDROID)
+@@ -40,6 +43,10 @@ HybridTfliteModule::createModel(const std::shared_ptr<ArrayBuffer>& modelData,
+ 
+   // Configure interpreter via options
+   TfLiteInterpreterOptions* options = TfLiteInterpreterOptionsCreate();
++  // VIGÍA: the CPU path (XNNPACK) otherwise runs on a single thread. Four is
++  // what the Flutter app used for the detector; capped by the cores present.
++  const unsigned int cores = std::thread::hardware_concurrency();
++  TfLiteInterpreterOptionsSetNumThreads(options, cores == 0 ? 4 : static_cast<int32_t>(std::min(4u, cores)));
+ 
+   // Add all hardware accelerated delegates (e.g. GPU, NPU, ...)
+   // if any. The default CPU delegate will always be available.

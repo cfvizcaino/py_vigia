@@ -9,7 +9,9 @@ servidor Azure: timer cada 2 min ──┘ pull → migrar → reiniciar → sal
 
 ## CI: `.github/workflows/ci.yml`
 
-Se ejecuta en cada PR y en cada push a `main`, salvo cuando solo cambian `apps/movil/**` (tiene su propio flujo, `movil.yml`) o documentación.
+Se ejecuta en cada PR y en cada push a `main`, salvo cuando solo cambian
+`apps/movil/**`, `apps/movil-rn/**` (el móvil tiene su propio flujo,
+`movil.yml`) o documentación.
 
 | Trabajo | Qué comprueba |
 |---|---|
@@ -19,6 +21,23 @@ Se ejecuta en cada PR y en cada push a `main`, salvo cuando solo cambian `apps/m
 | `images` | compila las imágenes de backend y web. Publica en GHCR solo desde `main` (`main` y `sha-…`) o en una ejecución manual (solo `sha-…`) |
 
 Los PR desde forks reciben un token de solo lectura y nunca publican imágenes.
+
+## CI móvil: `.github/workflows/movil.yml`
+
+Se ejecuta cuando cambia la app React Native/Expo, la app Flutter, el contrato de
+detecciones o el propio workflow.
+
+| Trabajo | Qué comprueba |
+|---|---|
+| `android` | instalación reproducible con `npm ci`, ESLint, TypeScript, la suite Jest, `expo-doctor`, prebuild limpio, pruebas JVM de los módulos nativos y APK Release instalable con JS empaquetado |
+| `ios-unsigned` | prebuild limpio con Pods y compilación Release del scheme de la app para iPhone, sin firma; publica el `.app` comprimido |
+| `android-e2e` | ejecución manual opcional de los flujos Maestro sobre el mismo APK generado por `android` en un emulador API 35 |
+| `flutter-android`, `flutter-ios` | la app Flutter, que sigue en producción durante la migración: análisis, pruebas y builds de prueba |
+
+Los artefactos se conservan 14 días. La subida falla si el APK o el ZIP iOS no
+existen; que Xcode compile una dependencia sin producir la app no cuenta como un
+build correcto. El E2E se activa desde **Run workflow** con
+`run_android_e2e=true`, porque iniciar un emulador en cada PR es costoso.
 
 ## CD: despliegue por extracción
 

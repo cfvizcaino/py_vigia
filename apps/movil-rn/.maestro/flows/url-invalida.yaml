@@ -1,0 +1,11 @@
+appId: co.vigia.movil
+---
+- launchApp
+- tapOn: Explorar demo
+- tapOn: Ajustes
+- tapOn:
+    id: URL base del backend
+- eraseText: 80
+- inputText: ftp://servidor-invalido
+- tapOn: Guardar URL
+- assertVisible: Ingresa una URL válida
