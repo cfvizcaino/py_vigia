@@ -105,7 +105,8 @@
             "minSdkVersion": 26
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "tsconfigPaths": true
