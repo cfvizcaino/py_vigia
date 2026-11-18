@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SessionProvider, useSession } from '../state/session';
 import type { RootStackParamList } from '../types/navigation';
 import { LoginScreen } from './LoginScreen';
+import { WelcomeScreen } from './WelcomeScreen';
 import { CamerasScreen } from './CamerasScreen';
 
 const mockSecureStore = new Map<string, string>();
@@ -52,6 +53,9 @@ function TestApp() {
         {user ? (
           <Stack.Screen name="Operator" component={CamerasScreen} />
         ) : (
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        )}
+        {user ? null : (
           <Stack.Screen name="Login">
             {(props) => <LoginScreen {...props} />}
           </Stack.Screen>
@@ -63,14 +67,19 @@ function TestApp() {
   );
 }
 
+async function openLogin(screen: Awaited<ReturnType<typeof render>>) {
+  await waitFor(() => expect(screen.getByText('¡Bienvenido/a!')).toBeTruthy());
+  await fireEvent.press(screen.getByRole('button', { name: 'Ir a iniciar sesión' }));
+  await waitFor(() => expect(screen.getByText('¡Bienvenido de vuelta!')).toBeTruthy());
+}
+
 describe('sesión y navegación móvil', () => {
   it('muestra el login y permite entrar a una demo identificada', async () => {
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Consola del operador')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('¡Bienvenido/a!')).toBeTruthy());
     await fireEvent.press(screen.getByRole('button', { name: 'Explorar demo' }));
-    await waitFor(() => expect(screen.getByText('4 cámaras registradas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('4 Cámaras Registradas')).toBeTruthy());
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
-    expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
   });
 
   it('presenta errores de autenticación en español y no cambia a demo', async () => {
@@ -78,7 +87,7 @@ describe('sesión y navegación móvil', () => {
       new Response(JSON.stringify({ detail: 'unauthorized' }), { status: 401 }),
     );
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Consola del operador')).toBeTruthy());
+    await openLogin(screen);
     await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'persona@example.org');
     await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'mal');
     await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
@@ -101,15 +110,15 @@ describe('sesión y navegación móvil', () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
-    await waitFor(() => expect(screen.getByText('Consola del operador')).toBeTruthy());
+    await openLogin(screen);
     await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'persona@example.org');
     await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'correcta');
     await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
-    await waitFor(() => expect(screen.getByText('0 cámaras registradas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('0 Cámaras Registradas')).toBeTruthy());
     if (role === 'admin') {
-      expect(screen.getByText('Agregar edge')).toBeTruthy();
+      expect(screen.getByLabelText('Agregar edge')).toBeTruthy();
     } else {
-      expect(screen.queryByText('Agregar edge')).toBeNull();
+      expect(screen.queryByLabelText('Agregar edge')).toBeNull();
     }
   });
 });

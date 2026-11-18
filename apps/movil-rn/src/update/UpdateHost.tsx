@@ -1,11 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, Modal, Platform, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, Text } from 'react-native';
 import type { PropsWithChildren } from 'react';
 
-import { PrimaryButton, SecondaryButton } from '../components/ui';
+import { Dialog, PillButton } from '../components/ui';
 import { openVerifiedApk } from '../native/installer';
 import { preferences } from '../storage/preferences';
-import { colors } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
 import { classifyUpdate, downloadVerifiedApk, fetchAppRelease, readInstalledVersion } from './release';
 import type { AppRelease, UpdateLevel } from './release';
 
@@ -122,45 +122,40 @@ export function UpdateHost({ children }: PropsWithChildren) {
   return (
     <UpdateContext.Provider value={{ available, showUpdate: () => setLevel(available) }}>
       {children}
-      <Modal
-        animationType="fade"
+      <Dialog
+        visible={visible}
+        icon={error ? 'report' : undefined}
+        title={error ? 'No se pudo descargar la actualización' : isRequired ? 'Actualización obligatoria' : 'Nueva versión disponible'}
+        body={error ?? (isRequired
+          ? `La versión instalada (${installed}) quedó por debajo del mínimo. Hay que actualizar para seguir.`
+          : `La versión instalada es la ${installed} y la publicada es la ${release?.latest ?? 'nueva'}. Puedes seguir con esta y actualizar cuando quieras.`)}
         onRequestClose={() => {
           if (!isRequired) setLevel('none');
         }}
-        transparent
-        visible={visible}
       >
-        <View style={{ flex: 1, backgroundColor: '#000B', justifyContent: 'center', padding: 22 }}>
-          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, gap: 14 }}>
-            <Text style={{ color: colors.text, fontSize: 20, fontWeight: '800' }}>
-              {isRequired ? 'Actualización obligatoria' : 'Hay una versión nueva'}
-            </Text>
-            <Text style={{ color: colors.muted, lineHeight: 21 }}>
-              {isRequired
-                ? `La versión instalada (${installed}) quedó por debajo del mínimo. Actualiza para seguir usando VIGÍA.`
-                : `Versión instalada ${installed}; versión publicada ${release?.latest ?? 'disponible'}.`}
-            </Text>
-            {release?.size_bytes ? (
-              <Text style={{ color: colors.subtle, lineHeight: 19 }}>
-                Tamaño del APK: {release.size_bytes.toLocaleString('es-CO')} bytes ({(release.size_bytes / 1_048_576).toFixed(1)} MB).
-              </Text>
-            ) : null}
-            {release?.notes ? <Text style={{ color: colors.text, lineHeight: 20 }}>{release.notes}</Text> : null}
-            {Platform.OS === 'ios' ? (
-              <Text style={{ color: colors.warning, lineHeight: 20 }}>
-                iOS no instala APK. La verificación de versiones se conserva y el enlace de distribución iOS se integrará cuando esté disponible.
-              </Text>
-            ) : (
-              <Text style={{ color: colors.subtle, lineHeight: 19 }}>
-                El APK solo se abrirá después de verificar su SHA-256. Android puede solicitar permiso para instalar aplicaciones de esta fuente.
-              </Text>
-            )}
-            {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, lineHeight: 20 }}>{error}</Text> : null}
-            <PrimaryButton title={Platform.OS === 'android' ? 'Descargar y verificar APK' : 'Distribución iOS futura'} onPress={() => void update()} loading={busy} disabled={Platform.OS !== 'android'} />
-            {!isRequired ? <SecondaryButton title={Platform.OS === 'ios' ? 'Continuar' : 'Recordar en 24 horas'} onPress={() => void dismissOptional()} /> : null}
-          </View>
-        </View>
-      </Modal>
+        {!error && release?.size_bytes ? (
+          <Text style={[type(fonts.poppinsLight, 11), { textAlign: 'center', opacity: 0.7 }]}>
+            APK de {(release.size_bytes / 1_048_576).toFixed(1)} MB · se abre solo después de verificar su SHA-256.
+          </Text>
+        ) : null}
+        {!error && release?.notes ? <Text style={[type(fonts.poppinsLight, 12), { textAlign: 'center' }]}>{release.notes}</Text> : null}
+        <PillButton
+          title={error ? 'Reintentar' : Platform.OS === 'android' ? 'Actualizar' : 'Distribución iOS futura'}
+          accessibilityLabel={Platform.OS === 'android' ? 'Descargar y verificar APK' : 'Distribución iOS futura'}
+          variant={error ? 'white' : 'accent'}
+          height={37}
+          fontSize={16}
+          loading={busy}
+          disabled={Platform.OS !== 'android'}
+          onPress={() => void update()}
+          style={{ alignSelf: 'center', width: 190 }}
+        />
+        {!isRequired ? (
+          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => void dismissOptional()}>
+            <Text style={[type(fonts.poppins, 16), { textAlign: 'center' }]}>{Platform.OS === 'ios' ? 'Continuar' : 'Más tarde'}</Text>
+          </Pressable>
+        ) : null}
+      </Dialog>
     </UpdateContext.Provider>
   );
 }

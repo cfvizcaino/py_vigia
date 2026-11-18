@@ -3,18 +3,20 @@ import { useState } from 'react';
 import { Modal, Platform, Pressable, Text, View } from 'react-native';
 
 import { colors } from '../theme/colors';
+import { SelectField } from './ui';
 
 type PickerMode = 'date' | 'time';
 
 interface BogotaDateTimeFieldProps {
   label: string;
+  error?: boolean | undefined;
   date: string;
   time?: string;
   mode: PickerMode;
   onChange: (value: string) => void;
 }
 
-export function BogotaDateTimeField({ label, date, time, mode, onChange }: BogotaDateTimeFieldProps) {
+export function BogotaDateTimeField({ label, date, time, mode, onChange, error }: BogotaDateTimeFieldProps) {
   const [visible, setVisible] = useState(false);
   const [selected, setSelected] = useState(() => pickerValue(date, time));
   const value = mode === 'date' ? date : time ?? '';
@@ -26,19 +28,18 @@ export function BogotaDateTimeField({ label, date, time, mode, onChange }: Bogot
 
   return (
     <>
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: colors.muted, fontSize: 13, fontWeight: '600' }}>{label}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${label}: ${value}`}
+      <View style={{ flex: 1 }}>
+        <SelectField
+          label={label}
+          value={value}
+          icon={mode === 'date' ? 'ms_calendar_month' : 'ms_schedule'}
+          trailing={null}
+          error={error}
           onPress={() => {
             setSelected(pickerValue(date, time));
             setVisible(true);
           }}
-          style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 6, backgroundColor: colors.surfaceRaised }}
-        >
-          <Text style={{ color: colors.text, fontSize: 16 }}>{value}</Text>
-        </Pressable>
+        />
       </View>
       {Platform.OS === 'android' ? (
         visible ? (
@@ -55,7 +56,7 @@ export function BogotaDateTimeField({ label, date, time, mode, onChange }: Bogot
       ) : (
       <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
         <View style={{ flex: 1, justifyContent: 'center', padding: 22, backgroundColor: '#000B' }}>
-          <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, gap: 12 }}>
+          <View style={{ backgroundColor: '#2b0a52', borderRadius: 28, padding: 16, gap: 12 }}>
             <DateTimePicker
               display={Platform.OS === 'ios' ? 'spinner' : mode === 'date' ? 'calendar' : 'clock'}
               mode={mode}

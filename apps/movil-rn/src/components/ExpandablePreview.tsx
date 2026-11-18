@@ -87,10 +87,10 @@ export function ExpandablePreview({ aspectRatio, inlineMaxHeight, footer, render
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  inline: { width: '100%', backgroundColor: '#000', borderRadius: 8, overflow: 'hidden' },
-  fullscreen: { flex: 1, backgroundColor: '#000' },
+  inline: { width: '100%', backgroundColor: '#12052a', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  fullscreen: { flex: 1, backgroundColor: '#090119' },
   fullscreenPreview: { flex: 1 },
-  footer: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#0B1411' },
+  footer: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#090119' },
   toggle: {
     position: 'absolute',
     width: 48,

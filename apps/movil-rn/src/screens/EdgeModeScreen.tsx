@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
-import { Card, ChoiceRow, ErrorMessage, Field, PrimaryButton, Screen } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { Card, ChoiceRow, ErrorMessage, Field, Notice, PrimaryButton, Screen } from '../components/ui';
 import {
   loadEdgeConfiguration,
   readEdgeConfiguration,
@@ -11,13 +12,13 @@ import {
 } from '../edge/config';
 import type { EdgeConfiguration } from '../edge/config';
 import { EdgeRuntime } from './EdgeRuntime';
-import { colors } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
 
 const fpsOptions = [
-  { label: '5 fps', value: '5' },
-  { label: '8 fps', value: '8' },
-  { label: '12 fps', value: '12' },
-  { label: '15 fps', value: '15' },
+  { label: '5/s', value: '5' },
+  { label: '8/s', value: '8' },
+  { label: '12/s', value: '12' },
+  { label: '15/s', value: '15' },
 ];
 
 const rotationOptions = [
@@ -98,14 +99,34 @@ export function EdgeModeScreen() {
     }
   };
 
+  if (runtimeConfig) {
+    return (
+      <Screen back={() => setRuntimeConfig(null)} title={'Edge\nautónomo'}>
+        <Text style={[type(fonts.medium, 12), { textAlign: 'center', opacity: 0.85 }]}>{runtimeConfig.cameraId} · {runtimeConfig.serverUrl.replace(/^https?:\/\//, '')}</Text>
+        <EdgeRuntime
+          config={runtimeConfig}
+          fps={Number(fps)}
+          extraRotation={Number(rotation)}
+          onStop={() => setRuntimeConfig(null)}
+        />
+        <Card title="Ajustes" icon="ms_speed">
+          <ChoiceRow label="Frecuencia de análisis" choices={fpsOptions} value={fps} onChange={setFps} grow />
+          <Text style={[type(fonts.light, 10.5, 14, 0), { opacity: 0.6 }]}>Menos análisis por segundo ahorra batería y temperatura.</Text>
+        </Card>
+        <Notice>Mantén la app abierta y el teléfono conectado al cargador.</Notice>
+      </Screen>
+    );
+  }
+
   return (
-    <Screen>
-      <Text style={{ color: colors.muted, lineHeight: 21 }}>
-        Edge autónomo analiza en este teléfono con los modelos TFLite y envía envelopes al backend. Los frames de cámara no se transmiten al centro.
+    <Screen back title={'Edge\nautónomo'}>
+      <Text style={[type(fonts.light, 11.5, 16, 0), { textAlign: 'center', opacity: 0.75 }]}>
+        Configura este teléfono como un edge completo: detecta vehículos con los modelos TFLite integrados y publica eventos firmados, sin PC. Los frames de cámara no se transmiten al centro.
       </Text>
-      <Card title="Configuración del edge">
-        <Field label="Identificador de cámara" value={cameraId} onChangeText={setCameraId} placeholder="CEL-01" autoCapitalize="characters" />
-        <Field label="URL del backend" value={serverUrl} onChangeText={setServerUrl} placeholder="https://vigia.ejemplo.org" keyboardType="url" />
+      <Notice tone="accent">Un administrador registra la cámara en «Agregar edge» y te entrega el token.</Notice>
+      <Card title="Configuración del edge" icon="ms_memory">
+        <Field label="Identificador de cámara" value={cameraId} onChangeText={setCameraId} placeholder="CEL-01" autoCapitalize="characters" icon="ms_videocam" />
+        <Field label="URL del backend" value={serverUrl} onChangeText={setServerUrl} placeholder="https://vigia.ejemplo.org" keyboardType="url" icon="ms_link" />
         <Field
           label={hasToken ? 'Token edge (dejar vacío para conservarlo)' : 'Token edge'}
           value={token}
@@ -113,29 +134,22 @@ export function EdgeModeScreen() {
           placeholder={hasToken ? 'Token guardado en Keychain/Keystore' : 'Token emitido por administración'}
           secureTextEntry
           autoCapitalize="none"
+          icon="ms_key"
+          trailing={<Icon name="ms_visibility_off" size={20} color="rgba(227,227,227,0.8)" />}
         />
-        <Text style={{ color: colors.warning, fontSize: 13, lineHeight: 19 }}>
-          El token se guarda únicamente en el almacenamiento seguro del sistema. HTTP se admite solo en redes locales.
+        <Text style={[type(fonts.light, 10.5, 14, 0), { opacity: 0.6 }]}>
+          El token se guarda cifrado en Keychain/Keystore y nunca se muestra de nuevo. HTTP se admite solo en redes locales.
         </Text>
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-        {notice ? <Text accessibilityRole="text" style={{ color: colors.accent, lineHeight: 20 }}>{notice}</Text> : null}
-        <PrimaryButton title="Verificar y guardar" onPress={() => void save()} loading={busy || saving} />
+        {notice ? <Notice tone="ok" icon="ms_check_circle">{notice}</Notice> : null}
+        <PrimaryButton title="Verificar y guardar" icon="ms_check" onPress={() => void save()} loading={busy || saving} />
       </Card>
-      <Card title="Captura e inferencia">
-        <ChoiceRow label="Frecuencia de análisis" choices={fpsOptions} value={fps} onChange={setFps} />
-        <ChoiceRow label="Rotación adicional" choices={rotationOptions} value={rotation} onChange={setRotation} />
-        {runtimeConfig ? (
-          <EdgeRuntime
-            config={runtimeConfig}
-            fps={Number(fps)}
-            extraRotation={Number(rotation)}
-            onStop={() => setRuntimeConfig(null)}
-          />
-        ) : (
-          <Text style={{ color: colors.muted, lineHeight: 20 }}>
-            Guarda una configuración válida para cargar y verificar los modelos, solicitar permiso de cámara e iniciar la outbox persistente.
-          </Text>
-        )}
+      <Card title="Captura e inferencia" icon="ms_speed">
+        <ChoiceRow label="Frecuencia de análisis" choices={fpsOptions} value={fps} onChange={setFps} grow />
+        <ChoiceRow label="Rotación adicional" choices={rotationOptions} value={rotation} onChange={setRotation} grow />
+        <Text style={[type(fonts.light, 11, 15, 0), { opacity: 0.7 }]}>
+          Guarda una configuración válida para cargar y verificar los modelos, solicitar permiso de cámara e iniciar la outbox persistente.
+        </Text>
       </Card>
     </Screen>
   );

@@ -4,10 +4,10 @@ import { Text, View } from 'react-native';
 
 import type { CandidateRoute, NearbyDevice } from '../types/models';
 import { colors } from '../theme/colors';
+import { mapStyle } from './CameraMap';
 
-const mapStyle = 'https://tiles.openfreemap.org/styles/liberty';
 
-export function RouteMap({ route, devices }: { route: CandidateRoute; devices: NearbyDevice[] }) {
+export function RouteMap({ route, devices, height = 266 }: { route: CandidateRoute; devices: NearbyDevice[]; height?: number }) {
   const resolved = useMemo(() => resolveRouteCoordinates(route, devices), [route, devices]);
   if (!resolved.coordinates.length) {
     return <Text style={{ color: colors.subtle, lineHeight: 19 }}>Geometría vial no disponible para esta ruta; se conserva el orden de cámaras como referencia.</Text>;
@@ -17,21 +17,23 @@ export function RouteMap({ route, devices }: { route: CandidateRoute; devices: N
   const center: [number, number] = [first[0], first[1]];
   return (
     <View>
-      <View style={{ height: 190, overflow: 'hidden', borderRadius: 8, backgroundColor: colors.surface }}>
-        <MapView mapStyle={mapStyle} style={{ flex: 1 }} attribution logo>
+      <View style={{ height, overflow: 'hidden', borderRadius: 24, backgroundColor: colors.ink }}>
+        {/* MapLibre no deja cambiar el id de una fuente o capa montada («`id` cannot be changed»):
+            ids fijos, y un mapa nuevo por ruta para que también se recentre al pasar de ruta. */}
+        <MapView key={String(route.id)} mapStyle={mapStyle} style={{ flex: 1 }} attribution logo>
           <Camera initialViewState={{ center, zoom: 13 }} />
-          <GeoJSONSource id={`route-${route.id}`} data={resolved.featureCollection}>
+          <GeoJSONSource id="vigia-route" data={resolved.featureCollection}>
             <Layer
-              id={`route-line-${route.id}`}
+              id="vigia-route-line"
               type="line"
               filter={['==', ['geometry-type'], 'LineString']}
               paint={{ 'line-color': colors.accent, 'line-width': 5, 'line-opacity': 0.9 }}
             />
             <Layer
-              id={`route-points-${route.id}`}
+              id="vigia-route-points"
               type="circle"
               filter={['==', ['geometry-type'], 'Point']}
-              paint={{ 'circle-color': '#F4B942', 'circle-radius': 7, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 }}
+              paint={{ 'circle-color': '#c4a8ff', 'circle-radius': 7, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 }}
             />
           </GeoJSONSource>
         </MapView>

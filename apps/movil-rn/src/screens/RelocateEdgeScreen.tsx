@@ -1,12 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Text } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { LocationPicker } from '../components/LocationPicker';
-import { ErrorMessage, PrimaryButton, Screen } from '../components/ui';
+import { Card, ErrorMessage, PrimaryButton, Screen } from '../components/ui';
 import { useSession } from '../state/session';
-import { colors } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RelocateEdge'>;
@@ -19,13 +19,9 @@ export function RelocateEdgeScreen({ navigation, route }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (device) navigation.setOptions({ title: `Ubicación de ${device.external_id}` });
-  }, [device, navigation]);
-
   if (!device || !point) {
     return (
-      <Screen>
+      <Screen back>
         <ErrorMessage>La cámara ya no está en la lista.</ErrorMessage>
       </Screen>
     );
@@ -44,14 +40,16 @@ export function RelocateEdgeScreen({ navigation, route }: Props) {
   };
 
   return (
-    <Screen>
-      <Text style={{ color: colors.muted, lineHeight: 20 }}>
+    <Screen back title={`Ubicación\nde ${device.external_id}`}>
+      <Text style={[type(fonts.light, 11.5, 16, 0), { textAlign: 'center', opacity: 0.75 }]}>
         Párate donde está la cámara y usa el GPS, o mantén pulsado el punto exacto en el mapa.
       </Text>
-      <LocationPicker devices={devices} height={320} point={point} onChange={(next) => setPoint(next)} />
+      <Card title="Punto de la cámara" icon="ms_location_on">
+        <LocationPicker devices={devices} height={250} point={point} onChange={(next) => setPoint(next)} />
+      </Card>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      <PrimaryButton title="Guardar ubicación" loading={saving} onPress={() => void save()} />
-      <Text style={{ color: colors.subtle, fontSize: 12 }}>
+      <PrimaryButton title="Guardar ubicación" icon="ms_check" loading={saving} onPress={() => void save()} />
+      <Text style={[type(fonts.light, 10.5, 14, 0), { textAlign: 'center', opacity: 0.6 }]}>
         Con más de una cámara, después hay que resincronizar las rutas viales (OSRM).
       </Text>
     </Screen>

@@ -1,20 +1,23 @@
 import * as Location from 'expo-location';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import type { Device } from '../types/models';
 import { colors } from '../theme/colors';
 import { CameraMap } from './CameraMap';
-import { ErrorMessage } from './ui';
+import { ErrorMessage, PrimaryButton } from './ui';
+import { fonts, type } from '../theme/fonts';
 
 interface LocationPickerProps {
   devices: Device[];
+  showGpsButton?: boolean;
+  caption?: { title: string; subtitle: string } | null;
   point: [number, number] | undefined;
   height: number;
   onChange: (point: [number, number], accuracyM: number | null) => void;
 }
 
-export function LocationPicker({ devices, point, height, onChange }: LocationPickerProps) {
+export function LocationPicker({ devices, point, height, onChange, showGpsButton = true, caption = null }: LocationPickerProps) {
   const [locating, setLocating] = useState(false);
   const [accuracyM, setAccuracyM] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,19 +59,18 @@ export function LocationPicker({ devices, point, height, onChange }: LocationPic
   };
 
   return (
-    <View style={{ gap: 8 }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ disabled: locating, busy: locating }}
-        disabled={locating}
-        onPress={() => void getMyLocation()}
-        style={{ minHeight: 46, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.accent, borderRadius: 6 }}
-      >
-        <Text style={{ color: colors.accent, fontWeight: '700' }}>
-          {locating ? 'Obteniendo ubicación…' : 'Usar mi ubicación'}
-        </Text>
-      </Pressable>
+    <View style={{ gap: 10 }}>
+      {showGpsButton ? (
+        <PrimaryButton
+          title={locating ? 'Obteniendo ubicación…' : 'Usar mi ubicación'}
+          accessibilityLabel="Usar mi ubicación"
+          icon="ms_my_location"
+          disabled={locating}
+          onPress={() => void getMyLocation()}
+        />
+      ) : null}
       <CameraMap
+        caption={caption}
         key={point?.join(',') ?? 'location'}
         devices={devices}
         height={height}
@@ -80,9 +82,9 @@ export function LocationPicker({ devices, point, height, onChange }: LocationPic
           onChange(selected, null);
         }}
       />
-      <Text style={{ color: point ? colors.muted : colors.warning, fontSize: 12 }}>
+      <Text style={[type(fonts.medium, 11.5, 15), { color: point ? colors.text : colors.warning }]}>
         {point
-          ? `${point[1].toFixed(6)}, ${point[0].toFixed(6)}${accuracyM === null ? ' · punto seleccionado' : ` · GPS ±${Math.round(accuracyM)} m`}`
+          ? `${point[1].toFixed(6)}, ${point[0].toFixed(6)}${accuracyM === null ? ' · elegida en el mapa' : ` · GPS ±${Math.round(accuracyM)} m`}`
           : 'Toca el mapa o usa tu ubicación.'}
       </Text>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
