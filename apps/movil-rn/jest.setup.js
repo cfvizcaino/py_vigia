@@ -63,6 +63,6 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (initial) => React.useState(() => makeMutable(initial))[0],
     withRepeat: identity,
     withSequence: (...steps) => steps[steps.length - 1],
-    withTiming: identity,
+    withTiming: (value, _config, callback) => { callback?.(true); return value; },
   };
 });

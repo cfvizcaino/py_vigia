@@ -71,7 +71,6 @@ export function LocationPicker({ devices, point, height, onChange, showGpsButton
       ) : null}
       <CameraMap
         caption={caption}
-        key={point?.join(',') ?? 'location'}
         devices={devices}
         height={height}
         center={point}
@@ -85,7 +84,7 @@ export function LocationPicker({ devices, point, height, onChange, showGpsButton
       <Text style={[type(fonts.medium, 11.5, 15), { color: point ? colors.text : colors.warning }]}>
         {point
           ? `${point[1].toFixed(6)}, ${point[0].toFixed(6)}${accuracyM === null ? ' · elegida en el mapa' : ` · GPS ±${Math.round(accuracyM)} m`}`
-          : 'Toca el mapa o usa tu ubicación.'}
+          : 'Mantén pulsado el mapa, ábrelo en pantalla completa y tócalo, o usa tu ubicación.'}
       </Text>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </View>

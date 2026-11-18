@@ -172,8 +172,8 @@ describe('consulta de trayectorias', () => {
     expect(screen.getAllByText(/Automóvil\s*·\s*blanco/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Explicación: detección 35% · tiempo 40% · apariencia 15% · vía 10%/)).toBeTruthy();
     expect(screen.getAllByText(/^\d+\. (Automóvil|Motocicleta)/)).toHaveLength(7);
-    // Tapping the chosen route again folds its detail.
-    await fireEvent.press(screen.getByRole('button', { name: /^Ruta estimada 1,/ }));
+    // The detail opens in a window that its close button (or back, or a tap outside) dismisses.
+    await fireEvent.press(screen.getByRole('button', { name: 'Cerrar' }));
     expect(screen.queryByText(/Explicación:/)).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
   });

@@ -1,6 +1,6 @@
 import { NavigationContext } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { StyleProp, TextInputProps, TextStyle, ViewStyle } from 'react-native';
@@ -97,7 +97,17 @@ interface ScreenProps {
   overlay?: ReactNode | undefined;
 }
 
+/**
+ * Lets a child (a map) stop the screen's vertical scroll while a finger is on it, so
+ * dragging the map moves the map and not the page.
+ */
+const ScrollLockContext = createContext<(locked: boolean) => void>(() => undefined);
+export function useScrollLock(): (locked: boolean) => void {
+  return useContext(ScrollLockContext);
+}
+
 export function Screen({ children, title, header, back, right, scroll = true, glow = true, tabs = false, contentStyle, overlay }: PropsWithChildren<ScreenProps>) {
+  const [scrollLocked, setScrollLocked] = useState(false);
   // Contexto opcional: la pantalla también se monta sola en pruebas, fuera del navegador.
   const navigation = useContext(NavigationContext);
   const onBack = typeof back === 'function' ? back : back && navigation ? () => navigation.goBack() : null;
@@ -131,13 +141,15 @@ export function Screen({ children, title, header, back, right, scroll = true, gl
           </View>
         ) : null}
         <Animated.View style={[{ flex: 1 }, entrance]}>
-          {scroll ? (
-            <ScrollView contentContainerStyle={[styles.content, !hasBar && { paddingTop: 52 }, contentStyle]} keyboardShouldPersistTaps="handled">
-              {body}
-            </ScrollView>
-          ) : (
-            <View style={[styles.content, { flex: 1 }, !hasBar && { paddingTop: 52 }, contentStyle]}>{body}</View>
-          )}
+          <ScrollLockContext.Provider value={setScrollLocked}>
+            {scroll ? (
+              <ScrollView scrollEnabled={!scrollLocked} contentContainerStyle={[styles.content, !hasBar && { paddingTop: 52 }, contentStyle]} keyboardShouldPersistTaps="handled">
+                {body}
+              </ScrollView>
+            ) : (
+              <View style={[styles.content, { flex: 1 }, !hasBar && { paddingTop: 52 }, contentStyle]}>{body}</View>
+            )}
+          </ScrollLockContext.Provider>
         </Animated.View>
       </SafeAreaView>
       {overlay}

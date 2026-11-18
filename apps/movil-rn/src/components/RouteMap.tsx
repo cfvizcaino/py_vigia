@@ -1,83 +1,52 @@
-import { Camera, GeoJSONSource, Layer, Map as MapView } from '@maplibre/maplibre-react-native';
-import type { CameraRef, LngLatBounds } from '@maplibre/maplibre-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
+import { useMemo } from 'react';
 import { Text, View } from 'react-native';
 
 import type { CandidateRoute, NearbyDevice } from '../types/models';
 import { colors } from '../theme/colors';
-import { mapStyle } from './CameraMap';
+import { MapStage, boundsOf } from './MapStage';
 
-
-const FIT_PADDING = { top: 44, right: 44, bottom: 44, left: 44 };
 
 /**
- * Mapa de la ruta elegida. Es **un solo mapa** que se queda montado: al cambiar de ruta
- * cambian los datos de la línea y la cámara se desliza hasta ella. Antes se montaba un mapa
- * nuevo por ruta (key = id) y, al pasar rápido entre rutas, MapLibre se cerraba con un
- * puntero nulo en su código nativo al destruir un mapa que aún estaba dibujando.
+ * Mapa de la ruta enfocada. Es un solo mapa que se queda montado: al cambiar de ruta cambian
+ * los datos de la línea y la vista se desliza hasta ella. (Antes se montaba un mapa nuevo por
+ * ruta y, al pasar rápido, MapLibre se cerraba en su código nativo.)
  */
 export function RouteMap({ route, devices, height = 266 }: { route: CandidateRoute; devices: NearbyDevice[]; height?: number }) {
   const resolved = useMemo(() => resolveRouteCoordinates(route, devices), [route, devices]);
-  const cameraRef = useRef<CameraRef>(null);
   // Without route geometry, frame the cameras of the query so the map never jumps to nowhere.
   const frame = useMemo(() => boundsOf(resolved.coordinates.length ? resolved.coordinates
     : devices.flatMap((device): [number, number][] => {
       const coordinate = parseCoordinate(device.lng, device.lat);
       return coordinate ? [coordinate] : [];
     })), [resolved.coordinates, devices]);
-  const [initialFrame] = useState(frame);
-  const routeKey = String(route.id);
-  const firstRoute = useRef(routeKey);
-  useEffect(() => {
-    if (!frame || routeKey === firstRoute.current) return;
-    firstRoute.current = '';
-    cameraRef.current?.fitBounds(frame, { padding: FIT_PADDING, duration: 650, easing: 'ease' });
-  }, [frame, routeKey]);
 
-  if (!initialFrame) {
+  if (!frame) {
     return <Text style={{ color: colors.subtle, lineHeight: 19 }}>Geometría vial no disponible para esta ruta; se conserva el orden de cámaras como referencia.</Text>;
   }
   return (
     <View>
-      <View style={{ height, overflow: 'hidden', borderRadius: 24, backgroundColor: colors.ink }}>
+      <MapStage height={height} frame={frame} frameKey={String(route.id)} fullscreenTitle="Ruta en el mapa" fullscreenHint="Arrastra para moverte y pellizca para acercarte.">
         {/* Ids fijos: MapLibre no deja cambiar el id de una fuente o capa montada. */}
-        <MapView mapStyle={mapStyle} style={{ flex: 1 }} attribution logo>
-          <Camera ref={cameraRef} initialViewState={{ bounds: initialFrame, padding: FIT_PADDING }} />
-          <GeoJSONSource id="vigia-route" data={resolved.featureCollection}>
-            <Layer
-              id="vigia-route-line"
-              type="line"
-              filter={['==', ['geometry-type'], 'LineString']}
-              paint={{ 'line-color': colors.accent, 'line-width': 5, 'line-opacity': 0.9 }}
-            />
-            <Layer
-              id="vigia-route-points"
-              type="circle"
-              filter={['==', ['geometry-type'], 'Point']}
-              paint={{ 'circle-color': '#c4a8ff', 'circle-radius': 7, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 }}
-            />
-          </GeoJSONSource>
-        </MapView>
-      </View>
+        <GeoJSONSource id="vigia-route" data={resolved.featureCollection}>
+          <Layer
+            id="vigia-route-line"
+            type="line"
+            filter={['==', ['geometry-type'], 'LineString']}
+            paint={{ 'line-color': colors.accent, 'line-width': 5, 'line-opacity': 0.9 }}
+          />
+          <Layer
+            id="vigia-route-points"
+            type="circle"
+            filter={['==', ['geometry-type'], 'Point']}
+            paint={{ 'circle-color': '#c4a8ff', 'circle-radius': 7, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 }}
+          />
+        </GeoJSONSource>
+      </MapStage>
       {!resolved.coordinates.length ? <Text style={{ color: colors.warning, fontSize: 12, marginTop: 6 }}>Esta ruta no trae geometría vial; el mapa muestra las cámaras de la consulta.</Text>
         : resolved.isFallback ? <Text style={{ color: colors.warning, fontSize: 12, marginTop: 6 }}>Visualización aproximada entre cámaras; no es geometría vial calculada.</Text> : null}
     </View>
   );
-}
-
-/** [west, south, east, north]; a single point gets a small box so the zoom stays sensible. */
-export function boundsOf(points: [number, number][]): LngLatBounds | null {
-  if (!points.length) return null;
-  let [west, south] = points[0]!;
-  let [east, north] = points[0]!;
-  for (const [lng, lat] of points) {
-    west = Math.min(west, lng); east = Math.max(east, lng);
-    south = Math.min(south, lat); north = Math.max(north, lat);
-  }
-  const pad = 0.0025;
-  if (east - west < pad) { west -= pad; east += pad; }
-  if (north - south < pad) { south -= pad; north += pad; }
-  return [west, south, east, north];
 }
 
 function resolveRouteCoordinates(route: CandidateRoute, devices: NearbyDevice[]): {

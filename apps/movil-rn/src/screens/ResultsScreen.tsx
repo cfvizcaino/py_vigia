@@ -6,6 +6,7 @@ import { Share, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '../components/Icon';
 import { Reveal } from '../components/motion';
 import { RouteCarousel } from '../components/RouteCarousel';
+import { Sheet } from '../components/Sheet';
 import { RouteMap } from '../components/RouteMap';
 import { DemoBadge, ErrorMessage, Glass, PrimaryButton, SafetyBanner, Screen, SecondaryButton, formatDate, vehicleTypeName } from '../components/ui';
 import { colorNamesEs } from '../edge/colors';
@@ -22,13 +23,13 @@ export function ResultsScreen({ navigation }: Props) {
   const { activeResult, devices, isDemo, user, exportResult, confirmDetection, clearDetectionConfirmation, error } = useSession();
   const isAdmin = !isDemo && user?.role === 'admin';
   // `focused`: la ruta del centro del carrusel (la que dibuja el mapa). `opened`: la que el
-  // operador tocó para ver su detalle. Ambas se reinician solas cuando llega otra consulta.
+  // operador tocó; su detalle se abre en una ventana. Ambas se reinician con otra consulta.
   const [choice, setChoice] = useState<{ queryId: string; focused: number; opened: number | null }>({ queryId: '', focused: 0, opened: null });
   const queryId = String(activeResult?.query.id ?? '');
   const current = choice.queryId === queryId ? choice : { queryId, focused: 0, opened: null };
   const selected = current.focused;
   // Moving to another route folds the detail of the previous one.
-  const focusRoute = (index: number) => setChoice({ queryId, focused: index, opened: current.opened === index ? index : null });
+  const focusRoute = (index: number) => setChoice({ queryId, focused: index, opened: null });
   const openRoute = (index: number | null) => setChoice({ queryId, focused: index ?? current.focused, opened: index });
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -115,74 +116,76 @@ export function ResultsScreen({ navigation }: Props) {
         onSelect={openRoute}
       />
 
-      {current.opened !== index ? (
-        <Text style={[type(fonts.light, 12, 16), { textAlign: 'center', opacity: 0.8 }]}>Desliza para comparar rutas y toca una para ver su detalle.</Text>
-      ) : (
-        <Reveal key={String(route.id ?? index)}>
-          <LinearGradient colors={gradients.routeCard} locations={[0, 0.92]} style={styles.detail}>
-            <View style={{ flexDirection: 'row', gap: 15, paddingHorizontal: 11 }}>
-              <Icon name="routePinSmall" size={24} style={{ marginTop: 4 }} />
-              <View style={{ flex: 1, gap: 6 }}>
-                <Text style={type(fonts.poppins, 20, 24)}>Ruta estimada {String(route.rank ?? index + 1)}</Text>
-                <Text style={type(fonts.regular, 11, 13.2)}>{routeLabel(route, plate)} · {Math.round(Number(route.confidence ?? 0) * 100)} pts</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-                  {cameras.length ? cameras.map((camera, step) => (
-                    <View key={`${camera}-${step}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      {step > 0 ? <Icon name="arrowForward" size={11} /> : null}
-                      <Text style={type(fonts.regular, 11, 13.2)}>{camera}</Text>
-                    </View>
-                  )) : <Text style={type(fonts.regular, 11, 13.2)}>Cámaras no disponibles</Text>}
-                </View>
+      <Text style={[type(fonts.light, 12, 16), { textAlign: 'center', opacity: 0.8 }]}>Desliza para comparar rutas y toca una para ver su detalle.</Text>
+
+      <Sheet
+        visible={current.opened === index}
+        title={`Ruta estimada ${String(route.rank ?? index + 1)}`}
+        subtitle={`${routeLabel(route, plate)} · ${Math.round(Number(route.confidence ?? 0) * 100)}/100`}
+        onClose={() => openRoute(null)}
+      >
+        <LinearGradient colors={gradients.routeCard} locations={[0, 0.92]} style={styles.detail}>
+          <View style={{ flexDirection: 'row', gap: 15, paddingHorizontal: 11 }}>
+            <Icon name="routePinSmall" size={24} style={{ marginTop: 4 }} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={type(fonts.medium, 12, 15)}>Recorrido por cámaras</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                {cameras.length ? cameras.map((camera, step) => (
+                  <View key={`${camera}-${step}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {step > 0 ? <Icon name="arrowForward" size={11} /> : null}
+                    <Text style={type(fonts.regular, 11, 13.2)}>{camera}</Text>
+                  </View>
+                )) : <Text style={type(fonts.regular, 11, 13.2)}>Cámaras no disponibles</Text>}
               </View>
             </View>
-            <Text style={[type(fonts.light, 11, 14), styles.pad]}>Es un puntaje de ranking, no una probabilidad de identificación.</Text>
-            {route.has_distant_gaps ? <Text style={[type(fonts.regular, 11, 14), styles.pad, { color: colors.warning }]}>Hay saltos distantes entre observaciones.</Text> : null}
-            {explanation?.weights ? (
-              <Text style={[type(fonts.light, 11, 14), styles.pad]}>
-                Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${weightName(key)} ${Math.round(value * 100)}%`).join(' · ')}
-              </Text>
-            ) : null}
-            {typeof route.road_geometry?.distance_m === 'number' ? (
-              <Text style={[type(fonts.light, 11, 14), styles.pad]}>Recorrido vial aproximado: {(route.road_geometry.distance_m / 1000).toFixed(2)} km</Text>
-            ) : null}
+          </View>
+          <Text style={[type(fonts.light, 11, 14), styles.pad]}>Es un puntaje de ranking, no una probabilidad de identificación.</Text>
+          {route.has_distant_gaps ? <Text style={[type(fonts.regular, 11, 14), styles.pad, { color: colors.warning }]}>Hay saltos distantes entre observaciones.</Text> : null}
+          {explanation?.weights ? (
+            <Text style={[type(fonts.light, 11, 14), styles.pad]}>
+              Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${weightName(key)} ${Math.round(value * 100)}%`).join(' · ')}
+            </Text>
+          ) : null}
+          {typeof route.road_geometry?.distance_m === 'number' ? (
+            <Text style={[type(fonts.light, 11, 14), styles.pad]}>Recorrido vial aproximado: {(route.road_geometry.distance_m / 1000).toFixed(2)} km</Text>
+          ) : null}
 
-            <View style={{ gap: 19, marginTop: 6 }}>
-              {detections.map((detection, detectionIndex) => {
-                const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
-                const busy = confirmationBusyId === detection.detection_id;
-                return (
-                  <Reveal key={detection.detection_id || String(detectionIndex)} index={detectionIndex} style={{ gap: 8 }}>
-                    <Glass variant="tile" radius={24} style={styles.detection}>
-                      <Icon name={detection.vehicle_type === 'motorcycle' ? 'motorcycleSmall' : 'car'} size={24} />
-                      <View style={{ flex: 1, gap: 3 }}>
-                        <Text style={type(fonts.regular, 11, 13.2)}>
-                          {detection.sequence_order}. {vehicleTypeName(detection.vehicle_type)}{detection.color ? ` · ${colorNamesEs[detection.color] ?? detection.color}` : ''}
-                          {isAdmin && detection.license_plate ? ` · ${detection.license_plate}` : ''}
-                        </Text>
-                        <Text style={type(fonts.light, 8, 9.6)}>{cameraName} · {formatDate(detection.observed_at)} · {detection.direction}</Text>
-                      </View>
-                      <Text style={type(fonts.regular, 9, 10.8)}>
-                        {isAdmin && detection.confirmation ? (detection.confirmation === 'match' ? 'Confirmado · ' : 'Rechazado · ') : ''}
-                        {Math.round(detection.confidence * 100)}%
+          <View style={{ gap: 19, marginTop: 6 }}>
+            {detections.map((detection, detectionIndex) => {
+              const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
+              const busy = confirmationBusyId === detection.detection_id;
+              return (
+                <Reveal key={detection.detection_id || String(detectionIndex)} index={detectionIndex} style={{ gap: 8 }}>
+                  <Glass variant="tile" radius={24} style={styles.detection}>
+                    <Icon name={detection.vehicle_type === 'motorcycle' ? 'motorcycleSmall' : 'car'} size={24} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={type(fonts.regular, 11, 13.2)}>
+                        {detection.sequence_order}. {vehicleTypeName(detection.vehicle_type)}{detection.color ? ` · ${colorNamesEs[detection.color] ?? detection.color}` : ''}
+                        {isAdmin && detection.license_plate ? ` · ${detection.license_plate}` : ''}
                       </Text>
-                    </Glass>
-                    {isAdmin ? (
-                      detection.confirmation ? (
-                        <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} style={styles.pad} />
-                      ) : (
-                        <View style={[styles.pad, { flexDirection: 'row', gap: 8 }]}>
-                          <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} style={{ flex: 1 }} />
-                          <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} style={{ flex: 1 }} />
-                        </View>
-                      )
-                    ) : null}
-                  </Reveal>
-                );
-              })}
-            </View>
-          </LinearGradient>
-        </Reveal>
-      )}
+                      <Text style={type(fonts.light, 8, 9.6)}>{cameraName} · {formatDate(detection.observed_at)} · {detection.direction}</Text>
+                    </View>
+                    <Text style={type(fonts.regular, 9, 10.8)}>
+                      {isAdmin && detection.confirmation ? (detection.confirmation === 'match' ? 'Confirmado · ' : 'Rechazado · ') : ''}
+                      {Math.round(detection.confidence * 100)}%
+                    </Text>
+                  </Glass>
+                  {isAdmin ? (
+                    detection.confirmation ? (
+                      <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} style={styles.pad} />
+                    ) : (
+                      <View style={[styles.pad, { flexDirection: 'row', gap: 8 }]}>
+                        <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} style={{ flex: 1 }} />
+                        <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} style={{ flex: 1 }} />
+                      </View>
+                    )
+                  ) : null}
+                </Reveal>
+              );
+            })}
+          </View>
+        </LinearGradient>
+      </Sheet>
 
       <SafetyBanner />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
