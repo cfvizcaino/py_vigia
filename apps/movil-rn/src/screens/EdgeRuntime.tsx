@@ -1,6 +1,7 @@
+import { getBatteryLevelAsync } from 'expo-battery';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
 import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
@@ -8,6 +9,7 @@ import { ExpandablePreview } from '../components/ExpandablePreview';
 import { Icon } from '../components/Icon';
 import { Card, SecondaryButton, StatusPill } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
+import { Heartbeat } from '../edge/heartbeat';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
 import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
@@ -20,6 +22,7 @@ import type { Detection } from '../edge/types';
 import { colors } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
 import { useAppUpdate } from '../update/UpdateHost';
+import { readInstalledVersion } from '../update/release';
 import type { UpdateLevel } from '../update/release';
 
 const keepAwakeTag = 'vigia-edge-camera';
@@ -42,6 +45,8 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const [cameraStarted, setCameraStarted] = useState(false);
   const [foreground, setForeground] = useState(AppState.currentState === 'active');
   const engineRef = useRef<EdgeEngine | null>(null);
+  // Tells the centre whether this phone is detecting, in the background or stopped.
+  const heartbeatRef = useRef<Heartbeat | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
   const plateGatesRef = useRef<(gates: PlateGate[]) => void>(() => undefined);
   const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
@@ -75,6 +80,26 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           (gates) => colorGatesRef.current(gates),
           plates ? (gates) => plateGatesRef.current(gates) : null,
         );
+        heartbeatRef.current = new Heartbeat({
+          serverUrl: config.serverUrl,
+          token: config.token,
+          cameraId: config.cameraId,
+          sessionId: engineRef.current.sessionId,
+          nodeVersion: readInstalledVersion(),
+          platform: Platform.OS,
+          read: () => {
+            const current = engineRef.current?.stats;
+            if (!current) return null;
+            return {
+              analysesPerSecond: current.fps,
+              activeTracks: current.activeTracks,
+              pendingEvents: current.outbox?.pending ?? 0,
+              deliveredEvents: current.outbox?.delivered ?? 0,
+              lastError: current.outbox?.lastError ?? current.lastError,
+            };
+          },
+          readBattery: getBatteryLevelAsync,
+        });
         setModels({ detector, color, plates });
       } catch (reason) {
         if (!cancelled) {
@@ -88,6 +113,9 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
       cancelled = true;
       const engine = engineRef.current;
       engineRef.current = null;
+      const heartbeat = heartbeatRef.current;
+      heartbeatRef.current = null;
+      void heartbeat?.stop();
       if (engine) void engine.stop().catch((reason: unknown) => {
         console.error('No fue posible cerrar la sesión Edge.', reason);
       });
@@ -104,11 +132,13 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
     if (!engine || !device) return;
     if (foreground) {
       engine.start();
+      heartbeatRef.current?.running();
       void activateKeepAwakeAsync(keepAwakeTag).catch((reason: unknown) => {
         console.error('No fue posible mantener activa la pantalla de Edge.', reason);
         setRuntimeError('No fue posible mantener la pantalla activa.');
       });
     } else {
+      void heartbeatRef.current?.pause();
       void engine.stop().catch((reason: unknown) => {
         console.error('No fue posible pausar Edge autónomo.', reason);
         setRuntimeError('No fue posible pausar Edge autónomo.');

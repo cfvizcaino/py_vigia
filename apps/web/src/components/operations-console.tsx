@@ -10,7 +10,7 @@ import type { SessionUser } from "./console-gate";
 import { Icon, type IconName } from "./icon";
 import { VigiaMap } from "./vigia-map";
 import { DEMO_DEVICES, runDemoQuery } from "@/lib/demo-monitoring";
-import { COLORS, REPORTED_COLORS, STATUS_LABELS, normalizePlate, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type RouteHop, type Scenario } from "@/lib/monitoring";
+import { COLORS, REPORTED_COLORS, activityDetail, deviceActivity, normalizePlate, unknownColorNote, observationDate, observationTime, percent, validateQuery, vehicleLabel, type Device, type QueryResult, type RouteHop, type Scenario } from "@/lib/monitoring";
 import { countTo, enter, reducedMotion } from "@/lib/motion";
 import type { RoadGeometry } from "@/lib/road-routing";
 
@@ -218,6 +218,17 @@ export function OperationsConsole({ user, onExit }: { user: SessionUser | null; 
       .finally(() => { if (!controller.signal.aborted) setDate(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date())); });
     return () => { controller.abort(); queryRef.current?.abort(); };
   }, [user]);
+
+  // Node activity comes from 30 s heartbeats: refresh it so «Sin señal» shows up without reloading.
+  useEffect(() => {
+    if (!user || source !== "central") return;
+    const timer = window.setInterval(() => {
+      fetch("/api/monitoring/devices", { cache: "no-store" })
+        .then(async (response) => { if (sessionEnded(response) || !response.ok) return; setCameras(await response.json() as Device[]); setUpdatedAt(observationTime(new Date().toISOString())); })
+        .catch(() => undefined);
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [user, source]);
 
   useEffect(() => {
     if (cameraRoutePoints.length < 2 || activeRoute?.road_geometry) return;
@@ -575,7 +586,7 @@ export function OperationsConsole({ user, onExit }: { user: SessionUser | null; 
     <h2 id="devices-title">Red de Cámaras</h2>
     <div className="device-list">{filteredCameras.map((camera) => <button key={camera.id} aria-pressed={selected?.external_id === camera.external_id} className={selected?.external_id === camera.external_id ? "selected" : ""} onClick={() => setSelectedCamera(camera.external_id)}>
       <Icon name="cameraItem" size={42}/>
-      <span className="device-info"><b>{camera.name}</b><small>{camera.external_id} | {camera.kind === "physical" ? "Cámara física" : "Nodo simulado"}</small><span className={`device-status ${camera.status}`}><i/>{STATUS_LABELS[camera.status] ?? camera.status}</span></span>
+      <span className="device-info"><b>{camera.name}</b><small>{camera.external_id} | {camera.kind === "physical" ? "Cámara física" : "Nodo simulado"}</small><span className={`device-status ${deviceActivity(camera).tone}`}><i/>{deviceActivity(camera).label}</span></span>
     </button>)}</div>
     {!filteredCameras.length && <p className="empty-inline">{cameras.length ? `Ninguna cámara coincide con «${deviceFilter}».` : "No hay cámaras disponibles. Conecta el servicio central o abre la demostración."}</p>}
   </section>;
@@ -602,7 +613,13 @@ export function OperationsConsole({ user, onExit }: { user: SessionUser | null; 
     <aside className="stage-aside" aria-label="Estado de la red">
       {camerasPill}
       {sourceCard}
-      <section className="camera-selection" aria-label="Cámara seleccionada"><Icon name="target" size={42}/><h2>Seleccionadas</h2><p>{selected ? `${selected.name} | ${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}` : "Ninguna"}</p></section>
+      <section className="camera-selection" aria-label="Cámara seleccionada"><Icon name="target" size={42}/><h2>Seleccionadas</h2><p>{selected ? `${selected.name} | ${selected.lat.toFixed(4)}, ${selected.lng.toFixed(4)}` : "Ninguna"}</p>
+        {selected && selected.kind === "physical" && <div className="camera-activity" role="status">
+          <span className={`device-status ${deviceActivity(selected).tone}`}><i/>{deviceActivity(selected).label}</span>
+          {activityDetail(selected.activity) && <small>{activityDetail(selected.activity)}</small>}
+          {deviceActivity(selected).tone !== "ok" && deviceActivity(selected).explanation && <small>{deviceActivity(selected).explanation}</small>}
+        </div>}
+      </section>
     </aside>
     {mapPanel}
   </div>;

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import Principal, audit, require_admin, require_operator
 from ..db import get_db
+from ..liveness import device_read
 from ..models import Device
 from ..road_network import sync_registered_device
 from ..schemas import DeviceCreate, DeviceRead, DeviceUpdate
@@ -19,20 +20,20 @@ router = APIRouter(prefix="/api/v1/devices", tags=["devices"], dependencies=[Dep
 
 
 @router.get("", response_model=list[DeviceRead])
-def list_devices(db: Session = Depends(get_db)) -> list[Device]:
-    return list(db.scalars(select(Device).order_by(Device.external_id)).all())
+def list_devices(db: Session = Depends(get_db)) -> list[DeviceRead]:
+    return [device_read(device) for device in db.scalars(select(Device).order_by(Device.external_id)).all()]
 
 
 @router.get("/{device_id}", response_model=DeviceRead)
-def get_device(device_id: uuid.UUID, db: Session = Depends(get_db)) -> Device:
+def get_device(device_id: uuid.UUID, db: Session = Depends(get_db)) -> DeviceRead:
     device = db.get(Device, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
-    return device
+    return device_read(device)
 
 
 @router.post("", response_model=DeviceRead, status_code=status.HTTP_201_CREATED)
-def create_device(payload: DeviceCreate, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> Device:
+def create_device(payload: DeviceCreate, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> DeviceRead:
     # external_id es el identificador estable compartido con web y nodos edge (CAM-01).
     existing = db.scalar(select(Device).where(Device.external_id == payload.external_id))
     if existing is not None:
@@ -44,13 +45,13 @@ def create_device(payload: DeviceCreate, principal: Principal = Depends(require_
     db.commit()
     db.refresh(device)
     _sync_links(db, principal, device)
-    return device
+    return device_read(device)
 
 
 @router.patch("/{device_id}", response_model=DeviceRead)
 def update_device(
     device_id: uuid.UUID, payload: DeviceUpdate, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)
-) -> Device:
+) -> DeviceRead:
     device = db.get(Device, device_id)
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
@@ -63,7 +64,7 @@ def update_device(
     db.refresh(device)
     if "lat" in changes or "lng" in changes:
         _sync_links(db, principal, device)
-    return device
+    return device_read(device)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

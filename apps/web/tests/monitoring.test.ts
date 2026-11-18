@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { backendResponse } from "../src/lib/backend-api";
 import { DEMO_DEVICES, DEMO_QUERY, isDemoRoute, runDemoQuery } from "../src/lib/demo-monitoring";
-import { observationDate, observationTime, unknownColorNote, validateQuery } from "../src/lib/monitoring";
+import { activityDetail, deviceActivity, observationDate, observationTime, unknownColorNote, validateQuery } from "../src/lib/monitoring";
 import { resolveRoadGeometry, validateRoadPoints } from "../src/lib/road-routing";
 
 test("Colombian timestamps match UTC, including naive SQLite values", () => {
@@ -136,4 +136,16 @@ test("plates are normalized to Colombian formats and malformed ones are rejected
   assert.equal(normalizePlate("AB1234"), null);
   assert.equal(validateQuery({ ...DEMO_QUERY, plate: "abc 123" }).plate, "ABC123");
   assert.throws(() => validateQuery({ ...DEMO_QUERY, plate: "123" }));
+});
+
+test("node activity comes from the heartbeat, with the stored status as fallback", () => {
+  const base = { status: "offline", activity: null };
+  assert.equal(deviceActivity(base).label, "Sin conexión");
+  assert.equal(deviceActivity({ status: "online" }).label, "En línea");
+  const activity = { state: "no_signal" as const, last_contact_at: "2026-11-18T09:00:00Z", last_heartbeat_at: null, last_event_at: null, node_version: "movil-1.5.0", analyses_per_second: 6, battery: 0.41 };
+  assert.deepEqual([deviceActivity({ status: "offline", activity }).label, deviceActivity({ status: "offline", activity }).tone], ["Sin señal", "warn"]);
+  // The pace is only shown while it is detecting.
+  assert.equal(activityDetail(activity, Date.parse("2026-11-18T12:00:00Z")), "Último contacto hace 3 h · v1.5.0 · batería 41 %");
+  assert.equal(activityDetail({ ...activity, state: "active", last_contact_at: "2026-11-18T11:59:30Z", pending_events: 3 }, Date.parse("2026-11-18T12:00:00Z")),
+    "Último contacto hace 30 s · v1.5.0 · 6,0 análisis/s · 3 en cola · batería 41 %");
 });

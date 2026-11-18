@@ -6,6 +6,7 @@ import { ApiError } from '../api/client';
 import { colorNamesEs } from '../edge/colors';
 import { Icon } from '../components/Icon';
 import { Dialog, ErrorMessage, Glass, GradientCard, PillButton, PrimaryButton, Screen } from '../components/ui';
+import { activityDetail, activityExplanation, activityLabel } from '../state/activity';
 import { useSession } from '../state/session';
 import { colors, gradients } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
@@ -108,15 +109,19 @@ export function CameraDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  const online = device.status === 'online';
+  const activity = activityLabel(device);
+  const activityText = activityDetail(device.activity);
+  const explanation = activityExplanation(device.activity);
   return (
     <Screen back glow={false} contentStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, flexGrow: 1 }}>
       <GradientCard colors={gradients.sheet} radius={24} style={styles.sheet}>
         <View style={{ paddingHorizontal: 27, gap: 4 }}>
           <Text accessibilityRole="header" style={type(fonts.poppins, 32)}>{device.name || device.external_id}</Text>
           <Text style={type(fonts.light, 12)}>
-            {device.external_id} · {device.lat.toFixed(4)}, {device.lng.toFixed(4)} | <Text style={{ fontFamily: fonts.medium }}>{online ? 'En Línea' : 'Sin conexión'}</Text>
+            {device.external_id} · {device.lat.toFixed(4)}, {device.lng.toFixed(4)} | <Text style={{ fontFamily: fonts.medium, color: activity.tone === 'warn' ? colors.warning : undefined }}>{activity.label}</Text>
           </Text>
+          {activityText ? <Text style={[type(fonts.light, 11.5, 15), { opacity: 0.8 }]}>{activityText}</Text> : null}
+          {explanation && activity.tone !== 'ok' ? <Text style={[type(fonts.light, 11.5, 15), { opacity: 0.7 }]}>{explanation}</Text> : null}
           {isAdmin ? (
             <Pressable
               accessibilityRole="button"

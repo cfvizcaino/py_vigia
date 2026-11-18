@@ -6,7 +6,9 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CameraMap } from '../components/CameraMap';
 import { Icon } from '../components/Icon';
 import { DemoBadge, Glass, Screen, SearchPill } from '../components/ui';
+import { activityLabel, type ActivityTone } from '../state/activity';
 import { useSession } from '../state/session';
+import { colors } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
 import type { Device } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
@@ -58,7 +60,7 @@ export function CamerasScreen() {
 }
 
 function CameraRow({ device, onPress }: { device: Device; onPress: () => void }) {
-  const online = device.status === 'online';
+  const { label, tone } = activityLabel(device);
   const kind = device.kind === 'physical' ? 'Cámara física' : device.kind === 'simulated' ? 'Simulada' : device.kind;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${device.external_id}`} onPress={onPress}>
@@ -68,7 +70,10 @@ function CameraRow({ device, onPress }: { device: Device; onPress: () => void })
           <Text style={type(fonts.semibold, 15, 18)}>{device.external_id}</Text>
           <Text numberOfLines={1} style={type(fonts.light, 13, 15.6)}>{device.name} | {kind}</Text>
         </View>
-        <Text style={[type(fonts.regular, 9, 10.8), styles.status, { opacity: online ? 1 : 0.6 }]}>{online ? 'En línea' : device.status === 'simulated' ? 'Simulada' : 'Sin conexión'}</Text>
+        <View style={styles.status}>
+          <View style={[styles.dot, { backgroundColor: toneColor[tone] }]} />
+          <Text style={[type(fonts.regular, 9, 10.8), { opacity: tone === 'off' ? 0.6 : 1 }]}>{label}</Text>
+        </View>
       </Glass>
     </Pressable>
   );
@@ -79,10 +84,13 @@ export function StatusTag({ status }: { status: string }) {
   return <Text style={[type(fonts.light, 12), { opacity: online ? 1 : 0.7 }]}>{online ? 'En Línea' : 'Sin conexión'}</Text>;
 }
 
+const toneColor: Record<ActivityTone, string> = { ok: colors.success, warn: colors.warning, off: 'rgba(255,255,255,0.45)' };
+
 const styles = StyleSheet.create({
   add: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   panel: { paddingTop: 17, paddingHorizontal: 21, paddingBottom: 21, minHeight: 298 },
   row: { height: 57, flexDirection: 'row', alignItems: 'center', gap: 16, paddingLeft: 38, paddingRight: 25 },
-  status: { position: 'absolute', top: 5, right: 25 },
+  status: { position: 'absolute', top: 5, right: 25, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
   empty: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 200 },
 });
