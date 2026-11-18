@@ -1,0 +1,22 @@
+{
+  "name": "@vigia/intro-motion",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "check": "tsc --noEmit",
+    "render": "remotion render src/index.ts VigiaOpening ../../output/vigia-opening-v2.mp4 --codec=h264 --pixel-format=yuv420p --crf=20 --x264-preset=slow --muted --scale=2 --concurrency=1 --timeout=120000",
+    "render:stills": "remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-lineas.png --frame=12 --scale=1 && remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-pin.png --frame=22 --scale=1 && remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-nodos.png --frame=32 --scale=1 && remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-ruta.png --frame=44 --scale=1 && remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-logo.png --frame=62 --scale=1 && remotion still src/index.ts VigiaOpening ../../output/vigia-opening-v2-salida.png --frame=83 --scale=1"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.540",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.540"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "7.0.2"
+  }
+}
