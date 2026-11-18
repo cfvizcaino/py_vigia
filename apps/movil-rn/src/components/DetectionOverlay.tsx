@@ -5,7 +5,7 @@ import type { EdgeOverlay } from '../edge/engine';
 import type { Box } from '../edge/types';
 import { vehicleTypeName } from './ui';
 
-const boxColor = '#69D4A8';
+const boxColor = '#9d76f8';
 
 /**
  * Boxes over the camera preview, as in the Flutter app: type, colour and
@@ -74,5 +74,5 @@ const styles = StyleSheet.create({
   box: { position: 'absolute', borderWidth: 2, borderColor: boxColor },
   labelRow: { position: 'absolute', top: -17, left: -2, width: 240, flexDirection: 'row' },
   labelRowInside: { top: 0, left: 0 },
-  label: { backgroundColor: boxColor, color: '#000', fontSize: 11, paddingHorizontal: 3 },
+  label: { backgroundColor: boxColor, color: '#fff', fontSize: 10, fontFamily: 'DMSans_500Medium', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, overflow: 'hidden' },
 });

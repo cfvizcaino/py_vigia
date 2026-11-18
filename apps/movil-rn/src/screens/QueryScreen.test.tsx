@@ -8,6 +8,7 @@ import { SessionProvider, useSession } from '../state/session';
 import type { RootStackParamList, TabParamList } from '../types/navigation';
 import { HistoryScreen } from './HistoryScreen';
 import { LoginScreen } from './LoginScreen';
+import { WelcomeScreen } from './WelcomeScreen';
 import { QueryScreen } from './QueryScreen';
 import { ResultsScreen } from './ResultsScreen';
 import { SettingsScreen } from './SettingsScreen';
@@ -55,7 +56,12 @@ function TestApp() {
       <Root.Navigator>
         {user
           ? <Root.Screen name="Operator" component={OperatorTabs} options={{ headerShown: false }} />
-          : <Root.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />}
+          : (
+            <>
+              <Root.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
+              <Root.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            </>
+          )}
       </Root.Navigator>
     </NavigationContainer>
   );
@@ -115,17 +121,20 @@ describe('consulta de trayectorias', () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
+    await fireEvent.press(screen.getByRole('button', { name: 'Ir a iniciar sesión' }));
+    await waitFor(() => expect(screen.getByText('¡Bienvenido de vuelta!')).toBeTruthy());
     await fireEvent.changeText(screen.getByLabelText('Correo electrónico'), 'persona@example.org');
     await fireEvent.changeText(screen.getByLabelText('Contraseña'), 'correcta');
     await fireEvent.press(screen.getByRole('button', { name: 'Iniciar sesión' }));
-    await waitFor(() => expect(screen.getByText('1 cámaras registradas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('1 Cámaras Registradas')).toBeTruthy());
     await fireEvent.press(screen.getByRole('button', { name: /Query, tab/ }));
-    expect(screen.getByText('ⓘ  Trayectorias estimadas; no constituyen una identificación confirmada')).toBeTruthy();
+    expect(screen.getByText('Trayectorias estimadas; no constituyen una identificación confirmada.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Elegir caso del dataset' }));
     await fireEvent.press(screen.getByRole('button', { name: 'S01 · Entrada norte' }));
-    expect(screen.getByLabelText('Fecha (Bogotá): 2026-03-01')).toBeTruthy();
-    expect(screen.getByLabelText('Desde (hora Bogotá): 10:15')).toBeTruthy();
+    expect(screen.getByLabelText('Fecha: 2026-03-01')).toBeTruthy();
+    expect(screen.getByLabelText('Desde: 10:15')).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Consultar trayectorias' }));
-    await waitFor(() => expect(screen.getByText('0 rutas candidatas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^0 rutas estimadas/)).toBeTruthy());
     const queryCall = fetch.mock.calls.find(([input]) => String(input).includes('/api/v1/queries?'));
     const requestUrl = new URL(String(queryCall?.[0]));
     expect(requestUrl.searchParams.get('time_from')).toBe('2026-03-01T15:15:00.000Z');
@@ -134,6 +143,7 @@ describe('consulta de trayectorias', () => {
     expect(requestUrl.searchParams.get('color')).toBe('red');
 
     await fireEvent.press(screen.getByRole('button', { name: /Query, tab/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Elegir caso del dataset' }));
     await fireEvent.press(screen.getByRole('button', { name: 'S02 · Cruce nocturno' }));
     await fireEvent.press(screen.getByRole('button', { name: 'Consultar trayectorias' }));
     await waitFor(() => expect(fetch.mock.calls.filter(([input]) => String(input).includes('/api/v1/queries?'))).toHaveLength(2));
@@ -147,18 +157,18 @@ describe('consulta de trayectorias', () => {
     const fetch = jest.spyOn(globalThis, 'fetch');
     const screen = await render(<SessionProvider><TestApp /></SessionProvider>);
     await fireEvent.press(screen.getByRole('button', { name: 'Explorar demo' }));
-    await waitFor(() => expect(screen.getByText('4 cámaras registradas')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('4 Cámaras Registradas')).toBeTruthy());
     await fireEvent.press(screen.getByRole('button', { name: /Query, tab/ }));
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
     expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Consultar trayectorias' }));
-    await waitFor(() => expect(screen.getByText('1 ruta candidata')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^1 ruta estimada/)).toBeTruthy());
     expect(screen.getByText('DEMOSTRACIÓN')).toBeTruthy();
     expect(screen.getByText(/Trayectorias estimadas/)).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: /Results, tab/ }));
-    expect(screen.getByText(/Automóvil\s*·\s*blanco/)).toBeTruthy();
+    expect(screen.getAllByText(/Automóvil\s*·\s*blanco/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Explicación: detección 35% · tiempo 40% · apariencia 15% · vía 10%/)).toBeTruthy();
-    expect(screen.getAllByText(/confianza \d+%/)).toHaveLength(7);
+    expect(screen.getAllByText(/^\d+\. (Automóvil|Motocicleta)/)).toHaveLength(7);
     expect(fetch).not.toHaveBeenCalled();
   });
 });

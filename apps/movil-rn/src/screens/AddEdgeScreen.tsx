@@ -1,17 +1,19 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { LocationPicker } from '../components/LocationPicker';
-import { ChoiceRow, ErrorMessage, Field, PrimaryButton, Screen } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { ErrorMessage, Field, Glass, GradientCard, OptionSheet, PrimaryButton, Screen } from '../components/ui';
 import {
   authByDefault, edgeSourceField, edgeSourceLabel, edgeSources, installCommand, needsNodePc,
   suggestEdgeId, suggestPhonePort, validateSource,
 } from '../edge/sources';
 import type { EdgeSource } from '../edge/sources';
 import { useSession } from '../state/session';
-import { colors } from '../theme/colors';
+import { gradients } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddEdge'>;
@@ -29,6 +31,7 @@ export function AddEdgeScreen({ navigation }: Props) {
   const [days, setDays] = useState(90);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [picker, setPicker] = useState<'source' | 'days' | null>(null);
 
   const changeSource = (next: EdgeSource) => {
     setSource(next);
@@ -93,10 +96,7 @@ export function AddEdgeScreen({ navigation }: Props) {
 
   const field = edgeSourceField[source];
   return (
-    <Screen>
-      <Text style={{ color: colors.muted, lineHeight: 20 }}>
-        Registra la cámara en el servidor y emite su credencial. El nodo de visión que la procese usará ese token para publicar.
-      </Text>
+    <Screen back title={'Agregar\nedge'}>
       <Field
         label="Identificador"
         value={cameraId}
@@ -107,36 +107,33 @@ export function AddEdgeScreen({ navigation }: Props) {
         autoCapitalize="characters"
       />
       <Field label="Nombre visible" value={name} onChangeText={setName} placeholder="Teléfono portería norte" />
-      <Field label="Equipo (opcional)" value={cameraModel} onChangeText={setCameraModel} placeholder="OPPO CPH2599" />
+      <Field label="Equipo (Opcional)" value={cameraModel} onChangeText={setCameraModel} placeholder="OPPO CPH2599" />
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>Ubicación</Text>
-        <Text style={{ color: colors.muted }}>Donde quedará la cámara. Las rutas dependen de este punto.</Text>
-        <LocationPicker devices={devices} height={240} point={point ?? undefined} onChange={(next) => setPoint(next)} />
-      </View>
+      <GradientCard colors={gradients.locationCard} style={styles.location}>
+        <Icon name="locationSearching" size={24} style={{ alignSelf: 'center' }} />
+        <Text style={[type(fonts.medium, 20, 24), styles.center]}>Ubicación</Text>
+        <Text style={[type(fonts.light, 14, 16.8), styles.center, { marginBottom: 6 }]}>Donde quedará la cámara. Las rutas dependen de este punto</Text>
+        <LocationPicker devices={devices} height={259} point={point ?? undefined} onChange={(next) => setPoint(next)} caption={{ title: 'Barranquilla, ATL', subtitle: 'Colombia' }} />
+      </GradientCard>
 
-      <View style={{ gap: 6 }}>
-        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>Fuente de video</Text>
-        <Text style={{ color: colors.muted, lineHeight: 20 }}>
-          Este teléfono puede detectar por sí mismo, o un nodo en un PC lee la cámara. Para un PC solo se usa para armar el comando de instalación; no se envía al servidor.
-        </Text>
-        {edgeSources.map((item) => (
-          <Pressable
-            key={item}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: item === source }}
-            onPress={() => changeSource(item)}
-            style={{
-              padding: 12,
-              borderRadius: 6,
-              borderWidth: 1,
-              borderColor: item === source ? colors.accent : colors.border,
-              backgroundColor: item === source ? '#1B2E2A' : colors.surface,
-            }}
-          >
-            <Text style={{ color: colors.text }}>{edgeSourceLabel[item]}</Text>
+      <GradientCard colors={gradients.sourcePanel} locations={[0.03, 0.41, 1]} diagonal style={styles.source}>
+        <Text style={[type(fonts.medium, 20, 24), styles.center]}>Fuente de vídeo</Text>
+        <Text style={[type(fonts.regular, 14, 16.8), styles.center]}>Elige el modo por el cual se analizará el video.</Text>
+        <View style={styles.tiles}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Fuente de video: ${edgeSourceLabel[source]}`} onPress={() => setPicker('source')} style={styles.tileBox}>
+            <Glass radius={19} style={styles.tile}>
+              <Icon name="antenna" size={24} />
+              <Text style={[type(fonts.light, 11, 13.2), styles.center]}>{edgeSourceLabel[source]}</Text>
+            </Glass>
           </Pressable>
-        ))}
+          <Pressable accessibilityRole="button" accessibilityLabel={`Vigencia del token: ${days} días`} onPress={() => setPicker('days')} style={styles.tileBox}>
+            <Glass radius={19} style={styles.tile}>
+              <Icon name="vpnKey" size={24} />
+              <Text style={[type(fonts.medium, 11, 13.2), styles.center]}>Vigencia del token</Text>
+              <Text style={[type(fonts.light, 12, 14.4), styles.center]}>{days} días</Text>
+            </Glass>
+          </Pressable>
+        </View>
         {needsNodePc(source) ? (
           <Field
             label={field.label}
@@ -147,26 +144,48 @@ export function AddEdgeScreen({ navigation }: Props) {
             autoCapitalize="none"
           />
         ) : (
-          <Text style={{ color: colors.subtle, fontSize: 12 }}>
-            Usa el modelo integrado: el teléfono detecta los vehículos y publica con su propio token. Ideal para cualquier Android con cámara trasera.
+          <Text style={[type(fonts.light, 11.5, 15), styles.center, { opacity: 0.85 }]}>
+            Usa el modelo integrado: el teléfono detecta los vehículos y publica con su propio token.
           </Text>
         )}
         {source === 'rtsp' || source === 'http' ? (
-          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: needsAuth }} onPress={() => setNeedsAuth((value) => !value)}>
-            <Text style={{ color: colors.text }}>{needsAuth ? '☑' : '☐'} La cámara pide usuario y contraseña</Text>
-            <Text style={{ color: colors.subtle, fontSize: 12 }}>El script del PC los pedirá sin mostrarlos.</Text>
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: needsAuth }} onPress={() => setNeedsAuth((value) => !value)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <Icon name={needsAuth ? 'ms_check_circle' : 'ms_lock'} size={18} color="#ffffff" />
+            <View style={{ flex: 1 }}>
+              <Text style={type(fonts.regular, 13)}>La cámara pide usuario y contraseña</Text>
+              <Text style={[type(fonts.light, 11), { opacity: 0.7 }]}>El script del PC los pedirá sin mostrarlos.</Text>
+            </View>
           </Pressable>
         ) : null}
-      </View>
+        {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+        <PrimaryButton title="Registrar edge y emitir token" loading={saving} onPress={() => void submit()} style={{ marginHorizontal: 25, marginTop: 6 }} />
+      </GradientCard>
 
-      <ChoiceRow
-        label="Vigencia del token"
-        value={String(days)}
-        onChange={(value) => setDays(Number(value))}
-        choices={[30, 90, 180, 365].map((value) => ({ label: `${value} días`, value: String(value) }))}
+      <OptionSheet
+        visible={picker === 'source'}
+        title="Fuente de vídeo"
+        value={source}
+        onClose={() => setPicker(null)}
+        onSelect={(value) => changeSource(value as EdgeSource)}
+        options={edgeSources.map((item) => ({ value: item, label: edgeSourceLabel[item] }))}
       />
-      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-      <PrimaryButton title="Registrar edge y emitir token" loading={saving} onPress={() => void submit()} />
+      <OptionSheet
+        visible={picker === 'days'}
+        title="Vigencia del token"
+        value={String(days)}
+        onClose={() => setPicker(null)}
+        onSelect={(value) => setDays(Number(value))}
+        options={[30, 90, 180, 365].map((value) => ({ value: String(value), label: `${value} días` }))}
+      />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  center: { textAlign: 'center' },
+  location: { padding: 18, gap: 6, borderWidth: 1, borderColor: 'rgba(157,118,248,0.3)' },
+  source: { paddingVertical: 34, paddingHorizontal: 20, gap: 14 },
+  tiles: { flexDirection: 'row', gap: 16, marginTop: 10 },
+  tileBox: { flex: 1 },
+  tile: { height: 119, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 10 },
+});

@@ -1,12 +1,12 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
 import { DetectionOverlay, previewAspectRatio } from '../components/DetectionOverlay';
 import { ExpandablePreview } from '../components/ExpandablePreview';
-import { Card, SecondaryButton } from '../components/ui';
+import { Icon } from '../components/Icon';
+import { Card, SecondaryButton, StatusPill } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
 import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
@@ -18,6 +18,7 @@ import type { EdgeStats } from '../edge/engine';
 import type { LoadedModel } from '../edge/model';
 import type { Detection } from '../edge/types';
 import { colors } from '../theme/colors';
+import { fonts, type } from '../theme/fonts';
 import { useAppUpdate } from '../update/UpdateHost';
 import type { UpdateLevel } from '../update/release';
 
@@ -140,7 +141,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const outputs = useMemo(() => [frameOutput], [frameOutput]);
 
   return (
-    <Card title="Edge autónomo">
+    <Card>
       {startupError ? <Text accessibilityRole="alert" style={styles.error}>{startupError}</Text> : null}
       {permissionGranted === false ? (
         <Text style={styles.body}>Permite el acceso a la cámara en los ajustes de Android para continuar.</Text>
@@ -202,6 +203,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
       ) : null}
       <SecondaryButton
         title={(startupError || (models && !device)) && !cameraStarted ? 'Volver a configuración' : 'Detener Edge autónomo'}
+        icon="ms_stop_circle"
         onPress={onStop}
       />
     </Card>
@@ -244,13 +246,13 @@ function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; up
   const outbox = stats.outbox;
   const healthy = !outbox?.lastError;
   return (
-    <View style={[styles.status, healthy ? styles.statusOk : styles.statusWarn]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <MaterialIcons name={healthy ? 'sensors' : 'cloud-off'} size={22} color={healthy ? '#69D4A8' : '#FFC66D'} />
-        <Text style={[styles.metric, { flex: 1 }]}>
-          Detectando · {stats.fps.toFixed(1)} análisis/s · {stats.activeTracks} vehículo{stats.activeTracks === 1 ? '' : 's'}
-        </Text>
-      </View>
+    <View style={styles.status}>
+      <StatusPill
+        tone={healthy ? 'ok' : 'warn'}
+        text={healthy
+          ? `Detectando · ${stats.fps.toFixed(1)} análisis/s · ${stats.activeTracks} vehículo${stats.activeTracks === 1 ? '' : 's'}`
+          : 'Sin conexión · eventos en cola'}
+      />
       <Text style={styles.muted}>
         {describeTimings(stats)} · {stats.snapshots} eventos generados · {outbox?.delivered ?? 0} enviados · {outbox?.pending ?? 0} en cola
         {outbox?.rejected ? ` · ${outbox.rejected} rechazados` : ''}
@@ -266,10 +268,15 @@ function EdgeStatusCard({ stats, updateLevel, onUpdate }: { stats: EdgeStats; up
           : `Recortes: ${outbox?.thumbnails ?? 0} enviados${outbox?.thumbnailsDropped ? ` · ${outbox.thumbnailsDropped} descartados` : ''}${stats.thumbnailFailures ? ` · ${stats.thumbnailFailures} fallidos` : ''}`}
       </Text>
       {stats.lastError ? <Text accessibilityRole="alert" style={styles.error}>Detección: {stats.lastError}</Text> : null}
-      {outbox?.lastError ? <Text style={styles.warning}>{describeOutboxError(outbox.lastError)}</Text> : null}
+      {outbox?.lastError ? (
+        <View style={styles.warnBox}>
+          <Icon name="ms_cloud_off" size={18} color={colors.warning} />
+          <Text style={[styles.warning, { flex: 1 }]}>{describeOutboxError(outbox.lastError)}{outbox.pending ? ` (${outbox.pending} pendientes)` : ''}</Text>
+        </View>
+      ) : null}
       {updateLevel !== 'none' ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-          <MaterialIcons name="system-update" size={18} color="#FFC66D" />
+          <Icon name="ms_sync" size={18} color={colors.warning} />
           <Text style={[styles.warning, { flex: 1 }]}>
             {updateLevel === 'required'
               ? 'Esta versión de la app quedó por debajo del mínimo. Hay que actualizar.'
@@ -311,12 +318,11 @@ function labelsForColors(model: LoadedModel | undefined): Record<number, string>
 }
 
 const styles = StyleSheet.create({
-  body: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  metric: { color: colors.text, fontSize: 13, lineHeight: 19 },
-  error: { color: '#FFB4AB', fontSize: 14, lineHeight: 20 },
-  muted: { color: '#9AA79F', fontSize: 12, lineHeight: 18 },
-  warning: { color: '#FFE1B0', fontSize: 12, lineHeight: 18 },
-  status: { borderRadius: 6, borderWidth: 1, padding: 12, gap: 4 },
-  statusOk: { backgroundColor: '#1B2E2A', borderColor: '#2F5D52' },
-  statusWarn: { backgroundColor: '#302517', borderColor: '#6B5326' },
+  body: { ...type(fonts.light, 13, 18, 0), opacity: 0.85 },
+  metric: { ...type(fonts.medium, 12, 16, 0) },
+  error: { ...type(fonts.regular, 12.5, 17, 0), color: colors.danger },
+  muted: { ...type(fonts.light, 11, 15, 0), opacity: 0.75 },
+  warning: { ...type(fonts.regular, 11.5, 16, 0), color: colors.warning },
+  status: { gap: 4 },
+  warnBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,212,121,0.7)', backgroundColor: 'rgba(255,212,121,0.12)', marginTop: 4 },
 });

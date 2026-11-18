@@ -28,7 +28,7 @@
       "package": "co.vigia.movil",
       "versionCode": 6,
       "adaptiveIcon": {
-        "backgroundColor": "#1F3A31",
+        "backgroundColor": "#090119",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -65,10 +65,10 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#101512",
+          "backgroundColor": "#090119",
           "dark": {
             "image": "./assets/splash-icon.png",
-            "backgroundColor": "#101512"
+            "backgroundColor": "#090119"
           }
         }
       ],
@@ -83,7 +83,21 @@
       "expo-asset",
       "@react-native-community/datetimepicker",
       "expo-sharing",
-      "expo-font",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo-google-fonts/poppins/300Light/Poppins_300Light.ttf",
+            "node_modules/@expo-google-fonts/poppins/400Regular/Poppins_400Regular.ttf",
+            "node_modules/@expo-google-fonts/poppins/500Medium/Poppins_500Medium.ttf",
+            "node_modules/@expo-google-fonts/dm-sans/300Light/DMSans_300Light.ttf",
+            "node_modules/@expo-google-fonts/dm-sans/400Regular/DMSans_400Regular.ttf",
+            "node_modules/@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf",
+            "node_modules/@expo-google-fonts/dm-sans/600SemiBold/DMSans_600SemiBold.ttf",
+            "node_modules/@expo-google-fonts/dm-mono/400Regular/DMMono_400Regular.ttf"
+          ]
+        }
+      ],
       [
         "expo-build-properties",
         {
@@ -98,6 +112,7 @@
     },
     "extra": {
       "defaultApiUrl": "http://10.0.2.2:8000"
-    }
+    },
+    "backgroundColor": "#090119"
   }
 }

@@ -1,6 +1,7 @@
 import type { IssuedCredential } from './models';
 
 export type RootStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Operator: undefined;
   CameraMode: undefined;
