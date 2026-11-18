@@ -14,6 +14,7 @@ from .models import Detection, Device, EdgeObservation, IngestedEvent, utc_now
 from .plates import normalize_plate, purge_plates
 from .retention import purge_raw_events
 from .schemas import DetectionEnvelopeV11
+from .dataset import purge_annotations
 from .thumbnails import purge_thumbnails
 
 _purge_lock = threading.Lock()
@@ -46,7 +47,7 @@ def maybe_purge_raw_events(db: Session) -> None:
         if time.monotonic() < _next_purge:
             return
         _next_purge = time.monotonic() + 3600
-    for purge in (purge_raw_events, purge_thumbnails, purge_plates):
+    for purge in (purge_raw_events, purge_thumbnails, purge_plates, purge_annotations):
         try:
             purge(db)
         except Exception:

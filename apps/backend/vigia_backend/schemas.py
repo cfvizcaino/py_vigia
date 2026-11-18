@@ -353,3 +353,22 @@ class ConfirmationWrite(BaseModel):
 
     verdict: Literal["match", "reject"]
 
+
+
+class AnnotationWrite(BaseModel):
+    """Etiqueta explícita de aprendizaje (fase 4): color o placa sobre un recorte."""
+
+    label: str = Field(min_length=1, max_length=32)
+
+
+class AnnotationRead(BaseModel):
+    task: Literal["color", "plate"]
+    label: str
+    predicted: str | None
+    updated_at: datetime
+
+
+class AnnotationSummary(BaseModel):
+    counts: dict[str, dict[str, int]]
+    corrected: int
+    retention_days: int

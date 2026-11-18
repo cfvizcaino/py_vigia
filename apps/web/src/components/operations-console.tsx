@@ -62,7 +62,101 @@ function HopEvidence({ hop, busy, onVerdict }: { hop: RouteHop; busy: boolean; o
         <button type="button" className={verdict === "reject" ? "selected" : ""} aria-pressed={verdict === "reject"} disabled={busy} onClick={() => onVerdict(verdict === "reject" ? null : "reject")}>No</button>
       </div>
     </div>
+    {hop.has_thumbnail && !broken && <LearningLabels hop={hop}/>}
   </div>;
+}
+
+type LearningTask = "color" | "plate";
+const LEARNING_ERRORS: Record<number, string> = {
+  409: "El recorte ya venció (7 días): no se puede guardar para entrenamiento.",
+  422: "Esa etiqueta no es válida. Revisa el color o escribe la placa completa (ABC123, ABC12D).",
+  501: "El servicio central no tiene almacén de aprendizaje configurado.",
+};
+const PLATE_LABELS: Record<string, string> = { ilegible: "Ilegible", sin_placa: "Sin placa visible" };
+
+/**
+ * Fase 4: the admin can label the recorte's real colour and plate for training. Only what
+ * is saved here becomes a label: answering «¿Es este el vehículo?» says nothing about them.
+ */
+function LearningLabels({ hop }: { hop: RouteHop }) {
+  const [saved, setSaved] = useState<Partial<Record<LearningTask, string>>>({});
+  const [color, setColor] = useState(hop.color && REPORTED_COLORS.includes(hop.color) ? hop.color : "");
+  const [plate, setPlate] = useState(hop.license_plate ?? "");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/detections/${hop.detection_id}/annotations`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => response.ok ? response.json() as Promise<{ task: LearningTask; label: string }[]> : [])
+      .then((rows) => {
+        const next: Partial<Record<LearningTask, string>> = {};
+        for (const row of rows) next[row.task] = row.label;
+        setSaved(next);
+        if (next.color && next.color !== "no_determinable") setColor(next.color);
+        if (next.plate && !PLATE_LABELS[next.plate]) setPlate(next.plate);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [hop.detection_id]);
+
+  async function save(task: LearningTask, label: string) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/detections/${hop.detection_id}/annotations/${task}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label }) });
+      if (sessionEnded(response)) return;
+      if (!response.ok) throw new Error(LEARNING_ERRORS[response.status] ?? "No fue posible guardar la etiqueta.");
+      const row = await response.json() as { label: string };
+      setSaved((current) => ({ ...current, [task]: row.label }));
+      setMessage({ text: task === "color" ? "Color guardado para entrenamiento." : "Placa guardada para entrenamiento.", error: false });
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : "No fue posible guardar la etiqueta.", error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undo(task: LearningTask) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/detections/${hop.detection_id}/annotations/${task}`, { method: "DELETE" });
+      if (sessionEnded(response)) return;
+      if (!response.ok) throw new Error("No fue posible deshacer la etiqueta.");
+      setSaved((current) => ({ ...current, [task]: undefined }));
+    } catch (error) {
+      setMessage({ text: error instanceof Error ? error.message : "No fue posible deshacer la etiqueta.", error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const plateText = normalizePlate(plate);
+  const savedLabel = (task: LearningTask, label: string) => <span className="learning-saved"><Icon name="check" size={18}/>
+    {task === "color" ? label === "no_determinable" ? "No se distingue" : colorLabel(label, label) : PLATE_LABELS[label] ?? label}
+    <button type="button" className="text-link" disabled={busy} onClick={() => undo(task)}>Deshacer</button></span>;
+  return <details className="learning-labels">
+    <summary>Etiquetar para entrenamiento{(saved.color || saved.plate) && <span className="learning-count">{[saved.color, saved.plate].filter(Boolean).length} guardada{saved.color && saved.plate ? "s" : ""}</span>}</summary>
+    <p className="learning-note">Solo se usa lo que guardes aquí. El recorte se copia a un almacén privado de aprendizaje y se borra a los 180 días.</p>
+    <div className="learning-row">
+      <label>Color real<select value={color} disabled={busy} onChange={(event) => setColor(event.target.value)}>
+        <option value="" disabled>Elige un color</option>
+        {REPORTED_COLORS.map((value) => <option key={value} value={value}>{colorLabel(value, value)}</option>)}
+        <option value="no_determinable">No se distingue</option>
+      </select></label>
+      <button type="button" className="pill-small" disabled={busy || !color} onClick={() => save("color", color)}>Guardar color</button>
+      {saved.color && savedLabel("color", saved.color)}
+    </div>
+    <div className="learning-row">
+      <label>Placa<input value={plate} disabled={busy} maxLength={8} placeholder="ABC123" autoComplete="off" spellCheck={false} onChange={(event) => setPlate(event.target.value.toUpperCase())}/></label>
+      <button type="button" className="pill-small" disabled={busy || !plateText} onClick={() => plateText && save("plate", plateText)}>Guardar placa</button>
+      <button type="button" className="pill-small ghost" disabled={busy} onClick={() => save("plate", "ilegible")}>Ilegible</button>
+      <button type="button" className="pill-small ghost" disabled={busy} onClick={() => save("plate", "sin_placa")}>Sin placa visible</button>
+      {saved.plate && savedLabel("plate", saved.plate)}
+    </div>
+    {message && <p className={message.error ? "error-message" : "learning-ok"} role={message.error ? "alert" : "status"}>{message.text}</p>}
+  </details>;
 }
 
 function CountPill({ value, label, tone = "gradient" }: { value: number; label: string; tone?: "gradient" | "solid" }) {

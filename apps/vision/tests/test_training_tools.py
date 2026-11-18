@@ -156,3 +156,32 @@ class TrainingToolsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ColorAnnotationEvaluationTests(unittest.TestCase):
+    def test_report_macro_f1_and_cameras(self):
+        from training.evaluate_color_annotations import classification_report, per_camera_accuracy
+
+        report = classification_report([("white", "white"), ("white", "gray"), ("gray", "gray"), ("red", None)])
+        self.assertEqual(report["samples"], 4)
+        self.assertEqual(report["accuracy"], 0.5)
+        self.assertEqual(report["per_class"]["gray"]["precision"], 0.5)
+        self.assertEqual(report["per_class"]["red"]["recall"], 0.0)
+        self.assertAlmostEqual(report["macro_f1"], round((2 / 3 + 2 / 3 + 0) / 3, 4))
+        cameras = per_camera_accuracy([("CEL-02", "white", "white"), ("CEL-02", "red", "blue"), ("CEL-04", "gray", "gray")])
+        self.assertEqual(cameras["CEL-02"], {"accuracy": 0.5, "samples": 2})
+
+    def test_candidate_needs_better_macro_f1_without_hurting_a_camera(self):
+        from training.evaluate_color_annotations import decide, evaluated, test_samples
+
+        base = evaluated([("A", "white", "white"), ("A", "gray", "white"), ("B", "red", "red")])
+        better = evaluated([("A", "white", "white"), ("A", "gray", "gray"), ("B", "red", "red")])
+        worse_on_b = evaluated([("A", "white", "white"), ("A", "gray", "gray"), ("B", "red", "blue")])
+        self.assertTrue(decide(better, base, 0.05)["promote"])
+        self.assertFalse(decide(worse_on_b, base, 0.05)["promote"])
+        manifest = {"samples": [
+            {"split": "test", "file": "test/white/a.jpg", "label": "white"},
+            {"split": "train", "file": "train/white/b.jpg", "label": "white"},
+            {"split": "test", "file": None, "label": "no_determinable"},
+        ]}
+        self.assertEqual(len(test_samples(manifest)), 1)

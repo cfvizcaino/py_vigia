@@ -10,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from ..auth import Principal, audit, require_admin, require_operator
 from ..db import get_db
-from ..models import Detection, Device
-from ..schemas import DetectionCreate, DetectionRead, DetectionUpdate
+from ..dataset import AnnotationError, delete_annotation, save_annotation
+from ..models import Detection, Device, TrainingAnnotation
+from ..schemas import AnnotationRead, AnnotationWrite, DetectionCreate, DetectionRead, DetectionUpdate
 from ..thumbnails import is_expired, thumbnail_store
 
 router = APIRouter(prefix="/api/v1/detections", tags=["detections"], dependencies=[Depends(require_operator)])
@@ -59,6 +60,57 @@ def get_thumbnail(
     audit(db, principal, "thumbnail.viewed", detail={"detection": str(detection_id)})
     db.commit()
     return Response(content=data, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+
+
+def _annotation_read(row: TrainingAnnotation) -> AnnotationRead:
+    return AnnotationRead(task=row.task, label=row.label, predicted=row.predicted, updated_at=row.updated_at)
+
+
+@router.get("/{detection_id}/annotations", response_model=list[AnnotationRead])
+def list_annotations(
+    detection_id: uuid.UUID, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)
+) -> list[AnnotationRead]:
+    """Etiquetas de aprendizaje ya guardadas para este recorte (fase 4). Solo admin."""
+    rows = db.scalars(select(TrainingAnnotation).where(TrainingAnnotation.detection_id == detection_id))
+    return [_annotation_read(row) for row in rows]
+
+
+@router.put("/{detection_id}/annotations/{task}", response_model=AnnotationRead)
+def put_annotation(
+    detection_id: uuid.UUID,
+    task: str,
+    body: AnnotationWrite,
+    principal: Principal = Depends(require_admin),
+    db: Session = Depends(get_db),
+) -> AnnotationRead:
+    """Un admin etiqueta el recorte para entrenar: color (o no_determinable) o placa (o ilegible/sin_placa).
+
+    Copia el recorte al almacén de aprendizaje antes de que venza. La auditoría no guarda el
+    texto de la placa (dato personal), solo la tarea y si corrigió la predicción.
+    """
+    detection = db.get(Detection, detection_id)
+    if detection is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Detection not found")
+    try:
+        row = save_annotation(db, detection, task, body.label, principal.user.id)
+    except AnnotationError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    detail = {"detection": str(detection_id), "task": task, "corrected": row.predicted != row.label}
+    if task == "color":
+        detail["label"] = row.label
+    audit(db, principal, "annotation.saved", detail=detail)
+    db.commit()
+    return _annotation_read(row)
+
+
+@router.delete("/{detection_id}/annotations/{task}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_annotation(
+    detection_id: uuid.UUID, task: str, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)
+) -> None:
+    if delete_annotation(db, detection_id, task):
+        audit(db, principal, "annotation.deleted", detail={"detection": str(detection_id), "task": task})
+    db.commit()
 
 
 @router.post("", response_model=DetectionRead, status_code=status.HTTP_201_CREATED)

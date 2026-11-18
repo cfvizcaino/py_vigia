@@ -32,14 +32,23 @@ class ThumbnailStore(Protocol):
 
     def purge(self, older_than: datetime) -> None: ...
 
+    def delete(self, key: str) -> None: ...
+
 
 class AzureBlobStore:
     """Contenedor privado de Azure Blob; la regla de ciclo de vida borra a los 7 días."""
 
-    def __init__(self, connection_string: str, container: str) -> None:
+    def __init__(self, connection_string: str, container: str, *, create: bool = False) -> None:
         from azure.storage.blob import BlobServiceClient  # Only loaded when thumbnails are on.
 
         self._container = BlobServiceClient.from_connection_string(connection_string).get_container_client(container)
+        if create:
+            from azure.core.exceptions import ResourceExistsError
+
+            try:
+                self._container.create_container()
+            except ResourceExistsError:
+                pass
 
     def put(self, key: str, data: bytes) -> None:
         from azure.storage.blob import ContentSettings
@@ -58,6 +67,14 @@ class AzureBlobStore:
         # The container's lifecycle rule deletes blobs; listing them here every hour would
         # cost one request per recorte.
         pass
+
+    def delete(self, key: str) -> None:
+        from azure.core.exceptions import ResourceNotFoundError
+
+        try:
+            self._container.delete_blob(key)
+        except ResourceNotFoundError:
+            pass
 
 
 class DirectoryStore:
@@ -83,6 +100,9 @@ class DirectoryStore:
         for path in self.root.rglob("*.jpg"):
             if path.stat().st_mtime < cutoff:
                 path.unlink(missing_ok=True)
+
+    def delete(self, key: str) -> None:
+        self._path(key).unlink(missing_ok=True)
 
 
 @lru_cache(maxsize=1)
