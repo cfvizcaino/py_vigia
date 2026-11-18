@@ -10,7 +10,13 @@
 - [Descargar la app para Android](https://vigia-5dfe.mexicocentral.cloudapp.azure.com/app)
 - [Configurar un teléfono como cámara de la red](./docs/operations/phone-edges.md)
 
-<!-- CAPTURAS -->
+![Sitio público de VIGÍA: «De observaciones aisladas a recorridos posibles»](./docs/img/web-inicio.webp)
+
+| Red de cámaras en el mapa | Rutas candidatas y su explicación | Cámaras y su estado |
+|---|---|---|
+| ![Consola: resumen con las cámaras del piloto y el radio de búsqueda sobre Barranquilla](./docs/img/web-resumen.webp) | ![Consola: dos rutas candidatas para un automóvil blanco, con puntaje, pasos y la ruta sobre las calles](./docs/img/web-rutas.webp) | ![Consola: red de cámaras con su tipo y estado, la cámara seleccionada y el mapa](./docs/img/web-camaras.webp) |
+
+<sub>Capturas de la demo pública (datos de ejemplo), 18/11/2026.</sub>
 
 ## El problema
 
