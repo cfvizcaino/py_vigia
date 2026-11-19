@@ -1,6 +1,6 @@
 import { getBatteryLevelAsync } from 'expo-battery';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, VisionCamera, useCameraDevice } from 'react-native-vision-camera';
 
@@ -11,10 +11,12 @@ import { Card, SecondaryButton, StatusPill } from '../components/ui';
 import { EdgeEngine } from '../edge/engine';
 import { Heartbeat } from '../edge/heartbeat';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
+import { createUnauthorizedHandler } from '../edge/unauthorized';
 import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
 import type { ColorGate, PlateGate, PlateOcrConfig, ThumbnailGate } from '../native/FrameProcessor';
 import { createThumbnailEncoder } from '../native/thumbnail';
+import { secureStorage } from '../storage/secure';
 import type { EdgeConfiguration } from '../edge/config';
 import type { EdgeStats } from '../edge/engine';
 import type { LoadedModel } from '../edge/model';
@@ -27,11 +29,12 @@ import type { UpdateLevel } from '../update/release';
 
 const keepAwakeTag = 'vigia-edge-camera';
 
-export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
+export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized }: {
   config: EdgeConfiguration;
   fps: number;
   extraRotation: number;
   onStop: () => void;
+  onUnauthorized: () => void;
 }) {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [models, setModels] = useState<{
@@ -47,11 +50,28 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
   const engineRef = useRef<EdgeEngine | null>(null);
   // Tells the centre whether this phone is detecting, in the background or stopped.
   const heartbeatRef = useRef<Heartbeat | null>(null);
+  const unauthorizedHandlerRef = useRef<(() => void) | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
   const plateGatesRef = useRef<(gates: PlateGate[]) => void>(() => undefined);
   const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
   const device = useCameraDevice('back');
   const { available: updateLevel, showUpdate } = useAppUpdate();
+
+  const handleUnauthorized = useCallback(() => {
+    if (!unauthorizedHandlerRef.current) {
+      unauthorizedHandlerRef.current = createUnauthorizedHandler({
+        stopHeartbeat: () => heartbeatRef.current?.invalidate(),
+        stopRuntime: () => engineRef.current?.stop() ?? Promise.resolve(),
+        clearToken: secureStorage.clearEdgeToken,
+        onUnauthorized,
+        onCleanupError: (operation, reason) => {
+          if (operation === 'token') console.error('No fue posible borrar el token Edge revocado.', reason);
+          else console.error('No fue posible detener Edge después de un token revocado.', reason);
+        },
+      });
+    }
+    unauthorizedHandlerRef.current();
+  }, [onUnauthorized]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +89,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
           storage: new ExpoOutboxStorage(config.cameraId),
           serverUrl: config.serverUrl,
           token: config.token,
+          onUnauthorized: () => { void handleUnauthorized(); },
         });
         engineRef.current = new EdgeEngine(
           config,
@@ -99,6 +120,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
             };
           },
           readBattery: getBatteryLevelAsync,
+          onUnauthorized: () => { void handleUnauthorized(); },
         });
         setModels({ detector, color, plates });
       } catch (reason) {
@@ -120,7 +142,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop }: {
         console.error('No fue posible cerrar la sesión Edge.', reason);
       });
     };
-  }, [config]);
+  }, [config, handleUnauthorized]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => setForeground(state === 'active'));

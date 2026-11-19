@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
 import { Icon } from '../components/Icon';
@@ -99,6 +99,13 @@ export function EdgeModeScreen() {
     }
   };
 
+  const handleUnauthorized = useCallback(() => {
+    setRuntimeConfig(null);
+    setHasToken(false);
+    setToken('');
+    setError('Este nodo fue eliminado o su token fue revocado. Pide a un administrador un token nuevo.');
+  }, []);
+
   if (runtimeConfig) {
     return (
       <Screen back={() => setRuntimeConfig(null)} title={'Edge\nautónomo'}>
@@ -108,6 +115,7 @@ export function EdgeModeScreen() {
           fps={Number(fps)}
           extraRotation={Number(rotation)}
           onStop={() => setRuntimeConfig(null)}
+          onUnauthorized={handleUnauthorized}
         />
         <Card title="Ajustes" icon="ms_speed">
           <ChoiceRow label="Frecuencia de análisis" choices={fpsOptions} value={fps} onChange={setFps} grow />

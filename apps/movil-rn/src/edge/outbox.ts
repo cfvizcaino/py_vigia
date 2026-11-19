@@ -121,6 +121,7 @@ export class Outbox {
       maxThumbnailBacklog?: number;
       random?: () => number;
       now?: () => number;
+      onUnauthorized?: () => void;
     },
   ) {}
 
@@ -251,6 +252,12 @@ export class Outbox {
       const isThumbnail = item.kind === 'thumbnail';
       try {
         const response = await this.post(item, isThumbnail);
+        if (response.status === 401) {
+          this.lastError = 'HTTP_401';
+          this.running = false;
+          this.options.onUnauthorized?.();
+          continue;
+        }
         if (isThumbnail && isSuccess(response.status)) {
           await file.remove();
           this.thumbnails++;

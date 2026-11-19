@@ -251,6 +251,10 @@ export class VigiaApiClient {
     }));
   }
 
+  async deleteDevice(deviceId: string): Promise<void> {
+    await this.request(`/api/v1/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+  }
+
   async recentDetections(deviceId: string, limit = 20): Promise<DeviceDetection[]> {
     return listOf(await this.request('/api/v1/detections', {
       query: { device_id: deviceId, limit: String(limit) },

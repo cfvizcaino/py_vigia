@@ -31,6 +31,7 @@ export interface HeartbeatOptions {
   fetcher?: typeof fetch;
   intervalMs?: number;
   timeoutMs?: number;
+  onUnauthorized?: () => void;
 }
 
 export const heartbeatIntervalMs = 30_000;
@@ -61,6 +62,11 @@ export class Heartbeat {
   /** The operator stopped the edge (or left its screen). */
   stop(): Promise<boolean> {
     return this.finish('stopped');
+  }
+
+  invalidate(): void {
+    this.clear();
+    this.state = 'stopped';
   }
 
   private finish(state: HeartbeatState): Promise<boolean> {
@@ -107,6 +113,11 @@ export class Heartbeat {
         },
         body: JSON.stringify(body),
       });
+      if (response.status === 401) {
+        this.invalidate();
+        this.options.onUnauthorized?.();
+        return false;
+      }
       return response.ok;
     } catch {
       // No network: the outbox already reports it on screen; the next beat tries again.

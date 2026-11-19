@@ -43,6 +43,7 @@ interface SessionContextValue {
   clearDetectionConfirmation(queryId: string, detectionId: string): Promise<QueryResult>;
   createEdge(input: { cameraId: string; name: string; lat: number; lng: number; cameraModel?: string }): Promise<Device>;
   relocateEdge(deviceId: string, lat: number, lng: number): Promise<Device>;
+  deleteDevice(deviceId: string): Promise<void>;
   recentDetections(deviceId: string): Promise<DeviceDetection[]>;
   issueCredential(cameraId: string, days?: number): Promise<IssuedCredential>;
   listCredentials(): Promise<EdgeCredential[]>;
@@ -247,6 +248,34 @@ export function SessionProvider({ children }: PropsWithChildren) {
     return updated;
   }, [api, requireAdmin]);
 
+  const refreshDevices = useCallback(async () => {
+    setDevices(await api.getDevices());
+  }, [api]);
+
+  const deleteDevice = useCallback(async (deviceId: string) => {
+    requireAdmin();
+    try {
+      await api.deleteDevice(deviceId);
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.statusCode === 404) {
+        setDevices((items) => items.filter((device) => device.id !== deviceId));
+        try {
+          await refreshDevices();
+        } catch (refreshError) {
+          setError(refreshError instanceof ApiError ? refreshError.message : 'No fue posible actualizar la lista de cámaras.');
+        }
+      }
+      throw reason;
+    }
+
+    setDevices((items) => items.filter((device) => device.id !== deviceId));
+    try {
+      await refreshDevices();
+    } catch (refreshError) {
+      setError(refreshError instanceof ApiError ? refreshError.message : 'No fue posible actualizar la lista de cámaras.');
+    }
+  }, [api, refreshDevices, requireAdmin]);
+
   // Every operator sees a camera's recent detections, as in Flutter; the backend enforces roles.
   const recentDetections = useCallback(async (deviceId: string) => {
     if (isDemo) return [];
@@ -275,7 +304,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     exportResult,
     confirmDetection: (queryId, detectionId, verdict) => updateConfirmation(queryId, detectionId, verdict),
     clearDetectionConfirmation: (queryId, detectionId) => updateConfirmation(queryId, detectionId, null),
-    createEdge, relocateEdge, recentDetections, issueCredential, listCredentials, revokeCredential,
+    createEdge, relocateEdge, deleteDevice, recentDetections, issueCredential, listCredentials, revokeCredential,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
