@@ -129,9 +129,9 @@ describe('outbox persistente', () => {
     expect(await outbox.getStatus()).toMatchObject({ pending: 0, rejected: 1, lastError: 'REJECTED_400' });
   });
 
-  test('un 401 detiene los reintentos y conserva el evento pendiente', async () => {
+  test.each([401, 403])('un %i detiene los reintentos y conserva el evento pendiente', async (status) => {
     const storage = new MemoryOutboxStorage();
-    const fetcher = jest.fn(async () => new Response(null, { status: 401 }));
+    const fetcher = jest.fn(async () => new Response(null, { status }));
     const onUnauthorized = jest.fn();
     const outbox = new Outbox({
       storage,
@@ -148,7 +148,8 @@ describe('outbox persistente', () => {
 
     expect(fetcher).toHaveBeenCalledTimes(1);
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
-    expect(await outbox.getStatus()).toMatchObject({ pending: 1, lastError: 'HTTP_401' });
+    expect(onUnauthorized).toHaveBeenCalledWith(status);
+    expect(await outbox.getStatus()).toMatchObject({ pending: 1, lastError: `HTTP_${status}` });
     expect(storage.rejected.size).toBe(0);
   });
 

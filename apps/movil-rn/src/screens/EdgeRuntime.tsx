@@ -12,6 +12,7 @@ import { EdgeEngine } from '../edge/engine';
 import { Heartbeat } from '../edge/heartbeat';
 import { ExpoOutboxStorage, Outbox } from '../edge/outbox';
 import { createUnauthorizedHandler } from '../edge/unauthorized';
+import type { RejectedStatus } from '../edge/unauthorized';
 import { loadColorModel, loadPlateModel, loadPlateOcrModel, loadVehicleModel } from '../edge/model';
 import { useVehicleFrameOutput } from '../native/FrameProcessor';
 import type { ColorGate, PlateGate, PlateOcrConfig, ThumbnailGate } from '../native/FrameProcessor';
@@ -34,7 +35,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized
   fps: number;
   extraRotation: number;
   onStop: () => void;
-  onUnauthorized: () => void;
+  onUnauthorized: (status: RejectedStatus) => void;
 }) {
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [models, setModels] = useState<{
@@ -50,14 +51,14 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized
   const engineRef = useRef<EdgeEngine | null>(null);
   // Tells the centre whether this phone is detecting, in the background or stopped.
   const heartbeatRef = useRef<Heartbeat | null>(null);
-  const unauthorizedHandlerRef = useRef<(() => void) | null>(null);
+  const unauthorizedHandlerRef = useRef<((status: RejectedStatus) => void) | null>(null);
   const gatesRef = useRef<(gates: ThumbnailGate[] | null) => void>(() => undefined);
   const plateGatesRef = useRef<(gates: PlateGate[]) => void>(() => undefined);
   const colorGatesRef = useRef<(gates: ColorGate[]) => void>(() => undefined);
   const device = useCameraDevice('back');
   const { available: updateLevel, showUpdate } = useAppUpdate();
 
-  const handleUnauthorized = useCallback(() => {
+  const handleUnauthorized = useCallback((status: RejectedStatus) => {
     if (!unauthorizedHandlerRef.current) {
       unauthorizedHandlerRef.current = createUnauthorizedHandler({
         stopHeartbeat: () => heartbeatRef.current?.invalidate(),
@@ -66,11 +67,11 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized
         onUnauthorized,
         onCleanupError: (operation, reason) => {
           if (operation === 'token') console.error('No fue posible borrar el token Edge revocado.', reason);
-          else console.error('No fue posible detener Edge después de un token revocado.', reason);
+          else console.error('No fue posible detener Edge después de un token rechazado.', reason);
         },
       });
     }
-    unauthorizedHandlerRef.current();
+    unauthorizedHandlerRef.current(status);
   }, [onUnauthorized]);
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized
           storage: new ExpoOutboxStorage(config.cameraId),
           serverUrl: config.serverUrl,
           token: config.token,
-          onUnauthorized: () => { void handleUnauthorized(); },
+          onUnauthorized: handleUnauthorized,
         });
         engineRef.current = new EdgeEngine(
           config,
@@ -120,7 +121,7 @@ export function EdgeRuntime({ config, fps, extraRotation, onStop, onUnauthorized
             };
           },
           readBattery: getBatteryLevelAsync,
-          onUnauthorized: () => { void handleUnauthorized(); },
+          onUnauthorized: handleUnauthorized,
         });
         setModels({ detector, color, plates });
       } catch (reason) {

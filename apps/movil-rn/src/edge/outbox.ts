@@ -1,6 +1,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import type { DetectionEnvelope } from './envelope';
+import type { RejectedStatus } from './unauthorized';
 
 export const eventRejectedCodes = new Set([400, 409, 413, 422]);
 export const thumbnailDroppedCodes = new Set([400, 404, 409, 413, 415, 422]);
@@ -121,7 +122,7 @@ export class Outbox {
       maxThumbnailBacklog?: number;
       random?: () => number;
       now?: () => number;
-      onUnauthorized?: () => void;
+      onUnauthorized?: (status: RejectedStatus) => void;
     },
   ) {}
 
@@ -252,10 +253,11 @@ export class Outbox {
       const isThumbnail = item.kind === 'thumbnail';
       try {
         const response = await this.post(item, isThumbnail);
-        if (response.status === 401) {
-          this.lastError = 'HTTP_401';
+        // The centre rejected this node's credential: retrying cannot succeed, so stop and keep the queue.
+        if (response.status === 401 || response.status === 403) {
+          this.lastError = `HTTP_${response.status}`;
           this.running = false;
-          this.options.onUnauthorized?.();
+          this.options.onUnauthorized?.(response.status);
           continue;
         }
         if (isThumbnail && isSuccess(response.status)) {

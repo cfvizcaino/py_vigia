@@ -11,7 +11,7 @@ import { useSession } from '../state/session';
 import { colors, gradients } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
 import { bogotaDateTime, parseApiDate } from '../time/bogota';
-import type { DeviceDetection, EdgeCredential } from '../types/models';
+import type { Device, DeviceDetection, EdgeCredential } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CameraDetail'>;
@@ -22,7 +22,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CameraDetail'>;
  */
 export function CameraDetailScreen({ navigation, route }: Props) {
   const { devices, user, isDemo, recentDetections, listCredentials, issueCredential, revokeCredential, deleteDevice } = useSession();
-  const device = devices.find((item) => item.id === route.params.deviceId);
+  // While deleting, the session drops the camera from the list before we go back:
+  // keep showing it so the screen does not flash «La cámara ya no está en la lista».
+  const [deleting, setDeleting] = useState<Device | null>(null);
+  const device = devices.find((item) => item.id === route.params.deviceId) ?? deleting ?? undefined;
   const isAdmin = user?.role === 'admin' && !isDemo;
   const [detections, setDetections] = useState<DeviceDetection[] | null>(null);
   const [detectionsError, setDetectionsError] = useState<string | null>(null);
@@ -114,6 +117,7 @@ export function CameraDetailScreen({ navigation, route }: Props) {
     setConfirmingDelete(false);
     setBusy(true);
     setError(null);
+    setDeleting(device);
     try {
       await deleteDevice(device.id);
       Alert.alert('Nodo eliminado');
@@ -122,10 +126,11 @@ export function CameraDetailScreen({ navigation, route }: Props) {
       if (reason instanceof ApiError && reason.statusCode === 404) {
         Alert.alert('Este nodo ya no existe');
         navigation.goBack();
-      } else if (reason instanceof ApiError && reason.statusCode === 403) {
-        setError('Solo un administrador puede eliminar nodos');
       } else {
-        setError(reason instanceof ApiError ? reason.message : 'No fue posible eliminar el nodo. Revisa la conexión e inténtalo de nuevo.');
+        setDeleting(null);
+        setError(reason instanceof ApiError && reason.statusCode === 403
+          ? 'Solo un administrador puede eliminar nodos'
+          : reason instanceof ApiError ? reason.message : 'No fue posible eliminar el nodo. Revisa la conexión e inténtalo de nuevo.');
       }
     } finally {
       setBusy(false);

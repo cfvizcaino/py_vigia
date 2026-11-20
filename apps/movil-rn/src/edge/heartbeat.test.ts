@@ -86,8 +86,20 @@ describe('latido del edge', () => {
     await flush();
     expect(heartbeat.beating).toBe(false);
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).toHaveBeenCalledWith(401);
     jest.advanceTimersByTime(5000);
     await flush();
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  test('un 403 (token de otra cámara) también detiene el heartbeat', async () => {
+    const fetcher = jest.fn(async () => new Response(null, { status: 403 }));
+    const onUnauthorized = jest.fn();
+    const { heartbeat } = setup({ fetcher, onUnauthorized });
+
+    heartbeat.running();
+    await flush();
+    expect(heartbeat.beating).toBe(false);
+    expect(onUnauthorized).toHaveBeenCalledWith(403);
   });
 });

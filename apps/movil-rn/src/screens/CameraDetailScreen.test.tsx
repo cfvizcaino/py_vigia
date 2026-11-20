@@ -80,6 +80,32 @@ describe('eliminación de nodos desde el detalle', () => {
     expect(alert.mock.calls.length).toBe(1);
   });
 
+  it('no muestra «La cámara ya no está en la lista» mientras regresa tras eliminar', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    let devices = [device];
+    let finishDelete: (() => void) | undefined;
+    const navigation = { goBack: jest.fn(), navigate: jest.fn() };
+    jest.mocked(useSession).mockImplementation(() => ({
+      devices,
+      user: { id: 'user-1', email: 'user@example.org', display_name: 'Usuario', role: 'admin' },
+      isDemo: false,
+      recentDetections: jest.fn(async () => []),
+      listCredentials: jest.fn(async () => []),
+      // Like the session: the camera leaves the list before the request settles.
+      deleteDevice: jest.fn(() => new Promise<void>((resolve) => { devices = []; finishDelete = resolve; })),
+    }) as unknown as ReturnType<typeof useSession>);
+    const element = <CameraDetailScreen navigation={navigation as never} route={{ params: { deviceId: device.id } } as never}/>;
+    const screen = await render(element);
+    await fireEvent.press(screen.getByRole('button', { name: 'Eliminar nodo' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Eliminar' }));
+    await screen.rerender(element);
+
+    expect(screen.queryByText('La cámara ya no está en la lista.')).toBeNull();
+    expect(screen.getByText('Cámara de prueba')).toBeTruthy();
+    finishDelete?.();
+    await waitFor(() => expect(navigation.goBack).toHaveBeenCalledTimes(1));
+  });
+
   it('desactiva la acción mientras la eliminación está en curso', async () => {
     let finishDelete: (() => void) | undefined;
     const pending = new Promise<void>((resolve) => { finishDelete = resolve; });

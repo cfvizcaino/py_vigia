@@ -9,6 +9,8 @@
  * Un latido perdido no se reintenta ni se encola: el siguiente lo reemplaza.
  */
 
+import type { RejectedStatus } from './unauthorized';
+
 export type HeartbeatState = 'running' | 'paused' | 'stopped';
 
 export interface HeartbeatReading {
@@ -31,7 +33,8 @@ export interface HeartbeatOptions {
   fetcher?: typeof fetch;
   intervalMs?: number;
   timeoutMs?: number;
-  onUnauthorized?: () => void;
+  /** 401: token revoked, expired or node deleted. 403: the token belongs to another camera. */
+  onUnauthorized?: (status: RejectedStatus) => void;
 }
 
 export const heartbeatIntervalMs = 30_000;
@@ -113,9 +116,9 @@ export class Heartbeat {
         },
         body: JSON.stringify(body),
       });
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         this.invalidate();
-        this.options.onUnauthorized?.();
+        this.options.onUnauthorized?.(response.status);
         return false;
       }
       return response.ok;
