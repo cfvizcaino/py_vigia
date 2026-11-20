@@ -57,7 +57,7 @@ def maybe_purge_raw_events(db: Session) -> None:
 def ingest_detection_envelope(db: Session, payload: DetectionEnvelopeV11) -> IngestionResult:
     """Inserta un evento una vez y actualiza tracks repetidos sin duplicarlos."""
     maybe_purge_raw_events(db)
-    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
+    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id, Device.deleted_at.is_(None)))
     if device is None:
         raise DeviceNotFoundError(f"Unknown cameraId: {payload.camera_id}")
 

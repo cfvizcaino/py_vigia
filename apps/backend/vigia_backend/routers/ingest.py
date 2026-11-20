@@ -90,7 +90,7 @@ def ingest_heartbeat(
     No se audita cada latido; solo los rechazos, como en los sobres.
     """
     _check_device(db, x_vigia_device_token, payload.camera_id)
-    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id))
+    device = db.scalar(select(Device).where(Device.external_id == payload.camera_id, Device.deleted_at.is_(None)))
     if device is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown camera")
     device.last_heartbeat_at = utc_now()

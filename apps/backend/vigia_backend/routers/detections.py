@@ -116,7 +116,7 @@ def remove_annotation(
 @router.post("", response_model=DetectionRead, status_code=status.HTTP_201_CREATED)
 def create_detection(payload: DetectionCreate, principal: Principal = Depends(require_admin), db: Session = Depends(get_db)) -> Detection:
     device = db.get(Device, payload.device_id)
-    if device is None:
+    if device is None or device.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
 
     detection = Detection(**payload.model_dump())

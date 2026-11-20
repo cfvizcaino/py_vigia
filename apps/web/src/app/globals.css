@@ -574,6 +574,16 @@ button.admin-pill.ok:hover:not(:disabled) { background: #b294fa; }
 .revoke-confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: calc(16 * var(--u)) calc(32 * var(--u)); margin-top: calc(20 * var(--u)); font-size: calc(22 * var(--u)); font-weight: 300; }
 .revoke-confirm span { margin-right: auto; }
 .admin-pill:disabled { opacity: .5; }
+/* Edge nodes: same rows as the credentials; deleting is the only destructive action */
+.nodes-card { padding: calc(31 * var(--u)) calc(29 * var(--u)) calc(25 * var(--u)) calc(32 * var(--u)); }
+.node-list .credential-dates { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 300; }
+.admin-pill.outline.danger { border-color: var(--danger); color: var(--danger); }
+button.admin-pill.outline.danger:hover:not(:disabled) { background: rgba(255, 143, 143, .14); }
+.admin-pill.danger-solid { background: var(--danger); color: var(--on-light); }
+button.admin-pill.danger-solid:hover:not(:disabled) { background: #ffb0b0; }
+.revoke-confirm b { font-weight: 500; }
+.admin-notice { margin: calc(20 * var(--u)) 0 0; font-size: calc(22 * var(--u)); font-weight: 300; color: var(--violet-soft); }
+.admin-notice:empty { margin: 0; }
 
 
 /* ───────────── Smaller screens: the same pieces, stacked ───────────── */
@@ -643,7 +653,8 @@ button.admin-pill.ok:hover:not(:disabled) { background: #b294fa; }
   .admin-grid { gap: 14px; }
   .admin-card { border-radius: 24px; }
   .admin-card h2 { font-size: 22px; }
-  .audit-card, .credentials-card { padding: 20px 16px; }
+  .audit-card, .credentials-card, .nodes-card { padding: 20px 16px; }
+  .admin-notice { margin-top: 10px; font-size: 14px; }
   .audit-filters { flex-wrap: nowrap; gap: 8px; margin: 14px -16px 0; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none; }
   .audit-filters button { min-width: 0; height: 36px; font-size: 14px; }
   .audit-filters button:first-child { min-width: 0; }

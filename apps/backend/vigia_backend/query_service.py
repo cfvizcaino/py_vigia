@@ -46,7 +46,7 @@ class QueryExecution:
 
 def find_nearby_devices(db: Session, lat: float, lng: float, radius_m: float) -> list[NearbyDevice]:
     nearby: list[NearbyDevice] = []
-    for device in db.scalars(select(Device)).all():
+    for device in db.scalars(select(Device).where(Device.deleted_at.is_(None))).all():
         distance = haversine_m(lat, lng, device.lat, device.lng)
         if distance <= radius_m:
             nearby.append(NearbyDevice(device=device, distance_m=distance))

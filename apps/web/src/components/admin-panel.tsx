@@ -35,6 +35,7 @@ const ACTIONS: Record<string, string> = {
   "device.created": "Cámara registrada",
   "device.updated": "Cámara editada",
   "device.deleted": "Cámara eliminada",
+  "device.restored": "Cámara restaurada",
   "detection.created": "Detección creada",
   "detection.updated": "Detección corregida",
   "detection.deleted": "Detección eliminada",
@@ -71,6 +72,7 @@ function describe(entry: AuditEntry) {
     case "query.executed": return `Consulta ${shortId(text("query"))} · ${detail.routes ?? 0} rutas · ${detail.detections ?? 0} detecciones`;
     case "query.exported": return `Consulta ${shortId(text("query"))} · ${detail.routes ?? 0} rutas`;
     case "preview.accessed": return `${text("camera")} · ${detail.kind === "stream" ? "transmisión" : "imagen"}`;
+    case "device.deleted": return typeof detail.tokens_revoked === "number" && detail.tokens_revoked > 0 ? `${text("camera")} · ${detail.tokens_revoked} token${detail.tokens_revoked === 1 ? "" : "s"} revocado${detail.tokens_revoked === 1 ? "" : "s"}` : text("camera");
     case "device.updated": return `${text("camera")} · ${Array.isArray(detail.fields) ? detail.fields.join(", ") : ""}`;
     case "authz.denied": return Array.isArray(detail.required) && detail.required.includes("admin") ? "Requiere rol de administración" : "Rol insuficiente";
     case "user.created": return detail.role === "admin" ? "Rol: administración" : "Rol: operación";
@@ -94,14 +96,17 @@ async function readJson<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-export function AdminPanel({ cameras }: { cameras: Device[] }) {
+export function AdminPanel({ cameras, onDeviceDeleted }: { cameras: Device[]; onDeviceDeleted: (id: string) => void }) {
+  // Eliminar un nodo revoca sus tokens y deja un registro: las otras tarjetas se recargan.
+  const [version, setVersion] = useState(0);
   return <section className="admin-grid" aria-label="Administración">
-    <AuditPanel/>
-    <CredentialsPanel cameras={cameras}/>
+    <AuditPanel version={version}/>
+    <CredentialsPanel cameras={cameras} version={version}/>
+    <NodesPanel cameras={cameras} onDeleted={(id) => { onDeviceDeleted(id); setVersion((value) => value + 1); }}/>
   </section>;
 }
 
-function AuditPanel() {
+function AuditPanel({ version }: { version: number }) {
   const [category, setCategory] = useState("");
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -135,7 +140,7 @@ function AuditPanel() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load(false);
     return () => request.current?.abort();
-  }, [load]);
+  }, [load, version]);
 
   return <article className="admin-card audit-card" aria-busy={loading} aria-labelledby="audit-title">
     <h2 id="audit-title">Auditoría de uso</h2>
@@ -228,7 +233,7 @@ function ScrollTrack({ target, watch }: { target: React.RefObject<HTMLDivElement
   </div>;
 }
 
-function CredentialsPanel({ cameras }: { cameras: Device[] }) {
+function CredentialsPanel({ cameras, version }: { cameras: Device[]; version: number }) {
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [camera, setCamera] = useState(cameras[0]?.external_id ?? "");
   const [days, setDays] = useState(90);
@@ -237,7 +242,8 @@ function CredentialsPanel({ cameras }: { cameras: Device[] }) {
   const [issued, setIssued] = useState<Issued | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState("");
-  const selectedCamera = camera || cameras[0]?.external_id || "";
+  // Si la cámara elegida se eliminó, el selector vuelve a la primera que queda.
+  const selectedCamera = cameras.some((item) => item.external_id === camera) ? camera : cameras[0]?.external_id ?? "";
 
   const refresh = useCallback(async () => {
     try {
@@ -250,7 +256,7 @@ function CredentialsPanel({ cameras }: { cameras: Device[] }) {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
-  }, [refresh]);
+  }, [refresh, version]);
 
   async function issue(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -329,5 +335,48 @@ function CredentialsPanel({ cameras }: { cameras: Device[] }) {
       </li>;
     })}</ul>
     {!credentials.length && !error && <p className="admin-empty">Sin credenciales. Emite una para que el nodo edge pueda publicar detecciones.</p>}
+  </article>;
+}
+
+function NodesPanel({ cameras, onDeleted }: { cameras: Device[]; onDeleted: (id: string) => void }) {
+  const [confirming, setConfirming] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function remove(camera: Device) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/devices/${camera.id}`, { method: "DELETE" });
+      // 404: otra persona ya lo eliminó; para esta consola el resultado es el mismo.
+      if (response.status !== 204 && response.status !== 404) await readJson(response);
+      setConfirming("");
+      onDeleted(camera.id);
+      setNotice(response.status === 404 ? `El nodo ${camera.external_id} ya no existía.` : `Nodo ${camera.external_id} eliminado. Sus tokens quedaron revocados y su historial se conserva.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "No fue posible eliminar el nodo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <article className="admin-card nodes-card" aria-labelledby="nodes-title">
+    <h2 id="nodes-title">Nodos edge</h2>
+    {error && <p className="error-message admin-message" role="alert">{error}</p>}
+    <p className="admin-notice" role="status" aria-live="polite">{notice}</p>
+    <ul className="credential-list node-list">{cameras.map((camera) => <li key={camera.id}>
+      <b className="credential-camera">{camera.external_id}</b>
+      <span className="credential-dates">{camera.name}{camera.camera_model ? ` · ${camera.camera_model}` : ""}</span>
+      <span className="admin-pill wide warn">{camera.kind === "simulated" ? "Simulado" : "Físico"}</span>
+      {confirming !== camera.id && <button className="admin-pill wide outline danger" onClick={() => { setConfirming(camera.id); setNotice(""); }} disabled={busy} aria-label={`Eliminar nodo ${camera.external_id}`}>Eliminar</button>}
+      {confirming === camera.id && <div className="revoke-confirm" role="alertdialog" aria-label={`Confirmar eliminación de ${camera.external_id}`}>
+        <span><b>¿Estás seguro de eliminar este nodo?</b> {camera.external_id} dejará de enviar datos y sus tokens quedarán revocados. El historial de detecciones se conserva.</span>
+        <button className="admin-pill wide outline" onClick={() => setConfirming("")} disabled={busy} autoFocus>Cancelar</button>
+        <button className="admin-pill wide danger-solid" onClick={() => remove(camera)} disabled={busy}>{busy ? <><span className="spinner"/>Eliminando…</> : "Eliminar"}</button>
+      </div>}
+    </li>)}</ul>
+    {!cameras.length && <p className="admin-empty">No hay nodos registrados.</p>}
   </article>;
 }

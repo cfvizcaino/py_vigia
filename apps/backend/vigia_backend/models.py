@@ -67,6 +67,10 @@ class Device(Base):
     runtime_state: Mapped[str | None] = mapped_column(String(16), nullable=True)
     node_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     runtime_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Borrado lógico: el nodo deja de existir para la operación, pero sus detecciones quedan
+    # como evidencia de las rutas ya consultadas. Sus tokens se revocan al eliminarlo.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     detections: Mapped[list["Detection"]] = relationship(
         back_populates="device", cascade="all, delete-orphan"

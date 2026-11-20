@@ -92,8 +92,9 @@ class DevicesDetectionsCrudTests(unittest.TestCase):
 
         deleted = self.client.delete(f"/api/v1/devices/{device_id}")
         self.assertEqual(deleted.status_code, 204)
-        # CASCADE: al borrar el dispositivo desaparecen sus detecciones.
-        self.assertEqual(self.client.get("/api/v1/detections").json(), [])
+        # Borrado lógico: el nodo sale del listado, pero sus detecciones se conservan como evidencia.
+        self.assertEqual(self.client.get("/api/v1/devices").json(), [])
+        self.assertEqual(len(self.client.get("/api/v1/detections").json()), 1)
 
     def test_create_detection_requires_existing_device(self) -> None:
         response = self.client.post(

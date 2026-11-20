@@ -94,7 +94,7 @@ def sync_registered_device(db, device):
     url = os.getenv("ROAD_ROUTER_URL", "").strip()
     if not url:
         return None
-    others = list(db.scalars(select(Device).where(Device.id != device.id)))
+    others = list(db.scalars(select(Device).where(Device.id != device.id, Device.deleted_at.is_(None))))
     if not others:
         return {"directed_pairs": 0, "alternatives": 0, "beyond_max_link_m": []}
     with httpx.Client(base_url=url, timeout=15, trust_env=False) as client:
