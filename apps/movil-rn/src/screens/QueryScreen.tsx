@@ -150,7 +150,7 @@ export function QueryScreen({ navigation }: Props) {
           }}
         />
         {!selectedCamera ? (
-          <Text style={[type(fonts.light, 11, 15, 0), { opacity: 0.7 }]}>Mantén pulsado el mapa para mover el punto. Las cámaras dentro del radio se usan como inicio.</Text>
+          <Text style={[type(fonts.light, 11, 15, 0), { opacity: 0.7 }]}>Mantén pulsado el mapa (o ábrelo en pantalla completa y tócalo) para mover el punto. Las cámaras dentro del radio se usan como inicio.</Text>
         ) : null}
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}><Field label="Latitud" value={lat} onChangeText={setLat} keyboardType="numeric" /></View>

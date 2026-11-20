@@ -1,10 +1,12 @@
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { Reveal } from '../components/motion';
+import { RouteCarousel } from '../components/RouteCarousel';
+import { Sheet } from '../components/Sheet';
 import { RouteMap } from '../components/RouteMap';
 import { DemoBadge, ErrorMessage, Glass, PrimaryButton, SafetyBanner, Screen, SecondaryButton, formatDate, vehicleTypeName } from '../components/ui';
 import { colorNamesEs } from '../edge/colors';
@@ -20,11 +22,15 @@ type Props = BottomTabScreenProps<TabParamList, 'Results'>;
 export function ResultsScreen({ navigation }: Props) {
   const { activeResult, devices, isDemo, user, exportResult, confirmDetection, clearDetectionConfirmation, error } = useSession();
   const isAdmin = !isDemo && user?.role === 'admin';
-  // La ruta elegida se reinicia sola cuando llega otra consulta.
-  const [choice, setChoice] = useState<{ queryId: string; index: number }>({ queryId: '', index: 0 });
+  // `focused`: la ruta del centro del carrusel (la que dibuja el mapa). `opened`: la que el
+  // operador tocó; su detalle se abre en una ventana. Ambas se reinician con otra consulta.
+  const [choice, setChoice] = useState<{ queryId: string; focused: number; opened: number | null }>({ queryId: '', focused: 0, opened: null });
   const queryId = String(activeResult?.query.id ?? '');
-  const selected = choice.queryId === queryId ? choice.index : 0;
-  const setSelected = (index: number) => setChoice({ queryId, index });
+  const current = choice.queryId === queryId ? choice : { queryId, focused: 0, opened: null };
+  const selected = current.focused;
+  // Moving to another route folds the detail of the previous one.
+  const focusRoute = (index: number) => setChoice({ queryId, focused: index, opened: null });
+  const openRoute = (index: number | null) => setChoice({ queryId, focused: index ?? current.focused, opened: index });
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
@@ -97,98 +103,89 @@ export function ResultsScreen({ navigation }: Props) {
       {header}
       <RouteMap route={route} devices={activeResult.nearby_devices} height={298} />
 
-      <View style={styles.carousel}>
-        {index > 0 ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Ruta anterior" onPress={() => setSelected(index - 1)} style={[styles.sideBox, { left: 22 }]}>
-            <LinearGradient colors={gradients.routeSide} locations={[0, 0.92]} start={{ x: 1, y: 0.5 }} end={{ x: 0, y: 0.5 }} style={styles.side} />
-          </Pressable>
-        ) : null}
-        {index < routes.length - 1 ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Ruta siguiente" onPress={() => setSelected(index + 1)} style={[styles.sideBox, { right: 22 }]}>
-            <LinearGradient colors={gradients.routeSide} locations={[0, 0.92]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.side} />
-          </Pressable>
-        ) : null}
-        <LinearGradient colors={gradients.routeCard} locations={[0, 0.92]} style={styles.routeCard}>
-          <Icon name="routePin" size={28} />
-          <Text style={[type(fonts.poppins, 17.5, 21, 0), { textAlign: 'center' }]}>Ruta estimada {String(route.rank ?? index + 1)}</Text>
-          <Text style={[type(fonts.light, 10.5, 12.6), { textAlign: 'center' }]}>
-            {routeLabel(route, plate)}
-          </Text>
-          <Text style={[type(fonts.light, 10, 12), { textAlign: 'center', marginTop: 4 }]}>
-            <Text style={{ fontFamily: fonts.medium }}>{Math.round(Number(route.confidence ?? 0) * 100)}</Text>/100
-          </Text>
-        </LinearGradient>
-      </View>
-      <View style={styles.dots}>
-        {routes.map((item, dot) => (
-          <Pressable key={String(item.id ?? dot)} accessibilityRole="button" accessibilityLabel={`Ruta ${dot + 1}`} hitSlop={6} onPress={() => setSelected(dot)}>
-            <View style={dot === index ? styles.dotOn : styles.dot} />
-          </Pressable>
-        ))}
-      </View>
+      <RouteCarousel
+        cards={routes.map((item, position) => ({
+          key: String(item.id ?? position),
+          title: `Ruta estimada ${String(item.rank ?? position + 1)}`,
+          subtitle: routeLabel(item, isAdmin ? item.detections.find((detection) => detection.license_plate)?.license_plate : null),
+          score: Math.round(Number(item.confidence ?? 0) * 100),
+        }))}
+        focused={index}
+        selected={current.opened}
+        onFocus={focusRoute}
+        onSelect={openRoute}
+      />
 
-      <LinearGradient colors={gradients.routeCard} locations={[0, 0.92]} style={styles.detail}>
-        <View style={{ flexDirection: 'row', gap: 15, paddingHorizontal: 11 }}>
-          <Icon name="routePinSmall" size={24} style={{ marginTop: 4 }} />
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={type(fonts.poppins, 20, 24)}>Ruta estimada {String(route.rank ?? index + 1)}</Text>
-            <Text style={type(fonts.regular, 11, 13.2)}>{routeLabel(route, plate)} · {Math.round(Number(route.confidence ?? 0) * 100)} pts</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-              {cameras.length ? cameras.map((camera, step) => (
-                <View key={`${camera}-${step}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {step > 0 ? <Icon name="arrowForward" size={11} /> : null}
-                  <Text style={type(fonts.regular, 11, 13.2)}>{camera}</Text>
-                </View>
-              )) : <Text style={type(fonts.regular, 11, 13.2)}>Cámaras no disponibles</Text>}
+      <Text style={[type(fonts.light, 12, 16), { textAlign: 'center', opacity: 0.8 }]}>Desliza para comparar rutas y toca una para ver su detalle.</Text>
+
+      <Sheet
+        visible={current.opened === index}
+        title={`Ruta estimada ${String(route.rank ?? index + 1)}`}
+        subtitle={`${routeLabel(route, plate)} · ${Math.round(Number(route.confidence ?? 0) * 100)}/100`}
+        onClose={() => openRoute(null)}
+      >
+        <LinearGradient colors={gradients.routeCard} locations={[0, 0.92]} style={styles.detail}>
+          <View style={{ flexDirection: 'row', gap: 15, paddingHorizontal: 11 }}>
+            <Icon name="routePinSmall" size={24} style={{ marginTop: 4 }} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={type(fonts.medium, 12, 15)}>Recorrido por cámaras</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+                {cameras.length ? cameras.map((camera, step) => (
+                  <View key={`${camera}-${step}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {step > 0 ? <Icon name="arrowForward" size={11} /> : null}
+                    <Text style={type(fonts.regular, 11, 13.2)}>{camera}</Text>
+                  </View>
+                )) : <Text style={type(fonts.regular, 11, 13.2)}>Cámaras no disponibles</Text>}
+              </View>
             </View>
           </View>
-        </View>
-        <Text style={[type(fonts.light, 11, 14), styles.pad]}>Es un puntaje de ranking, no una probabilidad de identificación.</Text>
-        {route.has_distant_gaps ? <Text style={[type(fonts.regular, 11, 14), styles.pad, { color: colors.warning }]}>Hay saltos distantes entre observaciones.</Text> : null}
-        {explanation?.weights ? (
-          <Text style={[type(fonts.light, 11, 14), styles.pad]}>
-            Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${weightName(key)} ${Math.round(value * 100)}%`).join(' · ')}
-          </Text>
-        ) : null}
-        {typeof route.road_geometry?.distance_m === 'number' ? (
-          <Text style={[type(fonts.light, 11, 14), styles.pad]}>Recorrido vial aproximado: {(route.road_geometry.distance_m / 1000).toFixed(2)} km</Text>
-        ) : null}
+          <Text style={[type(fonts.light, 11, 14), styles.pad]}>Es un puntaje de ranking, no una probabilidad de identificación.</Text>
+          {route.has_distant_gaps ? <Text style={[type(fonts.regular, 11, 14), styles.pad, { color: colors.warning }]}>Hay saltos distantes entre observaciones.</Text> : null}
+          {explanation?.weights ? (
+            <Text style={[type(fonts.light, 11, 14), styles.pad]}>
+              Explicación: {Object.entries(explanation.weights).map(([key, value]) => `${weightName(key)} ${Math.round(value * 100)}%`).join(' · ')}
+            </Text>
+          ) : null}
+          {typeof route.road_geometry?.distance_m === 'number' ? (
+            <Text style={[type(fonts.light, 11, 14), styles.pad]}>Recorrido vial aproximado: {(route.road_geometry.distance_m / 1000).toFixed(2)} km</Text>
+          ) : null}
 
-        <View style={{ gap: 19, marginTop: 6 }}>
-          {detections.map((detection, detectionIndex) => {
-            const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
-            const busy = confirmationBusyId === detection.detection_id;
-            return (
-              <Reveal key={detection.detection_id || String(detectionIndex)} index={detectionIndex} style={{ gap: 8 }}>
-                <Glass variant="tile" radius={24} style={styles.detection}>
-                  <Icon name={detection.vehicle_type === 'motorcycle' ? 'motorcycleSmall' : 'car'} size={24} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={type(fonts.regular, 11, 13.2)}>
-                      {detection.sequence_order}. {vehicleTypeName(detection.vehicle_type)}{detection.color ? ` · ${colorNamesEs[detection.color] ?? detection.color}` : ''}
-                      {isAdmin && detection.license_plate ? ` · ${detection.license_plate}` : ''}
-                    </Text>
-                    <Text style={type(fonts.light, 8, 9.6)}>{cameraName} · {formatDate(detection.observed_at)} · {detection.direction}</Text>
-                  </View>
-                  <Text style={type(fonts.regular, 9, 10.8)}>
-                    {isAdmin && detection.confirmation ? (detection.confirmation === 'match' ? 'Confirmado · ' : 'Rechazado · ') : ''}
-                    {Math.round(detection.confidence * 100)}%
-                  </Text>
-                </Glass>
-                {isAdmin ? (
-                  detection.confirmation ? (
-                    <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} style={styles.pad} />
-                  ) : (
-                    <View style={[styles.pad, { flexDirection: 'row', gap: 8 }]}>
-                      <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} style={{ flex: 1 }} />
-                      <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} style={{ flex: 1 }} />
+          <View style={{ gap: 19, marginTop: 6 }}>
+            {detections.map((detection, detectionIndex) => {
+              const cameraName = devices.find((device) => device.external_id === detection.camera_id)?.name ?? detection.camera_id;
+              const busy = confirmationBusyId === detection.detection_id;
+              return (
+                <Reveal key={detection.detection_id || String(detectionIndex)} index={detectionIndex} style={{ gap: 8 }}>
+                  <Glass variant="tile" radius={24} style={styles.detection}>
+                    <Icon name={detection.vehicle_type === 'motorcycle' ? 'motorcycleSmall' : 'car'} size={24} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={type(fonts.regular, 11, 13.2)}>
+                        {detection.sequence_order}. {vehicleTypeName(detection.vehicle_type)}{detection.color ? ` · ${colorNamesEs[detection.color] ?? detection.color}` : ''}
+                        {isAdmin && detection.license_plate ? ` · ${detection.license_plate}` : ''}
+                      </Text>
+                      <Text style={type(fonts.light, 8, 9.6)}>{cameraName} · {formatDate(detection.observed_at)} · {detection.direction}</Text>
                     </View>
-                  )
-                ) : null}
-              </Reveal>
-            );
-          })}
-        </View>
-      </LinearGradient>
+                    <Text style={type(fonts.regular, 9, 10.8)}>
+                      {isAdmin && detection.confirmation ? (detection.confirmation === 'match' ? 'Confirmado · ' : 'Rechazado · ') : ''}
+                      {Math.round(detection.confidence * 100)}%
+                    </Text>
+                  </Glass>
+                  {isAdmin ? (
+                    detection.confirmation ? (
+                      <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} style={styles.pad} />
+                    ) : (
+                      <View style={[styles.pad, { flexDirection: 'row', gap: 8 }]}>
+                        <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} style={{ flex: 1 }} />
+                        <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} style={{ flex: 1 }} />
+                      </View>
+                    )
+                  ) : null}
+                </Reveal>
+              );
+            })}
+          </View>
+        </LinearGradient>
+      </Sheet>
 
       <SafetyBanner />
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
@@ -224,13 +221,6 @@ function weightName(value: string): string {
 const styles = StyleSheet.create({
   heading: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 17, marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, paddingBottom: 80 },
-  carousel: { height: 221, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  sideBox: { position: 'absolute', top: 52 },
-  side: { width: 80, height: 132, borderRadius: 19 },
-  routeCard: { width: 176, height: 221, borderRadius: 19, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, gap: 4, elevation: 4, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, shadowOffset: { width: 0, height: 4 } },
-  dots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5 },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: 'rgba(217,217,217,0.2)' },
-  dotOn: { width: 11, height: 11, borderRadius: 6, backgroundColor: '#ffffff' },
   detail: { borderRadius: 19, paddingVertical: 22, paddingHorizontal: 12, gap: 10, marginTop: 8 },
   detection: { minHeight: 43, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, paddingLeft: 38, paddingRight: 25 },
   pad: { paddingHorizontal: 11 },
