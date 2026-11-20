@@ -84,7 +84,8 @@ describe('SessionProvider.deleteDevice', () => {
     expect(deviceGets).toBe(2);
     if (deleteStatus === 404) expect(await screen.findByText('404')).toBeTruthy();
     expect(fetch).toHaveBeenCalledWith(
-      'http://10.0.2.2:8000/api/v1/devices/device-1',
+      // The server depends on EXPO_PUBLIC_VIGIA_DEFAULT_API (production in CI): only the path matters.
+      expect.stringMatching(/\/api\/v1\/devices\/device-1$/),
       expect.objectContaining({ method: 'DELETE' }),
     );
     await screen.unmount();
