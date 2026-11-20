@@ -432,7 +432,9 @@ test("an admin searches by plate, sees the recortes and confirms steps that reca
   await expect.poll(() => sent).toMatchObject({ plate: "ABC123" });
   // Steps start closed: the recorte and the question appear only after opening them.
   await expect(page.getByRole("button", { name: "Sí", exact: true })).toHaveCount(0);
-  for (const step of await page.locator(".hop-details summary").all()) await step.click();
+  // Only each step's own header: the step also nests the «Etiquetar para entrenamiento» summary,
+  // which goes away once the recorte answers 404.
+  for (const step of await page.locator(".hop-details > summary").all()) await step.click();
   await expect(page.getByLabel("Placa ABC123")).toBeVisible();
   await expect(page.getByText("Recorte vencido")).toBeVisible();
   await expect(page.getByText("Sin recorte").first()).toBeVisible();
