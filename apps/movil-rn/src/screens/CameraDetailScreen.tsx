@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ApiError } from '../api/client';
 import { colorNamesEs } from '../edge/colors';
@@ -11,7 +11,7 @@ import { useSession } from '../state/session';
 import { colors, gradients } from '../theme/colors';
 import { fonts, type } from '../theme/fonts';
 import { bogotaDateTime, parseApiDate } from '../time/bogota';
-import type { DeviceDetection, EdgeCredential } from '../types/models';
+import type { Device, DeviceDetection, EdgeCredential } from '../types/models';
 import type { RootStackParamList } from '../types/navigation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CameraDetail'>;
@@ -21,8 +21,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CameraDetail'>;
  * credentials (issue, revoke) for admins (B05). The backend enforces roles.
  */
 export function CameraDetailScreen({ navigation, route }: Props) {
-  const { devices, user, isDemo, recentDetections, listCredentials, issueCredential, revokeCredential } = useSession();
-  const device = devices.find((item) => item.id === route.params.deviceId);
+  const { devices, user, isDemo, recentDetections, listCredentials, issueCredential, revokeCredential, deleteDevice } = useSession();
+  // While deleting, the session drops the camera from the list before we go back:
+  // keep showing it so the screen does not flash «La cámara ya no está en la lista».
+  const [deleting, setDeleting] = useState<Device | null>(null);
+  const device = devices.find((item) => item.id === route.params.deviceId) ?? deleting ?? undefined;
   const isAdmin = user?.role === 'admin' && !isDemo;
   const [detections, setDetections] = useState<DeviceDetection[] | null>(null);
   const [detectionsError, setDetectionsError] = useState<string | null>(null);
@@ -31,6 +34,7 @@ export function CameraDetailScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<EdgeCredential | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const loadCredentials = useCallback(async () => {
     if (!isAdmin || !device) return;
@@ -104,6 +108,30 @@ export function CameraDetailScreen({ navigation, route }: Props) {
       await loadCredentials();
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : 'No fue posible revocar la credencial.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setConfirmingDelete(false);
+    setBusy(true);
+    setError(null);
+    setDeleting(device);
+    try {
+      await deleteDevice(device.id);
+      Alert.alert('Nodo eliminado');
+      navigation.goBack();
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.statusCode === 404) {
+        Alert.alert('Este nodo ya no existe');
+        navigation.goBack();
+      } else {
+        setDeleting(null);
+        setError(reason instanceof ApiError && reason.statusCode === 403
+          ? 'Solo un administrador puede eliminar nodos'
+          : reason instanceof ApiError ? reason.message : 'No fue posible eliminar el nodo. Revisa la conexión e inténtalo de nuevo.');
+      }
     } finally {
       setBusy(false);
     }
@@ -194,8 +222,42 @@ export function CameraDetailScreen({ navigation, route }: Props) {
             </Text>
           </Glass>
         ) : null}
+        {isAdmin ? (
+          <View style={styles.deleteZone}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Eliminar nodo"
+              disabled={busy}
+              onPress={() => setConfirmingDelete(true)}
+              style={[styles.deleteButton, busy && styles.disabled]}
+            >
+              <Text style={styles.deleteButtonText}>Eliminar nodo</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {error ? <View style={{ paddingHorizontal: 16 }}><ErrorMessage>{error}</ErrorMessage></View> : null}
       </GradientCard>
+
+      <Dialog
+        visible={confirmingDelete}
+        title="¿Estás seguro de eliminar este nodo?"
+        body={`«${device.name || device.external_id}» dejará de enviar datos y su token quedará revocado. El historial de detecciones se conserva.`}
+        onRequestClose={() => setConfirmingDelete(false)}
+      >
+        <View style={styles.deleteActions}>
+          <Pressable accessibilityRole="button" hitSlop={10} onPress={() => setConfirmingDelete(false)} style={{ width: 91 }}>
+            <Text style={[type(fonts.poppins, 16), { textAlign: 'center' }]}>Cancelar</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => void confirmDelete()}
+            style={[styles.confirmDeleteButton, busy && styles.disabled]}
+          >
+            <Text style={[type(fonts.medium, 15), { textAlign: 'center' }]}>Eliminar</Text>
+          </Pressable>
+        </View>
+      </Dialog>
 
       <Dialog
         visible={revoking !== null}
@@ -231,4 +293,10 @@ const styles = StyleSheet.create({
   separator: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.5)' },
   credential: { flexDirection: 'row', alignItems: 'center', gap: 19, paddingHorizontal: 24 },
   revoke: { width: 63, height: 18, borderRadius: 24, borderWidth: 1, borderColor: '#ffffff', justifyContent: 'center', alignSelf: 'flex-start' },
+  deleteZone: { marginHorizontal: 24, marginTop: 8, paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.28)' },
+  deleteButton: { minHeight: 46, justifyContent: 'center', alignItems: 'center', borderRadius: 24, borderWidth: 1, borderColor: colors.danger, backgroundColor: 'rgba(255,82,82,0.16)' },
+  deleteButtonText: { ...type(fonts.medium, 14), color: colors.danger },
+  deleteActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  confirmDeleteButton: { width: 108, minHeight: 36, justifyContent: 'center', borderRadius: 22, backgroundColor: colors.danger },
+  disabled: { opacity: 0.45 },
 });

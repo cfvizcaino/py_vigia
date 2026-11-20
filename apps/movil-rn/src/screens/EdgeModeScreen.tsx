@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Text } from 'react-native';
 
 import { Icon } from '../components/Icon';
@@ -11,6 +11,7 @@ import {
   verifyEdgeToken,
 } from '../edge/config';
 import type { EdgeConfiguration } from '../edge/config';
+import type { RejectedStatus } from '../edge/unauthorized';
 import { EdgeRuntime } from './EdgeRuntime';
 import { fonts, type } from '../theme/fonts';
 
@@ -99,6 +100,18 @@ export function EdgeModeScreen() {
     }
   };
 
+  const handleUnauthorized = useCallback((status: RejectedStatus) => {
+    setRuntimeConfig(null);
+    if (status === 403) {
+      // The token is still stored: fixing the camera id is enough.
+      setError('El token pertenece a otra cámara. Revisa el identificador de cámara y vuelve a iniciar.');
+      return;
+    }
+    setHasToken(false);
+    setToken('');
+    setError('Este nodo fue eliminado o su token venció o fue revocado. Pide a un administrador un token nuevo.');
+  }, []);
+
   if (runtimeConfig) {
     return (
       <Screen back={() => setRuntimeConfig(null)} title={'Edge\nautónomo'}>
@@ -108,6 +121,7 @@ export function EdgeModeScreen() {
           fps={Number(fps)}
           extraRotation={Number(rotation)}
           onStop={() => setRuntimeConfig(null)}
+          onUnauthorized={handleUnauthorized}
         />
         <Card title="Ajustes" icon="ms_speed">
           <ChoiceRow label="Frecuencia de análisis" choices={fpsOptions} value={fps} onChange={setFps} grow />

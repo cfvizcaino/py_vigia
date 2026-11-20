@@ -86,6 +86,17 @@ describe('VigiaApiClient', () => {
     );
   });
 
+  it('elimina un dispositivo con DELETE y acepta la respuesta 204', async () => {
+    const fetch = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+    const client = new VigiaApiClient('https://api.example.org', undefined, createTokenStore());
+
+    await expect(client.deleteDevice('device/1')).resolves.toBeUndefined();
+    expect(fetch).toHaveBeenCalledWith(
+      'https://api.example.org/api/v1/devices/device%2F1',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
   it('presenta un conflicto duplicado con instrucciones claras', async () => {
     const client = new VigiaApiClient('https://api.example.org', undefined, createTokenStore());
     jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 409 }));

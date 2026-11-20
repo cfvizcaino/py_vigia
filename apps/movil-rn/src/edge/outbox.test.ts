@@ -1,4 +1,4 @@
-import { describe, expect, test } from '@jest/globals';
+import { describe, expect, jest, test } from '@jest/globals';
 
 import { Outbox } from './outbox';
 import type { OutboxStorage, QueueFile } from './outbox';
@@ -127,6 +127,30 @@ describe('outbox persistente', () => {
     await waitFor(() => storage.rejected.size === 1);
     await outbox.stop();
     expect(await outbox.getStatus()).toMatchObject({ pending: 0, rejected: 1, lastError: 'REJECTED_400' });
+  });
+
+  test.each([401, 403])('un %i detiene los reintentos y conserva el evento pendiente', async (status) => {
+    const storage = new MemoryOutboxStorage();
+    const fetcher = jest.fn(async () => new Response(null, { status }));
+    const onUnauthorized = jest.fn();
+    const outbox = new Outbox({
+      storage,
+      serverUrl: 'https://vigia.example',
+      token: 'edge-token',
+      fetcher,
+      onUnauthorized,
+      initialBackoffMs: 1,
+    });
+    await outbox.enqueue(envelope);
+    outbox.start();
+    await waitFor(() => onUnauthorized.mock.calls.length === 1);
+    await outbox.stop();
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(onUnauthorized).toHaveBeenCalledWith(status);
+    expect(await outbox.getStatus()).toMatchObject({ pending: 1, lastError: `HTTP_${status}` });
+    expect(storage.rejected.size).toBe(0);
   });
 
   test('limita recortes a 64 KiB y a 500 elementos pendientes', async () => {
