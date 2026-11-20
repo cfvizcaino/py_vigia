@@ -698,7 +698,7 @@ export function OperationsConsole({ user, onExit }: { user: SessionUser | null; 
   </>;
 
   let stage: ReactNode;
-  if (view === "Administración" && user?.role === "admin") stage = <div className="stage single admin-stage"><AdminPanel cameras={cameras}/></div>;
+  if (view === "Administración" && user?.role === "admin") stage = <div className="stage single admin-stage"><AdminPanel cameras={cameras} onDeviceDeleted={(id) => setCameras((current) => current.filter((camera) => camera.id !== id))}/></div>;
   else if (view === "Cámaras") stage = <div className="stage">
     <div className="stage-main">
       <label className="search-pill"><Icon name="search" size={38}/><input aria-label="Filtrar cámaras" placeholder="Buscar nombre o identificador..." value={deviceFilter} onChange={(event) => setDeviceFilter(event.target.value)}/></label>

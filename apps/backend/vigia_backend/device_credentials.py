@@ -29,7 +29,7 @@ def token_hash(token: str) -> str:
 def issue(db: Session, camera_id: str, days: int = 90, user_id: uuid.UUID | None = None) -> tuple[DeviceCredential, str]:
     if not 1 <= days <= 365:
         raise ValueError("La vigencia debe estar entre 1 y 365 días")
-    device = db.scalar(select(Device).where(Device.external_id == camera_id))
+    device = db.scalar(select(Device).where(Device.external_id == camera_id, Device.deleted_at.is_(None)))
     if device is None:
         raise ValueError("Cámara no registrada")
     secret = "vigia_" + secrets.token_urlsafe(32)
@@ -64,7 +64,19 @@ def authenticate(db: Session, token: str | None, camera_id: str) -> tuple[bool, 
     device = db.get(Device, credential.device_id)
     if device is None or device.external_id != camera_id:
         return False, "wrong_camera"
+    if device.deleted_at is not None:  # Por si quedó un token sin revocar al eliminarlo.
+        return False, "invalid"
     return True, "allowed"
+
+
+def revoke_all(db: Session, device: Device, user_id: uuid.UUID | None = None) -> int:
+    """Revoca cada token vigente del nodo; devuelve cuántos. Quien llama hace el commit."""
+    active = db.scalars(
+        select(DeviceCredential).where(DeviceCredential.device_id == device.id, DeviceCredential.revoked_at.is_(None))
+    ).all()
+    for credential in active:
+        revoke(db, credential.id, user_id=user_id)
+    return len(active)
 
 
 def main() -> None:

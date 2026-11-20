@@ -310,6 +310,44 @@ test("admin reviews the audit trail and issues then revokes a node credential", 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test("admin deletes an edge node only after confirming", async ({ page }) => {
+  await page.unroute("**/api/auth/session");
+  await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: { ...OPERATOR, role: "admin", display_name: "Admin" }, expires_at: "2026-10-09T08:00:00Z" } }));
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  await page.route("**/api/admin/audit**", (route) => route.fulfill({ json: [] }));
+  let credentialLoads = 0;
+  await page.route("**/api/admin/credentials", (route) => { credentialLoads++; return route.fulfill({ json: [] }); });
+  const deleted: string[] = [];
+  await page.route("**/api/admin/devices/*", (route) => {
+    expect(route.request().method()).toBe("DELETE");
+    deleted.push(route.request().url().split("/").at(-1) ?? "");
+    return route.fulfill({ status: 204 });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Administración", exact: false }).first().click();
+  const nodes = page.getByRole("article", { name: "Nodos edge" });
+  await expect(nodes.getByText("CAM-02", { exact: true })).toBeVisible();
+
+  await nodes.getByRole("button", { name: "Eliminar nodo CAM-02" }).click();
+  await expect(nodes.getByText("¿Estás seguro de eliminar este nodo?")).toBeVisible();
+  await nodes.getByRole("button", { name: "Cancelar" }).click();
+  await expect(nodes.getByText("¿Estás seguro de eliminar este nodo?")).toHaveCount(0);
+  expect(deleted).toEqual([]);
+
+  const loadsBefore = credentialLoads;
+  await nodes.getByRole("button", { name: "Eliminar nodo CAM-02" }).click();
+  await nodes.getByRole("button", { name: "Eliminar", exact: true }).click();
+  await expect(nodes.getByText("CAM-02", { exact: true })).toHaveCount(0);
+  await expect(nodes.getByText("Nodo CAM-02 eliminado", { exact: false })).toBeVisible();
+  expect(deleted).toEqual(["demo-02"]);
+  // Its tokens were revoked: the credentials list reloads, and the camera picker drops it.
+  await expect.poll(() => credentialLoads).toBeGreaterThan(loadsBefore);
+  await expect(page.getByRole("combobox", { name: "Cámara", exact: true }).locator("option", { hasText: "CAM-02" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("operators do not see the administration entry", async ({ page }) => {
   await page.unroute("**/api/monitoring/devices");
   await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));

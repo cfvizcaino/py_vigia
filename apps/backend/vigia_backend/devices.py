@@ -25,7 +25,10 @@ def register(db: Session, camera_id: str, name: str, lat: float, lng: float, mod
         raise ValueError("Coordenadas fuera de rango")
     if kind not in {"physical", "simulated"}:
         raise ValueError("El tipo debe ser physical o simulated")
-    if db.scalar(select(Device).where(Device.external_id == camera_id)) is not None:
+    existing = db.scalar(select(Device).where(Device.external_id == camera_id))
+    if existing is not None and existing.deleted_at is not None:
+        raise ValueError("Esa cámara fue eliminada; restáurala con POST /api/v1/devices/{id}/restore")
+    if existing is not None:
         raise ValueError("Ya existe una cámara con ese identificador")
     # A newly registered camera stays offline until its first accepted event.
     device = Device(external_id=camera_id, name=name.strip(), kind=kind, status="offline", lat=lat, lng=lng, camera_model=model)
@@ -35,7 +38,7 @@ def register(db: Session, camera_id: str, name: str, lat: float, lng: float, mod
 
 
 def relocate(db: Session, camera_id: str, lat: float, lng: float) -> Device:
-    device = db.scalar(select(Device).where(Device.external_id == camera_id))
+    device = db.scalar(select(Device).where(Device.external_id == camera_id, Device.deleted_at.is_(None)))
     if device is None:
         raise ValueError("Cámara no registrada")
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
@@ -68,7 +71,7 @@ def main() -> None:
     try:
         with SessionLocal() as db:
             if args.command == "list":
-                devices = db.scalars(select(Device).order_by(Device.external_id)).all()
+                devices = db.scalars(select(Device).where(Device.deleted_at.is_(None)).order_by(Device.external_id)).all()
                 print(json.dumps([{"camera": d.external_id, "name": d.name, "kind": d.kind, "status": d.status,
                                    "lat": d.lat, "lng": d.lng, "model": d.camera_model} for d in devices], ensure_ascii=False, indent=2))
                 return
