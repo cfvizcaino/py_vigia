@@ -88,6 +88,26 @@ def road_options(camera_a: str, camera_b: str, links: RoadLinks) -> list[RoadOpt
 def road_distance_m(camera_a, camera_b, links):
     return min((o.distance_m for o in road_options(camera_a, camera_b, links)), default=None)
 
+# Characters the plate OCR confuses (field test 20/11/2026: KQV159 was read as KOV159).
+_CONFUSABLE = (frozenset("OQD0"), frozenset("B8"), frozenset("I1"), frozenset("Z2"), frozenset("S5"), frozenset("G6"))
+
+
+def plates_match(a: str | None, b: str | None) -> bool:
+    """Same plate, or one character apart where the OCR usually confuses them.
+
+    Two readings that differ in one confusable character (O/Q, 0/D, 8/B…) are taken
+    as the same vehicle; any other difference, or two differences, are two vehicles.
+    """
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    if len(a) != len(b):
+        return False
+    diffs = [(x, y) for x, y in zip(a, b) if x != y]
+    return len(diffs) == 1 and any(diffs[0][0] in group and diffs[0][1] in group for group in _CONFUSABLE)
+
+
 def implied_speed_kmh(distance_m, delta_seconds):
     return distance_m * 3.6 / delta_seconds if delta_seconds > 0 else None
 
@@ -97,10 +117,11 @@ def score_segments(earlier: DetectionPoint, later: DetectionPoint, links: RoadLi
         return []
     if earlier.color and later.color and earlier.color != later.color:
         return []
-    # Two different plates are two vehicles; the same plate is the strongest appearance evidence.
-    if earlier.plate and later.plate and earlier.plate != later.plate:
+    # Two different plates are two vehicles; the same plate (or a one-character OCR
+    # confusion of it) is the strongest appearance evidence.
+    same_plate = plates_match(earlier.plate, later.plate)
+    if earlier.plate and later.plate and not same_plate:
         return []
-    same_plate = bool(earlier.plate and earlier.plate == later.plate)
     options = road_options(earlier.camera_id, later.camera_id, links)
     valid_weights = [o.weight for o in options if o.weight and math.isfinite(o.weight) and o.weight > 0]
     min_weight = min(valid_weights, default=None)
@@ -178,6 +199,7 @@ def _shares_detections(candidate: RouteCandidate, used: set[str]) -> bool:
 
 def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks, *,
                        vehicle_type: str | None = None, color: str | None = None, plate: str | None = None,
+                       require_plate: bool = True,
                        required_ids: frozenset[str] = frozenset(), excluded_ids: frozenset[str] = frozenset(),
                        config: RoutingConfig | None = None) -> list[RouteCandidate]:
     """Rutas candidatas ordenadas y diversificadas.
@@ -185,6 +207,10 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
     `required_ids` / `excluded_ids` vienen de las confirmaciones de un admin sobre los
     recortes: una detección marcada «no es este» no entra en ninguna ruta y una marcada
     «es este» debe estar en todas.
+
+    Con `plate`, las detecciones con otra placa leída quedan fuera y, si `require_plate`,
+    cada ruta debe pasar por al menos una cámara que la leyó. Sin ese requisito quedan
+    las rutas de vehículos sin placa leída (cuando ninguna cámara la leyó).
     """
     cfg = config or RoutingConfig()
     # A colour filter keeps detections whose colour is unknown: the edge leaves it
@@ -194,7 +220,7 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
     # The plate filter works the same way: most detections carry no readable plate.
     ordered = sorted((d for d in detections if (vehicle_type is None or d.vehicle_type == vehicle_type)
                       and (color is None or d.color in (color, None))
-                      and (plate is None or d.plate in (plate, None))
+                      and (plate is None or d.plate is None or plates_match(d.plate, plate))
                       and d.id not in excluded_ids), key=lambda p: (p.observed_at, p.id))
     by_id = {d.id: d for d in ordered}
     required = frozenset(required_ids) & by_id.keys()
@@ -239,7 +265,8 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
                 for nxt, candidates in successors[path[-1].id]:
                     if nxt.color and known_colors and nxt.color not in known_colors:
                         continue
-                    if nxt.plate and known_plates and nxt.plate not in known_plates:
+                    # Against every plate already in the path, so OCR confusions cannot drift.
+                    if nxt.plate and not all(plates_match(nxt.plate, known) for known in known_plates):
                         continue
                     for segment in candidates:
                         new_log = log_sum + math.log(max(segment["score"], 1e-9))
@@ -269,7 +296,7 @@ def reconstruct_routes(detections: list[DetectionPoint], road_links_m: RoadLinks
         ids = candidate.detection_ids
         if color is not None and not any(by_id[i].color == color for i in ids):
             continue
-        if plate is not None and not any(by_id[i].plate == plate for i in ids):
+        if plate is not None and require_plate and not any(plates_match(by_id[i].plate, plate) for i in ids):
             continue
         if not required <= set(ids):
             continue

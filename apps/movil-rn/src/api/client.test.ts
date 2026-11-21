@@ -86,6 +86,21 @@ describe('VigiaApiClient', () => {
     );
   });
 
+  it('busca por placa y conserva el aviso de placa sin leer', async () => {
+    const fetch = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      query: { id: 'q1', lat: 11, lng: -74, radius_m: 2000, time_from: '2026-11-20T20:40:00Z', time_to: '2026-11-20T21:10:00Z', vehicle_type: 'car', color: 'white', created_at: '2026-11-20T21:12:00Z' },
+      nearby_devices: [],
+      candidate_detection_count: 0,
+      routes: [],
+      plate_unread: true,
+    }), { status: 200 }));
+    const client = new VigiaApiClient('https://api.example.org', undefined, createTokenStore());
+
+    const result = await client.runQuery({ lat: 11, lng: -74, radius_m: 2000, time_from: '2026-11-20T20:40:00Z', time_to: '2026-11-20T21:10:00Z', plate: 'KQV159' });
+    expect(result.plate_unread).toBe(true);
+    expect(new URL(String(fetch.mock.calls[0]?.[0])).searchParams.get('plate')).toBe('KQV159');
+  });
+
   it('elimina un dispositivo con DELETE y acepta la respuesta 204', async () => {
     const fetch = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
     const client = new VigiaApiClient('https://api.example.org', undefined, createTokenStore());

@@ -64,6 +64,8 @@ export interface QueryInput {
   time_to: string;
   vehicle_type?: string;
   color?: string;
+  /** Only admins may filter by plate (Ley 1581); the backend audits it. */
+  plate?: string;
 }
 
 export interface Scenario {
@@ -131,4 +133,6 @@ export interface QueryResult {
   nearby_devices: NearbyDevice[];
   candidate_detection_count: number;
   routes: CandidateRoute[];
+  /** Searched by plate, but no camera read it: the routes are vehicles without a readable plate. */
+  plate_unread?: boolean | undefined;
 }

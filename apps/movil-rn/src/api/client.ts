@@ -119,6 +119,7 @@ const queryResultSchema = z.object({
   nearby_devices: z.array(nearbyDeviceSchema),
   candidate_detection_count: z.number(),
   routes: z.array(candidateRouteSchema),
+  plate_unread: z.boolean().optional(),
 });
 
 export class ApiError extends Error {

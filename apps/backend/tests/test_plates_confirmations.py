@@ -17,6 +17,7 @@ from vigia_backend.db import Base, get_db
 from vigia_backend.ingestion import ingest_detection_envelope
 from vigia_backend.models import Detection, DetectionConfirmation, Device, DeviceLink, Query, SecurityAudit, utc_now
 from vigia_backend.plates import mask_plate, normalize_plate, purge_plates
+from vigia_backend.routing import plates_match
 from vigia_backend.routing import DetectionPoint, RoutingConfig, reconstruct_routes
 from vigia_backend.schemas import DetectionEnvelopeV11
 
@@ -186,3 +187,59 @@ def test_top_k_lists_different_vehicles_before_alternatives():
     assert all(r.explanation["selection"] == "diversified-v1" for r in routes)
     alternatives = [r for r in routes[2:] if r.explanation["shares_with_rank"]]
     assert alternatives, "the remaining slots hold alternatives that say which route they overlap"
+
+
+def test_plates_match_tolerates_one_confusable_ocr_character():
+    assert plates_match("KQV159", "KQV159")
+    assert plates_match("KQV159", "KOV159")  # Field test 20/11: Q read as O.
+    assert plates_match("ABC123", "A8C123")
+    assert not plates_match("KQV159", "KQV158")  # 9/8: not an OCR confusion.
+    assert not plates_match("KQV159", "KOV158")  # Two differences: two vehicles.
+    assert not plates_match("KQV159", "KQV15")
+    assert not plates_match("KQV159", None) and not plates_match(None, None)
+
+
+def test_a_one_character_misread_joins_the_route_of_its_plate():
+    points = [_point("a1", "CAM-01", 0, "KQV159"), _point("a2", "CAM-02", 70, "KOV159"), _point("a3", "CAM-03", 140, "KQV159")]
+    assert reconstruct_routes(points, LINKS, plate="KQV159")[0].detection_ids == ("a1", "a2", "a3")
+    # The misread alone still counts as reading the plate.
+    assert reconstruct_routes(points[1:2] + [_point("n3", "CAM-03", 140)], LINKS, plate="KQV159")[0].detection_ids == ("a2", "n3")
+    # A really different plate stays a different vehicle.
+    other = [_point("a1", "CAM-01", 0, "KQV159"), _point("b2", "CAM-02", 70, "KQW403")]
+    assert all(set(r.detection_ids) != {"a1", "b2"} for r in reconstruct_routes(other, LINKS))
+
+
+def test_a_drifting_chain_of_misreads_is_not_one_vehicle():
+    # QOV159 is one confusion away from both, but QQV159 and OOV159 differ twice:
+    # every plate of a route must match every other, not just its neighbour.
+    drift = [_point("a1", "CAM-01", 0, "QQV159"), _point("a2", "CAM-02", 70, "QOV159"), _point("a3", "CAM-03", 140, "OOV159")]
+    assert plates_match("QQV159", "QOV159") and plates_match("QOV159", "OOV159") and not plates_match("QQV159", "OOV159")
+    routes = reconstruct_routes(drift, LINKS)
+    assert routes and all(not {"a1", "a3"} <= set(r.detection_ids) for r in routes)
+
+
+def test_plate_query_when_no_camera_read_it_returns_unplated_routes_with_a_notice(env):
+    db, cams, client = env
+    # Uninorte, 20/11: the white car crossed, but no camera read its plate.
+    _detection(db, cams[0], 0), _detection(db, cams[1], 70), _detection(db, cams[2], 140)
+    _detection(db, cams[0], 20, "XYZ987", track=2)  # Another white car, plate read: never in the routes.
+    db.commit()
+    admin, operator = bearer(db, "admin"), bearer(db, "operator")
+
+    body = client.get("/api/v1/queries", headers=admin, params={**WINDOW, "plate": "KQV159"}).json()
+    assert body["plate_unread"] is True
+    assert body["routes"] and all(hop["license_plate"] is None for route in body["routes"] for hop in route["detections"])
+
+    # Recalculating after a confirmation keeps the notice.
+    hop = body["routes"][0]["detections"][0]["detection_id"]
+    confirmed = client.put(f"/api/v1/queries/{body['query']['id']}/confirmations/{hop}", headers=admin, json={"verdict": "match"})
+    assert confirmed.json()["plate_unread"] is True
+
+    # Once a camera reads it (even misread by one character), the routes must pass through it.
+    _detection(db, cams[1], 72, "KOV159", track=3)
+    db.commit()
+    read = client.get("/api/v1/queries", headers=admin, params={**WINDOW, "plate": "KQV159"}).json()
+    assert read["plate_unread"] is False
+    assert read["routes"] and all(any(h["license_plate"] == "KOV159" for h in r["detections"]) for r in read["routes"])
+    # Operators never search by plate, so they never get the notice.
+    assert client.get("/api/v1/queries", headers=operator, params=WINDOW).json()["plate_unread"] is False

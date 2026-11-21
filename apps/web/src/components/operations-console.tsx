@@ -618,6 +618,7 @@ export function OperationsConsole({ user, onExit }: { user: SessionUser | null; 
     {exportError && <p className="error-message" role="alert">{exportError}</p>}
     {activeRoute ? <>
       <div className="route-options" role="group" aria-label="Rutas candidatas">{result?.routes.map((route) => <button key={route.id} aria-pressed={activeRoute.id === route.id} className={activeRoute.id === route.id ? "selected" : ""} onClick={() => setRouteId(route.id)}><Icon name="route" size={25}/>Ruta {route.rank}<small>{score(route.confidence)} /100</small></button>)}</div>
+      {result?.plate_unread && <p className="route-caution"><Icon name="alert" size={22}/>Ninguna cámara leyó la placa buscada en esta ventana. Estas rutas son de vehículos con el mismo tipo y color sin placa leída: confírmalas con los recortes.</p>}
       {activeRoute.has_distant_gaps && <p className="route-caution"><Icon name="alert" size={22}/>Hay tramos distantes sin observaciones intermedias. Revisa las rutas alternativas.</p>}
       <hr className="route-rule"/>
       <details className="route-evidence" key={activeRoute.id}>

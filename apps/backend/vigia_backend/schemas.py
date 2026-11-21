@@ -244,6 +244,9 @@ class QueryExecuteResponse(BaseModel):
     nearby_devices: list[NearbyDeviceRead]
     candidate_detection_count: int
     routes: list[RouteCandidateRead]
+    # Searched by plate but no camera in the window read it: `routes` are vehicles of
+    # that type and colour without a readable plate, not confirmed by the plate.
+    plate_unread: bool = False
 
 
 UserRole = Literal["operator", "admin"]
