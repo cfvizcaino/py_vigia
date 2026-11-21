@@ -58,7 +58,7 @@ const maxColorCropsPerFrame = 3;
 const colorMinSidePx = 24;
 const gateMatchIou = 0.3;
 
-/** Where a recorte is still wanted: a track's box and the area it must reach. */
+/** Where a recorte is still wanted: a track's box and the area it must reach (0: it has none yet). */
 export interface ThumbnailGate {
   box: Box;
   minArea: number;
@@ -388,6 +388,8 @@ export function pickThumbnail(
   'worklet';
   let bestIndex = -1;
   let bestArea = 0;
+  // One recorte per frame: a vehicle without any goes before a better view of one that has it.
+  let bestFirst = false;
   for (let index = 0; index < detections.length; index++) {
     const detection = detections[index];
     if (!detection) continue;
@@ -395,13 +397,16 @@ export function pickThumbnail(
     const height = detection.box.y2 - detection.box.y1;
     if (width < thumbnailMinSidePx || height < thumbnailMinSidePx) continue;
     const area = width * height;
-    // Only confirmed tracks have a gate: a detection matching none would be a
-    // one-frame flicker or a track the engine is not ready to keep a view of.
+    // Only tracked vehicles have a gate (from their second frame): a detection matching
+    // none is a first sighting or a one-frame flicker.
     let minArea = -1;
     for (const gate of gates) {
       if (intersectionOverUnion(gate.box, detection.box) > gateMatchIou) minArea = Math.max(minArea, gate.minArea);
     }
-    if (minArea >= 0 && area >= minArea && area > bestArea) {
+    if (minArea < 0 || area < minArea) continue;
+    const first = minArea === 0;
+    if ((first && !bestFirst) || (first === bestFirst && area > bestArea)) {
+      bestFirst = first;
       bestArea = area;
       bestIndex = index;
     }

@@ -36,9 +36,27 @@ describe('pickThumbnail', () => {
     planes: [{ bytes: new Uint8Array(1000 * 200 * 3), bytesPerRow: 3000, bytesPerPixel: 3 }],
   };
 
-  test('solo recorta detecciones de tracks confirmados (con compuerta)', () => {
+  test('solo recorta detecciones que siguen un track (con compuerta)', () => {
     const detections = [car(0, 0, 100), car(400, 0, 60)];
     const gates = [{ box: { x1: 402, y1: 0, x2: 462, y2: 60 }, minArea: 0 }];
+    expect(pickThumbnail(frame, detections, gates)?.detectionIndex).toBe(1);
+  });
+
+  test('prefiere un vehículo sin recorte aunque otro, más grande, pueda mejorar el suyo', () => {
+    const detections = [car(0, 0, 150), car(400, 0, 60)];
+    const gates = [
+      { box: { x1: 0, y1: 0, x2: 150, y2: 150 }, minArea: 100 * 100 * 1.2 },
+      { box: { x1: 400, y1: 0, x2: 460, y2: 60 }, minArea: 0 },
+    ];
+    expect(pickThumbnail(frame, detections, gates)?.detectionIndex).toBe(1);
+  });
+
+  test('entre vehículos sin recorte, el más grande', () => {
+    const detections = [car(0, 0, 60), car(400, 0, 100)];
+    const gates = [
+      { box: { x1: 0, y1: 0, x2: 60, y2: 60 }, minArea: 0 },
+      { box: { x1: 400, y1: 0, x2: 500, y2: 100 }, minArea: 0 },
+    ];
     expect(pickThumbnail(frame, detections, gates)?.detectionIndex).toBe(1);
   });
 

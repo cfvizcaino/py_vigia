@@ -1,6 +1,6 @@
 import type { Track } from './tracker';
 
-export const edgeNodeVersion = 'movil-1.5.1';
+export const edgeNodeVersion = 'movil-1.5.2';
 
 export interface DetectionEnvelope {
   schemaVersion: '1.1';

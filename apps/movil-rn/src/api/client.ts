@@ -255,6 +255,19 @@ export class VigiaApiClient {
     await this.request(`/api/v1/devices/${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
   }
 
+  /**
+   * Where to load a detection's recorte from, with the session token: an Image source.
+   * Only admins get it (the backend answers 403 otherwise) and every view is audited.
+   */
+  async thumbnailSource(detectionId: string): Promise<{ uri: string; headers: Record<string, string> }> {
+    const token = await this.tokenStore.read();
+    if (!token) throw new ApiError('Inicia sesión para continuar.', 401);
+    return {
+      uri: `${this.baseUrl}/api/v1/detections/${encodeURIComponent(detectionId)}/thumbnail`,
+      headers: { Authorization: `Bearer ${token}`, Accept: 'image/jpeg' },
+    };
+  }
+
   async recentDetections(deviceId: string, limit = 20): Promise<DeviceDetection[]> {
     return listOf(await this.request('/api/v1/detections', {
       query: { device_id: deviceId, limit: String(limit) },

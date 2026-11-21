@@ -49,11 +49,18 @@ function sessionEnded(response: Response) {
 /** Admin review of one step: the recorte, the plate and «¿Es este el vehículo?». */
 function HopEvidence({ hop, busy, onVerdict }: { hop: RouteHop; busy: boolean; onVerdict: (verdict: "match" | "reject" | null) => void }) {
   const [broken, setBroken] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
   const verdict = hop.confirmation ?? null;
+  const src = `/api/detections/${hop.detection_id}/thumbnail`;
+  const caption = `${hop.camera_id} · ${observationTime(hop.observed_at)}${hop.license_plate ? ` · ${hop.license_plate}` : ""}`;
   return <div className={`hop-evidence ${verdict ?? ""}`}>
     {hop.has_thumbnail && !broken
-      ? <Image className="hop-thumb" src={`/api/detections/${hop.detection_id}/thumbnail`} alt={`Recorte del vehículo en ${hop.camera_id}`} width={132} height={99} unoptimized onError={() => setBroken(true)}/>
+      ? <button type="button" className="hop-thumb-button" onClick={() => setZoomed(true)} aria-label={`Ampliar recorte del vehículo en ${hop.camera_id}`}>
+          <Image className="hop-thumb" src={src} alt={`Recorte del vehículo en ${hop.camera_id}`} width={132} height={99} unoptimized onError={() => setBroken(true)}/>
+          <span className="hop-thumb-zoom" aria-hidden="true"><Icon name="search" size={18}/></span>
+        </button>
       : <span className="hop-thumb empty">{broken ? "Recorte vencido" : "Sin recorte"}</span>}
+    {zoomed && <RecorteLightbox src={src} caption={caption} onClose={() => setZoomed(false)}/>}
     <div className="hop-question">
       {hop.license_plate && <span className="plate-chip" aria-label={`Placa ${hop.license_plate}`}>{hop.license_plate}</span>}
       <p>¿Este es el vehículo que estás buscando?</p>
@@ -64,6 +71,27 @@ function HopEvidence({ hop, busy, onVerdict }: { hop: RouteHop; busy: boolean; o
     </div>
     {hop.has_thumbnail && !broken && <LearningLabels hop={hop}/>}
   </div>;
+}
+
+/**
+ * The recorte enlarged in a modal <dialog>: Esc, the close button or a click outside the
+ * image close it. It is the same audited request as the thumbnail (admins only).
+ */
+function RecorteLightbox({ src, caption, onClose }: { src: string; caption: string; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+  return <dialog ref={ref} className="recorte-lightbox" aria-label={`Recorte ampliado · ${caption}`} onClose={onClose}
+    onClick={(event) => { if (event.target === event.currentTarget) ref.current?.close(); }}>
+    <figure>
+      {/* eslint-disable-next-line @next/next/no-img-element -- audited, uncached JPEG served by our own proxy */}
+      <img src={src} alt={`Recorte ampliado · ${caption}`}/>
+      <figcaption>{caption}</figcaption>
+    </figure>
+    <button type="button" className="recorte-close" onClick={() => ref.current?.close()} autoFocus><Icon name="close" size={20}/>Cerrar</button>
+  </dialog>;
 }
 
 type LearningTask = "color" | "plate";

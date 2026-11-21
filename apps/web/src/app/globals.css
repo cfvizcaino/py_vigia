@@ -370,6 +370,18 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .hop-evidence { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: calc(24 * var(--u)); max-width: calc(800 * var(--u)); padding: calc(24 * var(--u)) calc(30 * var(--u)); border: 1px solid #fff; border-radius: calc(34 * var(--u)); }
 .hop-thumb { display: block; width: calc(132 * var(--u)); height: calc(99 * var(--u)); border-radius: calc(20 * var(--u)); object-fit: cover; background: var(--canvas); }
 .hop-thumb.empty { display: grid; place-items: center; font-size: calc(14 * var(--u)); font-weight: 300; text-align: center; border: 1px dashed var(--rule); }
+/* A recorte opens enlarged: the thumbnail is a button with a corner magnifier */
+.hop-thumb-button { position: relative; display: block; padding: 0; border: 0; border-radius: calc(20 * var(--u)); background: none; cursor: zoom-in; }
+.hop-thumb-button:focus-visible { outline: 2px solid var(--violet-soft); outline-offset: 3px; }
+.hop-thumb-zoom { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(9, 1, 25, .7); color: #fff; transition: transform .2s; }
+.hop-thumb-button:hover .hop-thumb-zoom { transform: scale(1.12); }
+.recorte-lightbox { max-width: min(92vw, 760px); max-height: 92vh; padding: 0; border: 0; background: none; color: #fff; overflow: visible; }
+.recorte-lightbox::backdrop { background: rgba(4, 0, 12, .9); }
+.recorte-lightbox figure { margin: 0; display: grid; gap: 12px; justify-items: center; }
+.recorte-lightbox img { display: block; width: min(92vw, 720px); max-height: 74vh; object-fit: contain; border-radius: 16px; background: var(--canvas); }
+.recorte-lightbox figcaption { font-size: 15px; font-weight: 300; text-align: center; font-variant-numeric: tabular-nums; }
+.recorte-close { display: flex; align-items: center; gap: 6px; margin: 14px auto 0; padding: 8px 18px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 22px; background: none; color: #fff; font-size: 14px; }
+.recorte-close:hover { background: var(--white-10); }
 .hop-question { display: grid; justify-items: center; gap: calc(16 * var(--u)); text-align: center; }
 .hop-question p { font-size: calc(28 * var(--u)); font-weight: 300; }
 .plate-chip { padding: 2px 12px; border-radius: 8px; background: #f5d84a; color: #1a1400; font-weight: 600; letter-spacing: .12em; font-size: calc(18 * var(--u)); }

@@ -64,6 +64,8 @@ describe('recortes por vehículo', () => {
     engine.process(frame({ x1: 0, y1: 0, x2: 100, y2: 100 }));
     await flush();
     expect(encode).not.toHaveBeenCalled(); // Un solo hit: el track aún no está confirmado.
+    // Pero ya tiene compuerta: su segundo fotograma puede dar el recorte (los que cruzan en <1 s lo perdían).
+    expect(gates.at(-1)).toEqual([{ box: { x1: 0, y1: 0, x2: 100, y2: 100 }, minArea: 0 }]);
 
     engine.process(frame({ x1: 2, y1: 0, x2: 102, y2: 100 }));
     await flush();

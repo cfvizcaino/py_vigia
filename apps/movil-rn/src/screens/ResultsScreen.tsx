@@ -5,6 +5,7 @@ import { Share, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '../components/Icon';
 import { Reveal } from '../components/motion';
+import { NoRecorte, RecorteThumb } from '../components/Recorte';
 import { RouteCarousel } from '../components/RouteCarousel';
 import { Sheet } from '../components/Sheet';
 import { RouteMap } from '../components/RouteMap';
@@ -171,14 +172,25 @@ export function ResultsScreen({ navigation }: Props) {
                     </Text>
                   </Glass>
                   {isAdmin ? (
-                    detection.confirmation ? (
-                      <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} style={styles.pad} />
-                    ) : (
-                      <View style={[styles.pad, { flexDirection: 'row', gap: 8 }]}>
-                        <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} style={{ flex: 1 }} />
-                        <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} style={{ flex: 1 }} />
+                    // As in the web console: the recorte next to the question, so the verdict is given by eye.
+                    <View style={[styles.pad, styles.review]}>
+                      {detection.has_thumbnail ? (
+                        <RecorteThumb
+                          detectionId={detection.detection_id}
+                          caption={`${detection.sequence_order}. ${cameraName} · ${formatDate(detection.observed_at)}${detection.license_plate ? ` · ${detection.license_plate}` : ''}`}
+                        />
+                      ) : <NoRecorte />}
+                      <View style={{ flex: 1, gap: 8 }}>
+                        {detection.confirmation ? (
+                          <SecondaryButton title="Quitar veredicto" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, null)} />
+                        ) : (
+                          <>
+                            <SecondaryButton title="Confirmar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'match')} />
+                            <SecondaryButton title="Rechazar paso" disabled={busy} onPress={() => void setConfirmation(detection.detection_id, 'reject')} />
+                          </>
+                        )}
                       </View>
-                    )
+                    </View>
                   ) : null}
                 </Reveal>
               );
@@ -224,4 +236,5 @@ const styles = StyleSheet.create({
   detail: { borderRadius: 19, paddingVertical: 22, paddingHorizontal: 12, gap: 10, marginTop: 8 },
   detection: { minHeight: 43, flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 8, paddingLeft: 38, paddingRight: 25 },
   pad: { paddingHorizontal: 11 },
+  review: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

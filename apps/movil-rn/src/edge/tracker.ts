@@ -85,6 +85,11 @@ export class IouTracker {
     readonly retentionMs = 10_000,
   ) {}
 
+  /** Every track still alive, confirmed or not: a recorte is wanted from a vehicle's second frame. */
+  live(now: number): Track[] {
+    return [...this.tracks.values()].filter((track) => now - track.lastSeen <= this.retentionMs);
+  }
+
   active(now: number): Track[] {
     return [...this.tracks.values()]
       .filter((track) => track.hits >= this.minHits && now - track.lastSeen <= this.retentionMs)

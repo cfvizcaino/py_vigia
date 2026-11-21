@@ -316,14 +316,19 @@ export class EdgeEngine {
     }
   }
 
-  /** Tells the frame processor which tracks still want a better view. */
+  /**
+   * Tells the frame processor which tracks still want a (better) view. Tentative tracks
+   * count too: a vehicle that crosses in under a second is seen in 2–4 frames, and waiting
+   * for it to be confirmed lost its only chance (field test 20/11: 21 % of those had a
+   * recorte). A recorte of a track that is never confirmed is simply never sent.
+   */
   private updateThumbnailGates(now: number): void {
     if (!this.encodeThumbnail || !this.outbox.thumbnailsAccepted) {
       this.onThumbnailGates(null);
       return;
     }
     this.onThumbnailGates(
-      this.tracker.active(now).map((track) => ({
+      this.tracker.live(now).map((track) => ({
         box: track.box,
         minArea: track.thumbnailQueued || track.thumbnailEncodes >= maxThumbnailEncodes
           ? Number.MAX_VALUE
