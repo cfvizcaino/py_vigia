@@ -130,6 +130,8 @@ export type QueryResult = {
   nearby_devices: Pick<Device, "id" | "external_id" | "name" | "lat" | "lng">[];
   candidate_detection_count: number;
   routes: CandidateRoute[];
+  /** Searched by plate, but no camera read it: the routes are vehicles without a readable plate. */
+  plate_unread?: boolean;
 };
 
 export const COLORS: Record<string, string> = { white: "Blanco", black: "Negro", gray: "Gris o plateado", silver: "Plateado", red: "Rojo", blue: "Azul", green: "Verde", yellow: "Amarillo", brown: "Café" };

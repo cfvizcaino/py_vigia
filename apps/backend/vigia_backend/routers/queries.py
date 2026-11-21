@@ -131,6 +131,8 @@ def _response(result: QueryExecution, principal: Principal) -> QueryExecuteRespo
         ],
         candidate_detection_count=len(result.candidate_detections),
         routes=routes_out,
+        # Only admins search by plate; nobody else learns whether it was read.
+        plate_unread=result.plate_unread and is_admin,
     )
 
 

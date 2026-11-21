@@ -102,6 +102,11 @@ export function ResultsScreen({ navigation }: Props) {
   return (
     <Screen tabs header="Resultados" back={() => navigation.navigate('Query')} right={isDemo ? <DemoBadge /> : null}>
       {header}
+      {activeResult.plate_unread ? (
+        <Text style={[type(fonts.regular, 12, 16), styles.pad, { color: colors.warning }]}>
+          Ninguna cámara leyó la placa buscada en esta ventana. Estas rutas son de vehículos con el mismo tipo y color sin placa leída: confírmalas con los recortes.
+        </Text>
+      ) : null}
       <RouteMap route={route} devices={activeResult.nearby_devices} height={298} />
 
       <RouteCarousel

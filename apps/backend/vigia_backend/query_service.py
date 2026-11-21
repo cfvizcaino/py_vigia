@@ -22,7 +22,7 @@ from .models import (
     User,
 )
 from .plates import mask_plate, visible_plate
-from .routing import DetectionPoint, RoadOption, RouteCandidate, RoutingConfig, reconstruct_routes
+from .routing import DetectionPoint, RoadOption, RouteCandidate, RoutingConfig, plates_match, reconstruct_routes
 import json
 import os
 
@@ -42,6 +42,9 @@ class QueryExecution:
     persisted_route_ids: list[uuid.UUID]
     # detection id → "match" | "reject", from an admin looking at the recortes.
     confirmations: dict[str, str]
+    # Searched by plate but no camera read it in the window: the routes are vehicles
+    # of that type and colour without a readable plate, not confirmed by it.
+    plate_unread: bool = False
 
 
 def find_nearby_devices(db: Session, lat: float, lng: float, radius_m: float) -> list[NearbyDevice]:
@@ -106,10 +109,12 @@ def fetch_candidate_detections(
     if color is not None:
         # Unknown colour stays in: see reconstruct_routes.
         statement = statement.where(or_(Detection.color == color, Detection.color.is_(None)))
+    rows = list(db.scalars(statement).all())
     if plate is not None:
-        # Unread plates stay in, like unknown colours.
-        statement = statement.where(or_(Detection.license_plate == plate, Detection.license_plate.is_(None)))
-    return list(db.scalars(statement).all())
+        # Unread plates stay in, like unknown colours; a one-character OCR confusion of
+        # the plate (KOV159 for KQV159) is the same vehicle (routing.plates_match).
+        rows = [d for d in rows if d.license_plate is None or plates_match(d.license_plate, plate)]
+    return rows
 
 
 def detections_to_points(
@@ -185,17 +190,28 @@ def _solve(db: Session, query: Query, confirmations: dict[str, str]):
     )
     links = load_road_links_m(db, set(device_ids))
     points = detections_to_points(detections, device_by_id)
-    routes = reconstruct_routes(
-        points,
-        links,
-        vehicle_type=query.vehicle_type,
-        color=query.color,
-        plate=query.license_plate,
-        required_ids=frozenset(i for i, v in confirmations.items() if v == "match"),
-        excluded_ids=frozenset(i for i, v in confirmations.items() if v == "reject"),
-        config=_routing_config(),
+    def solve(require_plate: bool) -> list[RouteCandidate]:
+        return reconstruct_routes(
+            points,
+            links,
+            vehicle_type=query.vehicle_type,
+            color=query.color,
+            plate=query.license_plate,
+            require_plate=require_plate,
+            required_ids=frozenset(i for i, v in confirmations.items() if v == "match"),
+            excluded_ids=frozenset(i for i, v in confirmations.items() if v == "reject"),
+            config=_routing_config(),
+        )
+
+    routes = solve(True)
+    # Nobody read the plate (field test 20/11, Uninorte): instead of no route, the routes
+    # of vehicles without a readable plate, flagged so the console says so.
+    plate_unread = bool(query.license_plate) and not any(
+        plates_match(point.plate, query.license_plate) for point in points
     )
-    return nearby, detections, routes
+    if plate_unread:
+        routes = solve(False)
+    return nearby, detections, routes, plate_unread
 
 
 def query_confirmations(db: Session, query_id: uuid.UUID) -> dict[str, str]:
@@ -230,7 +246,7 @@ def execute_query(
         color=color,
         license_plate=plate,
     )
-    nearby, detections, routes = _solve(db, query, {})
+    nearby, detections, routes, plate_unread = _solve(db, query, {})
     db.add(query)
     db.flush()
     route_ids = persist_route_results(db, query, routes)
@@ -249,13 +265,14 @@ def execute_query(
         routes=routes,
         persisted_route_ids=route_ids,
         confirmations={},
+        plate_unread=plate_unread,
     )
 
 
 def recalculate_query(db: Session, query: Query) -> QueryExecution:
     """Vuelve a resolver una consulta guardada con sus confirmaciones y reemplaza sus rutas."""
     confirmations = query_confirmations(db, query.id)
-    nearby, detections, routes = _solve(db, query, confirmations)
+    nearby, detections, routes, plate_unread = _solve(db, query, confirmations)
     old = db.scalars(select(RouteResult).where(RouteResult.query_id == query.id)).all()
     for row in old:
         for hop in db.scalars(select(RouteResultDetection).where(RouteResultDetection.route_result_id == row.id)).all():
@@ -272,4 +289,5 @@ def recalculate_query(db: Session, query: Query) -> QueryExecution:
         routes=routes,
         persisted_route_ids=route_ids,
         confirmations=confirmations,
+        plate_unread=plate_unread,
     )

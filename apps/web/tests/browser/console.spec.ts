@@ -495,6 +495,22 @@ test("operators get no plate field and no confirmation controls", async ({ page 
   await expect(page.getByRole("button", { name: "Sí", exact: true })).toHaveCount(0);
 });
 
+test("a plate nobody read still lists routes, with a notice", async ({ page }) => {
+  await page.unroute("**/api/auth/session");
+  await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: { ...OPERATOR, role: "admin", display_name: "Admin" }, expires_at: "2026-10-09T08:00:00Z" } }));
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: { ...runDemoQuery(DEMO_QUERY), plate_unread: true } }));
+
+  await page.goto("/");
+  await openQuery(page);
+  await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
+  await page.getByLabel("Placa", { exact: true }).fill("KQV159");
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await expect(page.getByText("Ninguna cámara leyó la placa buscada en esta ventana.", { exact: false })).toBeVisible();
+  await expect(page.locator(".route-options button").first()).toBeVisible();
+});
+
 test("the Android page guides the download and the footer carries the rights", async ({ page }) => {
   await page.goto("/app");
   await expect(page.getByRole("heading", { name: "La app de VIGÍA, en tu teléfono." })).toBeVisible();
