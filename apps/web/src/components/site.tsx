@@ -114,6 +114,7 @@ export function SiteHeader({ current, onSignIn }: { current: "inicio" | "nosotro
       <span className="nav-drop" ref={dropRef} aria-hidden="true"/>
     </nav>
     <div className="site-actions">
+      {current !== "app" && <MotionLink className="site-app" href="/app" aria-label="Descargar la app para Android"><Icon name="download" size={20}/>App</MotionLink>}
       <SignInAction onSignIn={onSignIn} className="site-signin"/>
     </div>
   </header>;
@@ -316,6 +317,10 @@ export function Landing({ onSignIn, onDemo }: Required<Actions>) {
 
       <Process/>
 
+      <FieldTest/>
+
+      <Privacy/>
+
       <SiteClosing onDemo={onDemo}/>
     </main>
     <SiteFooter/>
@@ -399,4 +404,61 @@ function ExplorationScene() {
     <rect x="330" y="250" width="160" height="50" rx="25" fill="var(--surface-2)"/>
     <text x="352" y="281" fill="var(--ink)" fontSize="14" fontFamily="var(--font-body)">Ruta 1 · 82 / 100</text>
   </svg>;
+}
+
+/** The 20/11/2026 field test, as the final report records it (the plate is never published). */
+const FIELD_STATS = [
+  { value: "14", label: "nodos operando en la calle, en casas y negocios" },
+  { value: "4", label: "cámaras encadenadas en una sola ruta, sin intervención manual" },
+  { value: "248/248", label: "eventos entregados en la prueba de fallos: red cortada, servidor y base de datos detenidos" },
+  { value: "99,8 %", label: "de disponibilidad medida en el piloto sobre Azure" },
+];
+
+const FIELD_ROUTES = [
+  { area: "Alameda", stops: [["Amazilia", "14:12"], ["Tucán", "14:16"], ["Alondra", "14:20"], ["D1", "14:24"]], result: "Ruta completa de cuatro cámaras", score: "81", tone: "ok" },
+  { area: "Miramar", stops: [["Parque Cien", "15:01"], ["Mirador", "15:04"], ["F. Tabor", "15:08"]], result: "Ruta correcta, aunque una cámara leyó mal una letra de la placa", score: "83", tone: "ok" },
+  { area: "Uninorte", stops: [["Manglar", "15:43"], ["Palmar", "15:47"]], result: "Ninguna cámara leyó la placa. Ahora VIGÍA busca por tipo y color, y lo avisa", score: null, tone: "learned" },
+] as const;
+
+function FieldTest() {
+  return <section className="field" id="prueba" aria-labelledby="field-title">
+    <div className="field-head" data-reveal="stagger">
+      <p className="section-label">Resultados del piloto</p>
+      <h2 id="field-title" className="gray-title">Probado en las calles de Barranquilla, <span>no solo en el laboratorio.</span></h2>
+      <p>El piloto corre en Azure con cámaras y teléfonos reales. En la prueba de campo del 20 de noviembre, un automóvil del equipo recorrió tres sectores y VIGÍA reconstruyó su recorrido solo con lo que vieron las cámaras.</p>
+    </div>
+    <dl className="field-stats" data-reveal="stagger">
+      {FIELD_STATS.map((stat) => <div key={stat.value}><dt>{stat.label}</dt><dd>{stat.value}</dd></div>)}
+    </dl>
+    <h3 className="field-subtitle" data-reveal>Prueba de campo · 20 de noviembre de 2026</h3>
+    <ol className="field-routes" data-reveal="stagger">
+      {FIELD_ROUTES.map((route) => <li key={route.area} className={route.tone}>
+        <header><h4>{route.area}</h4>{route.score ? <span className="field-score"><b>{route.score}</b>/100</span> : <span className="field-score learned">Aprendizaje</span>}</header>
+        <ol className="field-stops" aria-label={`Recorrido por ${route.area}`}>
+          {route.stops.map(([name, time]) => <li key={name}><span className="field-dot" aria-hidden="true"/><b>{name}</b><time>{time}</time></li>)}
+        </ol>
+        <p>{route.result}</p>
+      </li>)}
+    </ol>
+  </section>;
+}
+
+const PRIVACY = [
+  { icon: "camera", title: "El video no sale del sitio", text: "Se analiza en el teléfono o el PC de cada cámara. Al servidor solo llegan metadatos: tipo, color, hora y lugar." },
+  { icon: "shield", title: "Vehículos, no personas", text: "No hay reconocimiento facial ni análisis de comportamiento. VIGÍA solo describe vehículos." },
+  { icon: "clock", title: "Siete días y se borran", text: "Los recortes y las placas se guardan una semana y solo los ve un administrador." },
+  { icon: "history", title: "Cada acceso deja rastro", text: "Toda consulta, exportación y cambio queda en una auditoría con su autor." },
+] as const;
+
+function Privacy() {
+  return <section className="privacy" id="privacidad" aria-labelledby="privacy-title">
+    <div className="privacy-head" data-reveal="stagger">
+      <p className="section-label">Privacidad y uso responsable</p>
+      <h2 id="privacy-title" className="gray-title">Diseñado para seguir vehículos, <span>no para vigilar personas.</span></h2>
+      <p>Cada ruta es una estimación con su puntaje y su evidencia, no una identificación. Solo la consultan personas autorizadas, y un administrador puede confirmar o descartar cada paso.</p>
+    </div>
+    <ul className="privacy-grid" data-reveal="stagger">
+      {PRIVACY.map((item) => <li key={item.title}><span className="privacy-icon"><Icon name={item.icon} size={28}/></span><h3>{item.title}</h3><p>{item.text}</p></li>)}
+    </ul>
+  </section>;
 }
