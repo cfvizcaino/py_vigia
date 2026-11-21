@@ -19,12 +19,12 @@ jest.mock('@maplibre/maplibre-react-native', () => {
 
 const devices: NearbyDevice[] = [
   { id: 'd1', external_id: 'CEL-NICO', name: 'Nico', lat: 11.01, lng: -74.81, distance_m: 0 },
-  { id: 'd2', external_id: 'CEL-VENECO', name: 'Veneco', lat: 11.02, lng: -74.82, distance_m: 900 },
+  { id: 'd2', external_id: 'CEL-03', name: 'Parque', lat: 11.02, lng: -74.82, distance_m: 900 },
 ];
 
 function route(id: string): CandidateRoute {
   return {
-    id, rank: 1, confidence: 0.9, has_distant_gaps: false, camera_ids: ['CEL-NICO', 'CEL-VENECO'],
+    id, rank: 1, confidence: 0.9, has_distant_gaps: false, camera_ids: ['CEL-NICO', 'CEL-03'],
     vehicle_type: 'car', detections: [], explanation: {}, road_geometry: null,
   };
 }
@@ -36,10 +36,10 @@ describe('RouteMap', () => {
   });
 
   it('etiqueta cada nodo con su orden y su nombre; uno repetido junta sus posiciones', () => {
-    const looping = { ...route('r3'), camera_ids: ['CEL-NICO', 'CEL-VENECO', 'CEL-NICO'] };
+    const looping = { ...route('r3'), camera_ids: ['CEL-NICO', 'CEL-03', 'CEL-NICO'] };
     const labels = resolveRouteCoordinates(looping, devices).featureCollection.features
       .filter((feature) => feature.properties.kind === 'camera')
       .map((feature) => feature.properties.label);
-    expect(labels).toEqual(['1 · 3. Nico', '2. Veneco']);
+    expect(labels).toEqual(['1 · 3. Nico', '2. Parque']);
   });
 });
