@@ -2,7 +2,7 @@ import { render } from '@testing-library/react-native';
 import { describe, expect, it, jest } from '@jest/globals';
 
 import type { CandidateRoute, NearbyDevice } from '../types/models';
-import { RouteMap } from './RouteMap';
+import { RouteMap, resolveRouteCoordinates } from './RouteMap';
 
 // Imita a MapLibre: una fuente o capa montada no puede cambiar de id (useFrozenId).
 jest.mock('@maplibre/maplibre-react-native', () => {
@@ -33,5 +33,13 @@ describe('RouteMap', () => {
   it('pasa de una ruta a otra sin cambiar el id de la fuente montada', async () => {
     const screen = await render(<RouteMap route={route('r1')} devices={devices} />);
     await expect(screen.rerender(<RouteMap route={route('r2')} devices={devices} />)).resolves.toBeUndefined();
+  });
+
+  it('etiqueta cada nodo con su orden y su nombre; uno repetido junta sus posiciones', () => {
+    const looping = { ...route('r3'), camera_ids: ['CEL-NICO', 'CEL-VENECO', 'CEL-NICO'] };
+    const labels = resolveRouteCoordinates(looping, devices).featureCollection.features
+      .filter((feature) => feature.properties.kind === 'camera')
+      .map((feature) => feature.properties.label);
+    expect(labels).toEqual(['1 · 3. Nico', '2. Veneco']);
   });
 });

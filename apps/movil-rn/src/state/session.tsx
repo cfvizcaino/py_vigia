@@ -43,6 +43,7 @@ interface SessionContextValue {
   clearDetectionConfirmation(queryId: string, detectionId: string): Promise<QueryResult>;
   createEdge(input: { cameraId: string; name: string; lat: number; lng: number; cameraModel?: string }): Promise<Device>;
   relocateEdge(deviceId: string, lat: number, lng: number): Promise<Device>;
+  thumbnailSource(detectionId: string): Promise<{ uri: string; headers: Record<string, string> }>;
   deleteDevice(deviceId: string): Promise<void>;
   recentDetections(deviceId: string): Promise<DeviceDetection[]>;
   issueCredential(cameraId: string, days?: number): Promise<IssuedCredential>;
@@ -276,6 +277,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, [api, refreshDevices, requireAdmin]);
 
+  const thumbnailSource = useCallback(async (detectionId: string) => {
+    requireAdmin();
+    return api.thumbnailSource(detectionId);
+  }, [api, requireAdmin]);
+
   // Every operator sees a camera's recent detections, as in Flutter; the backend enforces roles.
   const recentDetections = useCallback(async (deviceId: string) => {
     if (isDemo) return [];
@@ -304,7 +310,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     exportResult,
     confirmDetection: (queryId, detectionId, verdict) => updateConfirmation(queryId, detectionId, verdict),
     clearDetectionConfirmation: (queryId, detectionId) => updateConfirmation(queryId, detectionId, null),
-    createEdge, relocateEdge, deleteDevice, recentDetections, issueCredential, listCredentials, revokeCredential,
+    createEdge, relocateEdge, deleteDevice, thumbnailSource, recentDetections, issueCredential, listCredentials, revokeCredential,
   };
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

@@ -446,6 +446,41 @@ test("an admin searches by plate, sees the recortes and confirms steps that reca
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+// A real (tiny) JPEG, so the thumbnail loads instead of falling back to «Recorte vencido».
+const TINY_JPEG = Buffer.from("/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAGAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3CiiigD//2Q==", "base64");
+
+test("an admin opens a recorte enlarged and closes it with Escape or the button", async ({ page }) => {
+  await page.unroute("**/api/auth/session");
+  await page.route("**/api/auth/session", (route) => route.fulfill({ json: { user: { ...OPERATOR, role: "admin", display_name: "Admin" }, expires_at: "2026-10-09T08:00:00Z" } }));
+  await page.unroute("**/api/monitoring/devices");
+  await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));
+  const result = runDemoQuery(DEMO_QUERY);
+  result.routes[0].detections = result.routes[0].detections.map((hop, index) => ({ ...hop, has_thumbnail: index === 0, license_plate: index === 0 ? "ABC123" : null, confirmation: null }));
+  await page.route("**/api/monitoring/queries", (route) => route.fulfill({ json: result }));
+  let thumbnails = 0;
+  await page.route("**/api/detections/*/thumbnail", (route) => { thumbnails++; return route.fulfill({ status: 200, contentType: "image/jpeg", body: TINY_JPEG }); });
+  await page.route("**/api/detections/*/annotations", (route) => route.fulfill({ json: [] }));
+
+  await page.goto("/");
+  await openQuery(page);
+  await page.getByRole("button", { name: "Cargar escenario de prueba" }).click();
+  await page.getByRole("button", { name: "Buscar coincidencias", exact: true }).click();
+  await page.locator(".hop-details > summary").first().click();
+  const zoom = page.getByRole("button", { name: /^Ampliar recorte del vehículo en / });
+  await expect(zoom).toBeVisible();
+  await zoom.click();
+  const dialog = page.getByRole("dialog", { name: /Recorte ampliado · .* · ABC123/ });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("img")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await zoom.click();
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(thumbnails).toBeGreaterThanOrEqual(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test("operators get no plate field and no confirmation controls", async ({ page }) => {
   await page.unroute("**/api/monitoring/devices");
   await page.route("**/api/monitoring/devices", (route) => route.fulfill({ json: DEMO_DEVICES }));

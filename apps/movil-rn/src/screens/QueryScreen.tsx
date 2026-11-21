@@ -25,7 +25,10 @@ const COLORS = [
 
 /** «C · Consulta (versión morada)»: C01–C07 del Figma. */
 export function QueryScreen({ navigation }: Props) {
-  const { devices, scenarios, isDemo, busy, error, search } = useSession();
+  const { devices, scenarios, isDemo, busy, error, search, user } = useSession();
+  // Plates are personal data (Ley 1581): only admins search by them, as in the web console.
+  const isAdmin = !isDemo && user?.role === 'admin';
+  const [plate, setPlate] = useState('');
   const now = new Date();
   const previousHour = new Date(now.getTime() - 60 * 60 * 1000);
   const [lat, setLat] = useState(String(devices[0]?.lat ?? 11.0131));
@@ -97,6 +100,11 @@ export function QueryScreen({ navigation }: Props) {
       setFormError('La hora final debe ser posterior a la hora inicial.');
       return;
     }
+    const normalizedPlate = normalizePlate(plate);
+    if (isAdmin && plate.trim() && !normalizedPlate) {
+      setFormError('La placa debe tener formato colombiano: ABC123 (carro) o ABC12D (moto).');
+      return;
+    }
     setFormError(null);
     const input: QueryInput = {
       lat: latitude,
@@ -106,6 +114,7 @@ export function QueryScreen({ navigation }: Props) {
       time_to: timeTo,
       vehicle_type: vehicle,
       color,
+      ...(isAdmin && normalizedPlate ? { plate: normalizedPlate } : {}),
     };
     if (await search(input)) navigation.navigate('Results');
   };
@@ -172,6 +181,20 @@ export function QueryScreen({ navigation }: Props) {
       <Card title="Vehículo y apariencia" icon="ms_directions_car">
         <ChoiceRow label="Tipo" value={vehicle} onChange={setVehicle} grow choices={[{ label: 'Automóvil', value: 'car', icon: 'ms_directions_car' }, { label: 'Motocicleta', value: 'motorcycle', icon: 'ms_two_wheeler' }]} />
         <ChoiceRow label="Color" value={color} onChange={setColor} choices={COLORS} />
+        {isAdmin ? (
+          <>
+            <Field
+              label="Placa (opcional)"
+              value={plate}
+              onChangeText={(value) => setPlate(value.toUpperCase())}
+              placeholder="ABC123"
+              autoCapitalize="characters"
+              icon="ms_lock"
+              error={plate.trim() !== '' && !normalizePlate(plate)}
+            />
+            <Text style={[type(fonts.light, 11, 15, 0), { opacity: 0.7 }]}>Solo administradores. La búsqueda por placa queda en la auditoría; las detecciones sin placa leída siguen apareciendo.</Text>
+          </>
+        ) : null}
       </Card>
 
       <SafetyBanner />
@@ -205,4 +228,10 @@ export function QueryScreen({ navigation }: Props) {
       />
     </Screen>
   );
+}
+
+/** Same rule as the backend (plates.py): cars ABC123, motorcycles ABC12D or ABC12. */
+export function normalizePlate(value: string): string | null {
+  const plate = value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return /^[A-Z]{3}\d{2}[A-Z0-9]?$/.test(plate) ? plate : null;
 }

@@ -64,6 +64,8 @@ export interface QueryInput {
   time_to: string;
   vehicle_type?: string;
   color?: string;
+  /** Only admins may filter by plate (Ley 1581); the backend audits it. */
+  plate?: string;
 }
 
 export interface Scenario {

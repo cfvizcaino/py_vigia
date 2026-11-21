@@ -41,6 +41,22 @@ export function RouteMap({ route, devices, height = 266 }: { route: CandidateRou
             filter={['==', ['geometry-type'], 'Point']}
             paint={{ 'circle-color': '#c4a8ff', 'circle-radius': 7, 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 2 }}
           />
+          {/* Each node says its order in the route and its name, as in the web console. */}
+          <Layer
+            id="vigia-route-labels"
+            type="symbol"
+            filter={['==', ['geometry-type'], 'Point']}
+            layout={{
+              'text-field': ['get', 'label'],
+              'text-font': ['Noto Sans Regular'],
+              'text-size': 11,
+              'text-offset': [0, 1.3],
+              'text-anchor': 'top',
+              'text-allow-overlap': true,
+              'text-max-width': 9,
+            }}
+            paint={{ 'text-color': '#FFFFFF', 'text-halo-color': '#090119', 'text-halo-width': 1.2 }}
+          />
         </GeoJSONSource>
       </MapStage>
       {!resolved.coordinates.length ? <Text style={{ color: colors.warning, fontSize: 12, marginTop: 6 }}>Esta ruta no trae geometría vial; el mapa muestra las cámaras de la consulta.</Text>
@@ -49,14 +65,14 @@ export function RouteMap({ route, devices, height = 266 }: { route: CandidateRou
   );
 }
 
-function resolveRouteCoordinates(route: CandidateRoute, devices: NearbyDevice[]): {
+export function resolveRouteCoordinates(route: CandidateRoute, devices: NearbyDevice[]): {
   coordinates: [number, number][];
   isFallback: boolean;
   featureCollection: {
     type: 'FeatureCollection';
     features: {
       type: 'Feature';
-      properties: { kind: 'route' | 'camera' };
+      properties: { kind: 'route' | 'camera'; label?: string };
       geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'Point'; coordinates: [number, number] };
     }[];
   };
@@ -75,16 +91,17 @@ function resolveRouteCoordinates(route: CandidateRoute, devices: NearbyDevice[])
     byId.set(device.id, device);
     byId.set(device.external_id, device);
   }
-  const cameraCoordinates = route.camera_ids.flatMap((cameraId): [number, number][] => {
+  const cameras = route.camera_ids.flatMap((cameraId, index): { coordinate: [number, number]; order: number; name: string }[] => {
     const device = byId.get(cameraId);
     const coordinate = device ? parseCoordinate(device.lng, device.lat) : null;
-    return coordinate ? [coordinate] : [];
+    return coordinate ? [{ coordinate, order: index + 1, name: device?.name || cameraId }] : [];
   });
+  const cameraCoordinates = cameras.map((camera) => camera.coordinate);
   const isFallback = roadCoordinates.length < 2;
   const coordinates = isFallback ? cameraCoordinates : roadCoordinates;
   const features: {
     type: 'Feature';
-    properties: { kind: 'route' | 'camera' };
+    properties: { kind: 'route' | 'camera'; label?: string };
     geometry: { type: 'LineString'; coordinates: [number, number][] } | { type: 'Point'; coordinates: [number, number] };
   }[] = [];
   if (coordinates.length >= 2) {
@@ -94,10 +111,18 @@ function resolveRouteCoordinates(route: CandidateRoute, devices: NearbyDevice[])
       geometry: { type: 'LineString', coordinates },
     });
   }
-  for (const coordinate of cameraCoordinates) {
+  // A node the route visits twice gets one label with both positions («1 · 3. Portería»).
+  const labels = new Map<string, { coordinate: [number, number]; orders: number[]; name: string }>();
+  for (const { coordinate, order, name } of cameras) {
+    const key = coordinate.join(',');
+    const entry = labels.get(key);
+    if (entry) entry.orders.push(order);
+    else labels.set(key, { coordinate, orders: [order], name });
+  }
+  for (const { coordinate, orders, name } of labels.values()) {
     features.push({
       type: 'Feature',
-      properties: { kind: 'camera' },
+      properties: { kind: 'camera', label: `${orders.join(' · ')}. ${name}` },
       geometry: { type: 'Point', coordinates: coordinate },
     });
   }
